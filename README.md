@@ -52,7 +52,7 @@ pip install -r requirements.txt
 The first time you run the application, you need to create the database tables and the default admin user.
 
 ```
-flask init-db
+python ./init-db.py
 
 ```
 
@@ -74,7 +74,7 @@ This command will:
 Start the Flask development server.
 
 ```
-flask run
+python ./main.py
 
 ```
 
