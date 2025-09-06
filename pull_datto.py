@@ -1,3 +1,5 @@
+# ruapotato/hivematrix-nexus/hivematrix-nexus-main/pull_datto.py
+
 import requests
 import os
 import sys
@@ -88,18 +90,27 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
     print("\nProcessing sites and devices...")
     for site in sites:
         account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME)
+        datto_uid = site.get('uid')
 
         if not account_number:
             print(f" -> Skipping site '{site['name']}' as it is missing the '{DATTO_VARIABLE_NAME}' variable.")
             continue
 
-        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
+        # --- THIS IS THE FIX ---
+        # Prioritize matching by the immutable datto_site_uid
+        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'datto_site_uid': datto_uid})
         company_data = response.json()
+
+        # If not found, try matching by account number as a fallback
+        if not company_data:
+            response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
+            company_data = response.json()
+        # --- END OF FIX ---
 
         company_payload = {
             'name': site['name'],
             'account_number': account_number,
-            'datto_site_uid': site['uid']
+            'datto_site_uid': datto_uid
         }
 
         if not company_data:
@@ -108,6 +119,7 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
             company_id = response.json()['id']
         else:
             company_id = company_data[0]['id']
+            # Update the company with the latest info from Datto
             requests.put(f"{NEXUS_API_URL}/companies/{company_id}", headers=headers, json=company_payload)
             print(f" -> Found company '{site['name']}'. Fetching devices...")
 

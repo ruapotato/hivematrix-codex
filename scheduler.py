@@ -1,3 +1,5 @@
+# ruapotato/hivematrix-nexus/hivematrix-nexus-main/scheduler.py
+
 import os
 import sys
 import subprocess
@@ -24,7 +26,10 @@ def run_job(job_id, script_path):
             capture_output=True, text=True, check=False, timeout=7200,
             encoding='utf-8', errors='replace', env=env
         )
+        # --- THIS IS THE FIX ---
+        # Capture both stdout and stderr for more complete logging
         log_output = f"--- STDOUT ---\n{result.stdout}\n\n--- STDERR ---\n{result.stderr}"
+        # --- END OF FIX ---
         if result.returncode == 0:
             status = "Success"
         print(f"[{datetime.now()}] SCHEDULER: Finished job '{job_id}' with status: {status}")
@@ -51,4 +56,3 @@ def run_job(job_id, script_path):
             session.rollback()
         finally:
             session.close()
-

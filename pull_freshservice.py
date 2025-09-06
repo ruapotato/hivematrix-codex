@@ -1,3 +1,5 @@
+# ruapotato/hivematrix-nexus/hivematrix-nexus-main/pull_freshservice.py
+
 import requests
 import base64
 import os
@@ -72,31 +74,42 @@ def get_all_users(base_url, headers):
 def populate_database_via_api(companies_data, users_data, api_key):
     headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
     print("\nStarting database population...")
+
     # Process Companies
     for company_data in companies_data:
         custom_fields = company_data.get('custom_fields', {})
         account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
-        
+        fs_id = company_data.get('id')
+
         if not account_number:
             print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
             continue
 
-        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
+        # --- THIS IS THE FIX ---
+        # Prioritize matching by the immutable freshservice_id
+        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_id})
         existing_company = response.json()
-        
+
+        # If not found, try matching by account number as a fallback
+        if not existing_company:
+            response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
+            existing_company = response.json()
+        # --- END OF FIX ---
+
         company_payload = {
             'name': company_data['name'],
             'account_number': account_number,
-            'freshservice_id': company_data['id']
+            'freshservice_id': fs_id,
+            # Add other fields from Freshservice you want to sync here
         }
 
         if not existing_company:
-            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
             print(f" -> Creating new company: {company_data['name']}")
+            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
         else:
             company_id = existing_company[0]['id']
-            requests.put(f"{NEXUS_API_URL}/companies/{company_id}", headers=headers, json=company_payload)
             print(f" -> Updating existing company: {company_data['name']}")
+            requests.put(f"{NEXUS_API_URL}/companies/{company_id}", headers=headers, json=company_payload)
 
     print(" -> Finished processing companies.")
 
@@ -108,18 +121,19 @@ def populate_database_via_api(companies_data, users_data, api_key):
         company_id = None
         if user_data.get('department_ids'):
             fs_company_id = user_data['department_ids'][0]
+            # Use the more reliable freshservice_id to find the company in Nexus
             response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id})
             company_data_nexus = response.json()
             if company_data_nexus:
                 company_id = company_data_nexus[0]['id']
-        
+
         if not company_id:
             print(f" -> Skipping contact for {user_data['primary_email']} as their associated company is not in Nexus.")
             continue
 
         response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']})
         existing_contact = response.json()
-        
+
         contact_payload = {
             'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
             'email': user_data['primary_email'],

@@ -1,3 +1,5 @@
+# ruapotato/hivematrix-nexus/hivematrix-nexus-main/main.py
+
 import os
 import configparser
 import time
@@ -97,19 +99,30 @@ def api_companies():
         if not data or 'name' not in data or 'account_number' not in data:
             return jsonify({"error": "Missing name or account_number"}), 400
 
-        existing_company = Company.query.filter_by(account_number=data['account_number']).first()
-        if existing_company:
-            return jsonify({"error": "Company with this account number already exists"}), 409
-
-        new_company = Company(
-            name=data['name'],
-            account_number=data['account_number'],
-            datto_site_uid=data.get('datto_site_uid'),
-            freshservice_id=data.get('freshservice_id')
+        query = db.session.query(Company).filter(
+            (Company.account_number == data.get('account_number')) |
+            (Company.freshservice_id == data.get('freshservice_id')) |
+            (Company.datto_site_uid == data.get('datto_site_uid'))
         )
-        db.session.add(new_company)
-        db.session.commit()
-        return jsonify({'message': 'Company created successfully', 'id': new_company.id}), 201
+        existing_company = query.first()
+
+        if existing_company:
+            existing_company.name = data.get('name', existing_company.name)
+            existing_company.account_number = data.get('account_number', existing_company.account_number)
+            existing_company.freshservice_id = data.get('freshservice_id', existing_company.freshservice_id)
+            existing_company.datto_site_uid = data.get('datto_site_uid', existing_company.datto_site_uid)
+            db.session.commit()
+            return jsonify({'message': 'Company updated successfully', 'id': existing_company.id}), 200
+        else:
+            new_company = Company(
+                name=data['name'],
+                account_number=data['account_number'],
+                datto_site_uid=data.get('datto_site_uid'),
+                freshservice_id=data.get('freshservice_id')
+            )
+            db.session.add(new_company)
+            db.session.commit()
+            return jsonify({'message': 'Company created successfully', 'id': new_company.id}), 201
 
     query = Company.query
     if 'datto_site_uid' in request.args:
@@ -139,6 +152,11 @@ def api_company_details(company_id):
 
     if request.method == 'PUT':
         data = request.get_json()
+        new_account_number = data.get('account_number')
+        if new_account_number and new_account_number != company.account_number:
+            existing = Company.query.filter_by(account_number=new_account_number).first()
+            if existing:
+                return jsonify({"error": f"Account number '{new_account_number}' is already in use by another company."}), 409
         company.name = data.get('name', company.name)
         company.datto_site_uid = data.get('datto_site_uid', company.datto_site_uid)
         company.freshservice_id = data.get('freshservice_id', company.freshservice_id)
@@ -271,7 +289,7 @@ def schedule_jobs():
                 args=[job.id, job.script_path],
                 id=str(job.id),
                 replace_existing=True,
-                next_run_time=datetime.now() + timedelta(seconds=10)
+                next_run_time=datetime.now() + timedelta(minutes=5)
             )
 
 if __name__ == '__main__':

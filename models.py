@@ -28,7 +28,10 @@ class Company(db.Model):
     __tablename__ = 'companies'
     id = db.Column(db.Integer, primary_key=True)
     account_number = db.Column(db.String(50), unique=True, nullable=False)
-    name = db.Column(db.String(150), unique=True, nullable=False)
+    # --- THIS IS THE FIX ---
+    # The company name should NOT be unique.
+    name = db.Column(db.String(150), nullable=False)
+    # --- END OF FIX ---
     location = db.Column(db.String(200))
     primary_contact_name = db.Column(db.String(150))
     primary_contact_email = db.Column(db.String(150))
