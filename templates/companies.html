@@ -21,7 +21,7 @@
                 {% for company in companies %}
                 <tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        <a href="{{ url_for('companies.company_details', company_id=company.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ company.name }}</a>
+                        <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}" class="text-indigo-600 hover:text-indigo-900">{{ company.name }}</a>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.account_number }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.location }}</td>
@@ -36,4 +36,3 @@
     </div>
 </div>
 {% endblock %}
-

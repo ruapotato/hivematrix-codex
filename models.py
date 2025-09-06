@@ -1,3 +1,5 @@
+# ruapotato/hivematrix-nexus/hivematrix-nexus-main/models.py
+
 from extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,7 +12,9 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     permission_level = db.Column(db.String(50), nullable=False, default='user')
-    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'))
+    # --- THIS IS THE FIX ---
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'))
+    # --- END OF FIX ---
     api_key = db.Column(db.String(64), unique=True, nullable=False, default=lambda: secrets.token_hex(32))
 
     company = db.relationship('Company', back_populates='users')
@@ -26,10 +30,9 @@ class User(UserMixin, db.Model):
 
 class Company(db.Model):
     __tablename__ = 'companies'
-    id = db.Column(db.Integer, primary_key=True)
-    account_number = db.Column(db.String(50), unique=True, nullable=False)
     # --- THIS IS THE FIX ---
-    # The company name should NOT be unique.
+    # Set account_number as the primary key
+    account_number = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     # --- END OF FIX ---
     location = db.Column(db.String(200))
@@ -43,7 +46,6 @@ class Company(db.Model):
     assets = db.relationship('Asset', back_populates='company', lazy=True)
     contacts = db.relationship('Contact', back_populates='company', lazy=True)
 
-# Link table for the many-to-many relationship between Assets and Contacts
 asset_contact_link = db.Table('asset_contact_link',
     db.Column('asset_id', db.Integer, db.ForeignKey('assets.id'), primary_key=True),
     db.Column('contact_id', db.Integer, db.ForeignKey('contacts.id'), primary_key=True)
@@ -53,7 +55,9 @@ class Asset(db.Model):
     __tablename__ = 'assets'
     id = db.Column(db.Integer, primary_key=True)
     hostname = db.Column(db.String(150), nullable=False)
-    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False)
+    # --- THIS IS THE FIX ---
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    # --- END OF FIX ---
     device_type = db.Column(db.String(50))
     operating_system = db.Column(db.String(100))
     last_logged_in_user = db.Column(db.String(150))
@@ -66,7 +70,9 @@ class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    company_id = db.Column(db.Integer, db.ForeignKey('companies.id'), nullable=False)
+    # --- THIS IS THE FIX ---
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    # --- END OF FIX ---
 
     company = db.relationship('Company', back_populates='contacts')
     assets = db.relationship('Asset', secondary='asset_contact_link', back_populates='contacts')

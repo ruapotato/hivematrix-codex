@@ -89,53 +89,36 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
     headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
     print("\nProcessing sites and devices...")
     for site in sites:
-        account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME)
         datto_uid = site.get('uid')
+        account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME) or '000000'
 
-        if not account_number:
-            print(f" -> Skipping site '{site['name']}' as it is missing the '{DATTO_VARIABLE_NAME}' variable.")
-            continue
-
-        # --- THIS IS THE FIX ---
-        # Prioritize matching by the immutable datto_site_uid
-        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'datto_site_uid': datto_uid})
-        company_data = response.json()
-
-        # If not found, try matching by account number as a fallback
-        if not company_data:
-            response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
-            company_data = response.json()
-        # --- END OF FIX ---
-
-        company_payload = {
-            'name': site['name'],
-            'account_number': account_number,
-            'datto_site_uid': datto_uid
-        }
-
-        if not company_data:
-            print(f" -> Company with account number '{account_number}' not found. Creating new entry for '{site['name']}'.")
-            response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
-            company_id = response.json()['id']
+        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers)
+        if response.status_code == 404:
+             print(f" -> Company with account number '{account_number}' not found. Creating new entry for '{site['name']}'.")
+             company_payload = {
+                'name': site['name'] if account_number != '000000' else 'Unknown',
+                'account_number': account_number,
+                'datto_site_uid': datto_uid
+             }
+             requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
         else:
-            company_id = company_data[0]['id']
-            # Update the company with the latest info from Datto
-            requests.put(f"{NEXUS_API_URL}/companies/{company_id}", headers=headers, json=company_payload)
+            company_payload = {'name': site['name'], 'datto_site_uid': datto_uid}
+            requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
             print(f" -> Found company '{site['name']}'. Fetching devices...")
 
         devices = get_devices_for_site(api_endpoint, access_token, site['uid'])
         if devices:
             print(f"   -> Found {len(devices)} devices. Updating database...")
             for device_data in devices:
-                response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_id': company_id})
-                asset_data = response.json()
-
                 asset_payload = {
-                    'hostname': device_data['hostname'], 'company_id': company_id,
+                    'hostname': device_data['hostname'],
+                    'company_account_number': account_number,
                     'device_type': (device_data.get('deviceType') or {}).get('category'),
                     'operating_system': device_data.get('operatingSystem'),
                     'last_logged_in_user': device_data.get('lastLoggedInUser')
                 }
+                response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number})
+                asset_data = response.json()
 
                 if not asset_data:
                     requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload)

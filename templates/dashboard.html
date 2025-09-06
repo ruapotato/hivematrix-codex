@@ -8,13 +8,11 @@
     {% if current_user.permission_level == 'admin' %}
     <div>
         <a href="{{ url_for('settings.settings_page') }}" class="py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white rounded-md mr-2">Settings</a>
-        <a href="{{ url_for('users.add_user') }}" class="py-2 px-4 bg-green-500 hover:bg-green-600 text-white rounded-md">Add User</a>
     </div>
     {% endif %}
 </div>
 
 <div class="grid grid-cols-1">
-    <!-- Companies List -->
     <div class="bg-white p-6 rounded-lg shadow-md">
         <h2 class="text-2xl font-semibold mb-4">Companies</h2>
         <div class="overflow-x-auto">
@@ -31,7 +29,7 @@
                     {% for company in companies %}
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <a href="{{ url_for('companies.company_details', company_id=company.id) }}" class="text-blue-600 hover:underline">{{ company.name }}</a>
+                            <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}" class="text-blue-600 hover:underline">{{ company.name }}</a>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.account_number or 'N/A' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.primary_contact_name or 'N/A' }}</td>
@@ -48,4 +46,3 @@
     </div>
 </div>
 {% endblock %}
-
