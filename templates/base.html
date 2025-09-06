@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nexus{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{{ url_for('dashboard') }}" class="text-xl font-bold">Nexus</a>
+            <div>
+                {% if current_user.is_authenticated %}
+                    <span class="mr-4">Hello, {{ current_user.username }}</span>
+                    <a href="{{ url_for('logout') }}" class="py-2 px-4 bg-red-500 hover:bg-red-600 rounded-md">Logout</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <main class="container mx-auto mt-8 p-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="p-4 mb-4 text-sm text-{{ 'red' if category == 'danger' else 'green' }}-700 bg-{{ 'red' if category == 'danger' else 'green' }}-100 rounded-lg" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
