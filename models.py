@@ -27,12 +27,12 @@ class User(UserMixin, db.Model):
 class Company(db.Model):
     __tablename__ = 'companies'
     id = db.Column(db.Integer, primary_key=True)
+    account_number = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(150), unique=True, nullable=False)
     location = db.Column(db.String(200))
     primary_contact_name = db.Column(db.String(150))
     primary_contact_email = db.Column(db.String(150))
     primary_contact_phone = db.Column(db.String(50))
-    account_number = db.Column(db.String(50), unique=True)
     freshservice_id = db.Column(db.Integer, unique=True)
     datto_site_uid = db.Column(db.String(100), unique=True)
 
@@ -78,4 +78,3 @@ class SchedulerJob(db.Model):
     last_run = db.Column(db.String(100))
     last_status = db.Column(db.String(50))
     last_run_log = db.Column(db.Text)
-

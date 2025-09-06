@@ -4,21 +4,11 @@ import os
 import sys
 import time
 import configparser
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from models import Company, User as NexusUser, Contact
+import json
 
-def get_db_session():
-    """Creates a new SQLAlchemy session."""
-    # The instance path is passed as an environment variable by the scheduler
-    instance_path = os.environ.get('NEXUS_INSTANCE_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance'))
-    db_path = os.path.join(instance_path, 'nexus_brainhair.db')
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database not found at {db_path}")
-    # Add a timeout to the connection to prevent database locked errors
-    engine = create_engine(f'sqlite:///{db_path}', connect_args={'timeout': 15})
-    Session = sessionmaker(bind=engine)
-    return Session()
+# --- API Configuration ---
+NEXUS_API_URL = 'http://127.0.0.1:5000/api'
+ACCOUNT_NUMBER_FIELD = "account_number"
 
 def get_config():
     """Loads the configuration from nexus.conf in the instance folder."""
@@ -79,59 +69,69 @@ def get_all_users(base_url, headers):
     return all_users
 
 # --- Database Functions ---
-def populate_database(session, companies_data, users_data):
+def populate_database_via_api(companies_data, users_data, api_key):
+    headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
     print("\nStarting database population...")
     # Process Companies
     for company_data in companies_data:
-        # First, try to find an existing company by its unique Freshservice ID
-        company = session.query(Company).filter_by(freshservice_id=company_data['id']).first()
-
-        if not company:
-            # If not found by ID, try to find by name to avoid creating duplicates
-            company = session.query(Company).filter_by(name=company_data['name']).first()
-            if not company:
-                # If still not found, create a new company object
-                print(f" -> Creating new company: {company_data['name']}")
-                company = Company(name=company_data['name'])
-                session.add(company)
-            else:
-                print(f" -> Updating existing company by name: {company_data['name']}")
-        else:
-            print(f" -> Updating existing company by Freshservice ID: {company_data['name']}")
-
-        # Update the company's attributes
-        company.name = company_data['name']
-        company.freshservice_id = company_data['id']
-        # Add other fields as necessary from company_data['custom_fields'] if they exist
         custom_fields = company_data.get('custom_fields', {})
-        if custom_fields:
-            company.account_number = custom_fields.get('account_number_2')
+        account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
+        
+        if not account_number:
+            print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
+            continue
 
-    # Commit company changes to ensure IDs are available for contacts
-    session.commit()
+        response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'account_number': account_number})
+        existing_company = response.json()
+        
+        company_payload = {
+            'name': company_data['name'],
+            'account_number': account_number,
+            'freshservice_id': company_data['id']
+        }
+
+        if not existing_company:
+            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+            print(f" -> Creating new company: {company_data['name']}")
+        else:
+            company_id = existing_company[0]['id']
+            requests.put(f"{NEXUS_API_URL}/companies/{company_id}", headers=headers, json=company_payload)
+            print(f" -> Updating existing company: {company_data['name']}")
+
     print(" -> Finished processing companies.")
 
     # Process Users and Contacts
     for user_data in users_data:
         if not user_data.get('primary_email'):
-            continue # Skip users without an email
+            continue
 
-        # Check if contact exists
-        contact = session.query(Contact).filter_by(email=user_data['primary_email']).first()
-        if not contact:
-            contact = Contact(email=user_data['primary_email'])
-            session.add(contact)
-
-        contact.name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
-
-        # Associate with company
+        company_id = None
         if user_data.get('department_ids'):
-            company = session.query(Company).filter_by(freshservice_id=user_data['department_ids'][0]).first()
-            if company:
-                contact.company_id = company.id
+            fs_company_id = user_data['department_ids'][0]
+            response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id})
+            company_data_nexus = response.json()
+            if company_data_nexus:
+                company_id = company_data_nexus[0]['id']
+        
+        if not company_id:
+            print(f" -> Skipping contact for {user_data['primary_email']} as their associated company is not in Nexus.")
+            continue
 
-    # Commit all remaining changes
-    session.commit()
+        response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']})
+        existing_contact = response.json()
+        
+        contact_payload = {
+            'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+            'email': user_data['primary_email'],
+            'company_id': company_id
+        }
+
+        if not existing_contact:
+            requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload)
+        else:
+            contact_id = existing_contact[0]['id']
+            requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload)
+
     print(" -> Finished processing contacts.")
 
 
@@ -142,6 +142,7 @@ if __name__ == "__main__":
         config = get_config()
         FRESHSERVICE_API_KEY = config.get('freshservice', 'api_key')
         FRESHSERVICE_DOMAIN = config.get('freshservice', 'domain')
+        NEXUS_API_KEY = config.get('nexus', 'api_key')
         BASE_URL = f"https://{FRESHSERVICE_DOMAIN}"
 
         auth_str = f"{FRESHSERVICE_API_KEY}:X"
@@ -152,16 +153,11 @@ if __name__ == "__main__":
         users = get_all_users(BASE_URL, headers)
 
         if companies and users:
-            db_session = get_db_session()
-            try:
-                populate_database(db_session, companies, users)
-                print("\n--- Freshservice Data Sync Successful ---")
-            finally:
-                db_session.close()
+            populate_database_via_api(companies, users, NEXUS_API_KEY)
+            print("\n--- Freshservice Data Sync Successful ---")
         else:
             print("\n--- Freshservice Data Sync Failed: Could not fetch data ---")
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
-

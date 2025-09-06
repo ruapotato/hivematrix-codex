@@ -27,4 +27,3 @@ def contact_details(contact_id):
 
     company_assets = Asset.query.filter_by(company_id=contact.company_id).all()
     return render_template('contact_details.html', contact=contact, company_assets=company_assets)
-

@@ -8,4 +8,3 @@ assets_bp = Blueprint('assets', __name__, url_prefix='/assets')
 def list_assets():
     assets = Asset.query.all()
     return render_template('assets.html', assets=assets)
-

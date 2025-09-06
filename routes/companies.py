@@ -13,4 +13,3 @@ def list_companies():
 def company_details(company_id):
     company = Company.query.get_or_404(company_id)
     return render_template('company_details.html', company=company)
-

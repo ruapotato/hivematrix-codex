@@ -1,6 +1,8 @@
 *.db
 pyenv
 nexus.conf
+*.conf
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
