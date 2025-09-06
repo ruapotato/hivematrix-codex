@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Assets - Nexus{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">Assets</h1>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Type</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operating System</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for asset in assets %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.company.name if asset.company else 'N/A' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">No assets found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,4 +1,6 @@
-from main import app, db, User
+from main import app
+from models import User
+from extensions import db
 
 def init_db():
     """Creates the database tables and a default admin user."""

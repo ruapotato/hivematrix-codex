@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Company Details - {{ company.name }}{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-center mb-6">{{ company.name }}</h2>
+
+    <!-- Company Info Card -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Company Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            <div><strong>Account #:</strong> {{ company.account_number or 'N/A' }}</div>
+            <div><strong>Location:</strong> {{ company.location or 'N/A' }}</div>
+            <div><strong>Primary Contact:</strong> {{ company.primary_contact_name or 'N/A' }}</div>
+            <div><strong>Primary Email:</strong> {{ company.primary_contact_email or 'N/A' }}</div>
+            <div><strong>Primary Phone:</strong> {{ company.primary_contact_phone or 'N/A' }}</div>
+            <div><strong>Freshservice ID:</strong> {{ company.freshservice_id or 'N/A' }}</div>
+            <div><strong>Datto Site UID:</strong> {{ company.datto_site_uid or 'N/A' }}</div>
+        </div>
+    </div>
+
+    <!-- Contacts Table -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h3 class="text-xl font-semibold mb-4">Contacts</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for contact in company.contacts %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ contact.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.email }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="text-indigo-600 hover:text-indigo-900">Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-center text-gray-500">No contacts found for this company.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Assets Table -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h3 class="text-xl font-semibold mb-4">Assets</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Type</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operating System</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for asset in company.assets %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-center text-gray-500">No assets found for this company.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
