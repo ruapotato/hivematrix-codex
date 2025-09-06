@@ -41,41 +41,71 @@
         <table id="assets-table" class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th data-column="hostname" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ url_for('assets.list_assets', sort_by='hostname', order='desc' if sort_by == 'hostname' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
-                            Hostname {% if sort_by == 'hostname' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                        </a>
+                    <th data-column="hostname" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='hostname', order='desc' if sort_by == 'hostname' and order == 'asc' else 'asc', per_page=per_page) }}">Hostname {% if sort_by == 'hostname' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
-                    <th data-column="company" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ url_for('assets.list_assets', sort_by='company', order='desc' if sort_by == 'company' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
-                            Company {% if sort_by == 'company' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                        </a>
+                    <th data-column="company" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='company', order='desc' if sort_by == 'company' and order == 'asc' else 'asc', per_page=per_page) }}">Company {% if sort_by == 'company' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
-                    <th data-column="device_type" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ url_for('assets.list_assets', sort_by='device_type', order='desc' if sort_by == 'device_type' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
-                            Device Type {% if sort_by == 'device_type' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                        </a>
+                    <th data-column="description" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Description</th>
+                    <th data-column="domain" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='domain', order='desc' if sort_by == 'domain' and order == 'asc' else 'asc', per_page=per_page) }}">Domain {% if sort_by == 'domain' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
-                    <th data-column="operating_system" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <a href="{{ url_for('assets.list_assets', sort_by='operating_system', order='desc' if sort_by == 'operating_system' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
-                            Operating System {% if sort_by == 'operating_system' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                        </a>
+                    <th data-column="hardware_type" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='hardware_type', order='desc' if sort_by == 'hardware_type' and order == 'asc' else 'asc', per_page=per_page) }}">Hardware Type {% if sort_by == 'hardware_type' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
-                    <th data-column="last_logged_in_user" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last User</th>
+                    <th data-column="device_type" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='device_type', order='desc' if sort_by == 'device_type' and order == 'asc' else 'asc', per_page=per_page) }}">Device Type {% if sort_by == 'device_type' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
+                    <th data-column="operating_system" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='operating_system', order='desc' if sort_by == 'operating_system' and order == 'asc' else 'asc', per_page=per_page) }}">Operating System {% if sort_by == 'operating_system' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
+                    <th data-column="int_ip_address" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Internal IP</th>
+                    <th data-column="ext_ip_address" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">External IP</th>
+                    <th data-column="last_logged_in_user" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Last User</th>
+                    <th data-column="antivirus_product" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                         <a href="{{ url_for('assets.list_assets', sort_by='antivirus_product', order='desc' if sort_by == 'antivirus_product' and order == 'asc' else 'asc', per_page=per_page) }}">Antivirus {% if sort_by == 'antivirus_product' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
+                    <th data-column="patch_status" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='patch_status', order='desc' if sort_by == 'patch_status' and order == 'asc' else 'asc', per_page=per_page) }}">Patch Status {% if sort_by == 'patch_status' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
+                    <th data-column="online" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='online', order='desc' if sort_by == 'online' and order == 'asc' else 'asc', per_page=per_page) }}">Online {% if sort_by == 'online' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
+                    <th data-column="backup_usage_tb" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Backup (TB)</th>
+                    <th data-column="last_seen" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                         <a href="{{ url_for('assets.list_assets', sort_by='last_seen', order='desc' if sort_by == 'last_seen' and order == 'asc' else 'asc', per_page=per_page) }}">Last Seen {% if sort_by == 'last_seen' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for asset in assets %}
                 <tr>
-                    <td data-column="hostname" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
+                    <td data-column="hostname" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ asset.hostname }}</a>
+                    </td>
                     <td data-column="company" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.company.name if asset.company else 'N/A' }}</td>
-                    <td data-column="device_type" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
+                    <td data-column="description" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.description or 'N/A' }}</td>
+                    <td data-column="domain" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.domain or 'N/A' }}</td>
+                    <td data-column="hardware_type" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.hardware_type or 'N/A' }}</td>
+                    <td data-column="device_type" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type or 'N/A' }}</td>
                     <td data-column="operating_system" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                    <td data-column="int_ip_address" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.int_ip_address or 'N/A' }}</td>
+                    <td data-column="ext_ip_address" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.ext_ip_address or 'N/A' }}</td>
                     <td data-column="last_logged_in_user" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.last_logged_in_user or 'N/A' }}</td>
+                    <td data-column="antivirus_product" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.antivirus_product or 'N/A' }}</td>
+                    <td data-column="patch_status" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.patch_status or 'N/A' }}</td>
+                    <td data-column="online" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-green-100 text-green-800' if asset.online else 'bg-red-100 text-red-800' }}">
+                            {{ 'Online' if asset.online else 'Offline' }}
+                        </span>
+                    </td>
+                    <td data-column="backup_usage_tb" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.backup_usage_tb or 'N/A' }}</td>
+                    <td data-column="last_seen" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.last_seen or 'N/A' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">No assets found.</td>
+                    <td colspan="15" class="px-6 py-4 text-center text-gray-500">No assets found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -139,9 +169,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const columns = {
         'hostname': 'Hostname',
         'company': 'Company',
+        'description': 'Description',
+        'domain': 'Domain',
+        'hardware_type': 'Hardware Type',
         'device_type': 'Device Type',
         'operating_system': 'Operating System',
+        'int_ip_address': 'Internal IP',
+        'ext_ip_address': 'External IP',
         'last_logged_in_user': 'Last User',
+        'antivirus_product': 'Antivirus',
+        'patch_status': 'Patch Status',
+        'online': 'Online',
+        'backup_usage_tb': 'Backup (TB)',
+        'last_seen': 'Last Seen',
     };
 
     const togglesContainer = document.getElementById('column-toggles');
@@ -149,7 +189,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let savedVisibility = JSON.parse(localStorage.getItem(storageKey));
     if (!savedVisibility) {
-        savedVisibility = { 'hostname': true, 'company': true, 'device_type': true, 'operating_system': true, 'last_logged_in_user': false };
+        savedVisibility = {
+            'hostname': true, 'company': true, 'description': false, 'domain': false,
+            'hardware_type': true, 'device_type': true, 'operating_system': true,
+            'int_ip_address': false, 'ext_ip_address': false, 'last_logged_in_user': false,
+            'antivirus_product': true, 'patch_status': true, 'online': true,
+            'backup_usage_tb': false, 'last_seen': false
+        };
     }
 
     const updateTableVisibility = () => {

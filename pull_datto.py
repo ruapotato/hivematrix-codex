@@ -4,7 +4,7 @@ import requests
 import os
 import sys
 import configparser
-import json
+from datetime import datetime
 
 # --- API Configuration ---
 NEXUS_API_URL = 'http://127.0.0.1:5000/api'
@@ -68,7 +68,6 @@ def get_site_variable(api_endpoint, access_token, site_uid, variable_name):
     except requests.exceptions.RequestException:
         return None
 
-
 def get_devices_for_site(api_endpoint, access_token, site_uid):
     all_devices = []
     next_page_url = f"{api_endpoint}/api/v2/site/{site_uid}/devices"
@@ -84,6 +83,23 @@ def get_devices_for_site(api_endpoint, access_token, site_uid):
             print(f"Error fetching devices for site {site_uid}: {e}", file=sys.stderr)
             return None
     return all_devices
+
+def format_timestamp(ts):
+    """Converts millisecond epoch timestamp to a readable string."""
+    if not ts:
+        return None
+    return datetime.fromtimestamp(ts / 1000).strftime('%Y-%m-%d %H:%M:%S')
+
+def bytes_to_tb(b):
+    """Converts bytes to terabytes and returns a formatted string."""
+    if not b:
+        return None
+    try:
+        b_float = float(b)
+        tb = b_float / (1024**4)
+        return f"{tb:.2f}"
+    except (ValueError, TypeError):
+        return None
 
 def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
     headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
@@ -110,12 +126,28 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
         if devices:
             print(f"   -> Found {len(devices)} devices. Updating database...")
             for device_data in devices:
+                udf = device_data.get('udf', {})
                 asset_payload = {
-                    'hostname': device_data['hostname'],
+                    'hostname': device_data.get('hostname'),
                     'company_account_number': account_number,
-                    'device_type': (device_data.get('deviceType') or {}).get('category'),
                     'operating_system': device_data.get('operatingSystem'),
-                    'last_logged_in_user': device_data.get('lastLoggedInUser')
+                    'last_logged_in_user': device_data.get('lastLoggedInUser'),
+                    'hardware_type': (device_data.get('deviceType') or {}).get('category'),
+                    'antivirus_product': (device_data.get('antivirus') or {}).get('antivirusProduct'),
+                    'description': device_data.get('description'),
+                    'ext_ip_address': device_data.get('extIpAddress'),
+                    'int_ip_address': device_data.get('intIpAddress'),
+                    'domain': device_data.get('domain'),
+                    'last_audit_date': format_timestamp(device_data.get('lastAuditDate')),
+                    'last_reboot': format_timestamp(device_data.get('lastReboot')),
+                    'last_seen': format_timestamp(device_data.get('lastSeen')),
+                    'online': device_data.get('online'),
+                    'patch_status': (device_data.get('patchManagement') or {}).get('patchStatus'),
+                    'backup_usage_tb': bytes_to_tb(udf.get('udf6')),
+                    'enabled_administrators': udf.get('udf4'),
+                    'device_type': udf.get('udf7'),
+                    'portal_url': device_data.get('portalUrl'),
+                    'web_remote_url': device_data.get('webRemoteUrl'),
                 }
                 response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number})
                 asset_data = response.json()
@@ -125,11 +157,9 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
                 else:
                     asset_id = asset_data[0]['id']
                     requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload)
-
     print(" -> Finished processing assets.")
 
 
-# --- Main Execution ---
 if __name__ == "__main__":
     print("--- Datto RMM Data Syncer ---")
     try:
@@ -138,7 +168,6 @@ if __name__ == "__main__":
         DATTO_PUBLIC_KEY = config.get('datto', 'public_key')
         DATTO_SECRET_KEY = config.get('datto', 'secret_key')
         NEXUS_API_KEY = config.get('nexus', 'api_key')
-
 
         token = get_datto_access_token(DATTO_API_ENDPOINT, DATTO_PUBLIC_KEY, DATTO_SECRET_KEY)
         if not token:

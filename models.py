@@ -1,5 +1,5 @@
 # ruapotato/hivematrix-nexus/hivematrix-nexus-main/models.py
-
+from datetime import datetime
 from extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -30,6 +30,7 @@ class Company(db.Model):
     __tablename__ = 'companies'
     account_number = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(150), nullable=False)
+    location = db.Column(db.String(200))
     freshservice_id = db.Column(db.Integer, unique=True)
     datto_site_uid = db.Column(db.String(100), unique=True)
     description = db.Column(db.Text)
@@ -37,11 +38,10 @@ class Company(db.Model):
     profit_or_non_profit = db.Column(db.String(50))
     company_main_number = db.Column(db.String(50))
     address = db.Column(db.String(255))
-    company_start_date = db.Column(db.String(50))
+    company_start_date = db.Column(db.String(100))
     head_name = db.Column(db.String(150))
-    primary_contact_name = db.Column(db.String(150))
-    primary_contact_email = db.Column(db.String(150))
-    domains = db.Column(db.Text)
+    prime_user_name = db.Column(db.String(150))
+    domains = db.Column(db.String(255))
 
     users = db.relationship('User', back_populates='company', lazy=True)
     assets = db.relationship('Asset', back_populates='company', lazy=True)
@@ -57,9 +57,26 @@ class Asset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     hostname = db.Column(db.String(150), nullable=False)
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
-    device_type = db.Column(db.String(50))
+    hardware_type = db.Column(db.String(100)) # Renamed from device_type
     operating_system = db.Column(db.String(100))
     last_logged_in_user = db.Column(db.String(150))
+
+    # New columns from Datto RMM
+    antivirus_product = db.Column(db.String(100))
+    description = db.Column(db.Text)
+    ext_ip_address = db.Column(db.String(50))
+    int_ip_address = db.Column(db.String(50))
+    domain = db.Column(db.String(100))
+    last_audit_date = db.Column(db.String(50))
+    last_reboot = db.Column(db.String(50))
+    last_seen = db.Column(db.String(50))
+    online = db.Column(db.Boolean)
+    patch_status = db.Column(db.String(50))
+    backup_usage_tb = db.Column(db.String(50))
+    enabled_administrators = db.Column(db.Text)
+    device_type = db.Column(db.String(50)) # New field from udf7
+    portal_url = db.Column(db.String(255))
+    web_remote_url = db.Column(db.String(255))
 
     company = db.relationship('Company', back_populates='assets')
     contacts = db.relationship('Contact', secondary='asset_contact_link', back_populates='assets')
@@ -71,11 +88,11 @@ class Contact(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
 
-    # New fields from Freshservice
-    active = db.Column(db.Boolean, default=True)
+    # New columns from Freshservice
+    active = db.Column(db.Boolean)
     mobile_phone_number = db.Column(db.String(50))
     work_phone_number = db.Column(db.String(50))
-    secondary_emails = db.Column(db.Text) # Stored as JSON string
+    secondary_emails = db.Column(db.String(255))
 
     company = db.relationship('Company', back_populates='contacts')
     assets = db.relationship('Asset', secondary='asset_contact_link', back_populates='contacts')

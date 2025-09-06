@@ -20,7 +20,11 @@ def list_assets():
         else:
             query = query.order_by(asc(Company.name))
     else:
-        valid_sort_columns = ['hostname', 'device_type', 'operating_system']
+        valid_sort_columns = [
+            'hostname', 'hardware_type', 'operating_system', 'antivirus_product',
+            'online', 'patch_status', 'device_type', 'domain', 'int_ip_address',
+            'ext_ip_address', 'last_logged_in_user', 'last_seen', 'backup_usage_tb'
+        ]
         if sort_by not in valid_sort_columns:
             sort_by = 'hostname'
 
@@ -35,4 +39,9 @@ def list_assets():
     assets = pagination.items
 
     return render_template('assets.html', assets=assets, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page)
+
+@assets_bp.route('/<int:asset_id>')
+def asset_details(asset_id):
+    asset = Asset.query.get_or_404(asset_id)
+    return render_template('asset_details.html', asset=asset)
 
