@@ -5,35 +5,199 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold">Assets</h1>
+    <div class="flex items-center space-x-4">
+        <!-- Per Page Selector -->
+        <div class="flex items-center space-x-2">
+            <span class="text-sm text-gray-700">Show</span>
+            <select id="per_page_selector" class="form-select text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                <option value="200" {% if per_page == 200 %}selected{% endif %}>200</option>
+                <option value="500" {% if per_page == 500 %}selected{% endif %}>500</option>
+            </select>
+            <span class="text-sm text-gray-700">entries</span>
+        </div>
+        <!-- Column Chooser -->
+        <div class="relative" x-data="{ open: false }">
+            <button @click="open = !open" class="p-2 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z" />
+                </svg>
+            </button>
+            <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10" style="display: none;">
+                <div class="p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Visible Columns</h4>
+                    <div id="column-toggles" class="space-y-2">
+                        <!-- Checkboxes will be inserted here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="bg-white p-6 rounded-lg shadow-md">
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table id="assets-table" class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Type</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operating System</th>
+                    <th data-column="hostname" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('assets.list_assets', sort_by='hostname', order='desc' if sort_by == 'hostname' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Hostname {% if sort_by == 'hostname' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="company" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('assets.list_assets', sort_by='company', order='desc' if sort_by == 'company' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Company {% if sort_by == 'company' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="device_type" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('assets.list_assets', sort_by='device_type', order='desc' if sort_by == 'device_type' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Device Type {% if sort_by == 'device_type' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="operating_system" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('assets.list_assets', sort_by='operating_system', order='desc' if sort_by == 'operating_system' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Operating System {% if sort_by == 'operating_system' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="last_logged_in_user" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last User</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for asset in assets %}
                 <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.company.name if asset.company else 'N/A' }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                    <td data-column="hostname" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
+                    <td data-column="company" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.company.name if asset.company else 'N/A' }}</td>
+                    <td data-column="device_type" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
+                    <td data-column="operating_system" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                    <td data-column="last_logged_in_user" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.last_logged_in_user or 'N/A' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">No assets found.</td>
+                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">No assets found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <!-- Pagination -->
+    <div class="mt-4 flex justify-between items-center">
+        <div>
+            <p class="text-sm text-gray-700">
+                Showing
+                <span class="font-medium">{{ pagination.first }}</span>
+                to
+                <span class="font-medium">{{ pagination.last }}</span>
+                of
+                <span class="font-medium">{{ pagination.total }}</span>
+                results
+            </p>
+        </div>
+        {% if pagination.pages > 1 %}
+        <div class="flex-1 flex justify-end">
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <a href="{{ url_for('assets.list_assets', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order) if pagination.has_prev else '#' }}"
+                   class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}cursor-not-allowed opacity-50{% endif %}">
+                    <span>Previous</span>
+                </a>
+                {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if p %}
+                        <a href="{{ url_for('assets.list_assets', page=p, per_page=per_page, sort_by=sort_by, order=order) }}"
+                           class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium {% if p == pagination.page %}bg-indigo-50 border-indigo-500 text-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                            {{ p }}
+                        </a>
+                    {% else %}
+                        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                    {% endif %}
+                {% endfor %}
+                <a href="{{ url_for('assets.list_assets', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order) if pagination.has_next else '#' }}"
+                   class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}cursor-not-allowed opacity-50{% endif %}">
+                    <span>Next</span>
+                </a>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
 </div>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Per Page Selector Logic
+    document.getElementById('per_page_selector').addEventListener('change', function() {
+        const perPage = this.value;
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('per_page', perPage);
+        currentUrl.searchParams.set('page', 1);
+        window.location.href = currentUrl.toString();
+    });
+
+    // Column Chooser Logic
+    const tableId = 'assets-table';
+    const storageKey = 'assetColumnVisibility';
+    const columns = {
+        'hostname': 'Hostname',
+        'company': 'Company',
+        'device_type': 'Device Type',
+        'operating_system': 'Operating System',
+        'last_logged_in_user': 'Last User',
+    };
+
+    const togglesContainer = document.getElementById('column-toggles');
+    const table = document.getElementById(tableId);
+
+    let savedVisibility = JSON.parse(localStorage.getItem(storageKey));
+    if (!savedVisibility) {
+        savedVisibility = { 'hostname': true, 'company': true, 'device_type': true, 'operating_system': true, 'last_logged_in_user': false };
+    }
+
+    const updateTableVisibility = () => {
+        const headers = table.querySelectorAll('th');
+        const rows = table.querySelectorAll('tbody tr');
+
+        headers.forEach(header => {
+            const columnKey = header.getAttribute('data-column');
+            if (columnKey) {
+                header.style.display = savedVisibility[columnKey] ? '' : 'none';
+            }
+        });
+
+        rows.forEach(row => {
+            if (row.querySelector('td').getAttribute('colspan')) return;
+            const cells = row.querySelectorAll('td');
+            cells.forEach(cell => {
+                const columnKey = cell.getAttribute('data-column');
+                if (columnKey) {
+                    cell.style.display = savedVisibility[columnKey] ? '' : 'none';
+                }
+            });
+        });
+    };
+
+    Object.keys(columns).forEach(key => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center space-x-2 text-sm text-gray-600';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-checkbox h-4 w-4 text-indigo-600 rounded';
+        checkbox.dataset.column = key;
+        checkbox.checked = savedVisibility[key] !== false;
+        checkbox.addEventListener('change', (e) => {
+            const columnKey = e.target.dataset.column;
+            savedVisibility[columnKey] = e.target.checked;
+            localStorage.setItem(storageKey, JSON.stringify(savedVisibility));
+            updateTableVisibility();
+        });
+        const span = document.createElement('span');
+        span.textContent = columns[key];
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        togglesContainer.appendChild(label);
+    });
+
+    updateTableVisibility();
+});
+</script>
 {% endblock %}
 

@@ -1,30 +1,52 @@
 {% extends 'base.html' %}
 
-{% block title %}Contact Details - Nexus{% endblock %}
+{% block title %}Contact Details - {{ contact.name }}{% endblock %}
 
 {% block content %}
-<div class="w-full max-w-4xl mx-auto">
-    <h2 class="text-2xl font-bold text-center mb-6">Contact: {{ contact.name }}</h2>
+<div class="w-full max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-center mb-6">{{ contact.name }}</h2>
+
+    <!-- Contact Info Card -->
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Contact Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+            <div><strong>Name:</strong> {{ contact.name or 'N/A' }}</div>
+            <div>
+                <strong>Status:</strong>
+                {% if contact.active %}
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
+                {% else %}
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>
+                {% endif %}
+            </div>
+            <div><strong>Company:</strong> <a href="{{ url_for('companies.company_details', account_number=contact.company.account_number) }}" class="text-indigo-600 hover:underline">{{ contact.company.name or 'N/A' }}</a></div>
+            <div><strong>Primary Email:</strong> {{ contact.email or 'N/A' }}</div>
+            <div><strong>Work Phone:</strong> {{ contact.work_phone_number or 'N/A' }}</div>
+            <div><strong>Mobile Phone:</strong> {{ contact.mobile_phone_number or 'N/A' }}</div>
+            <div class="md:col-span-2"><strong>Secondary Emails:</strong> {{ contact.secondary_emails or 'N/A' }}</div>
+        </div>
+    </div>
+
+    <!-- Associated Assets Card -->
     <div class="bg-white p-6 rounded-lg shadow-md">
-        <form method="POST">
-            <h3 class="text-lg font-medium mb-4">Associate Assets</h3>
-            <div class="grid grid-cols-3 gap-4">
+        <h3 class="text-xl font-semibold mb-4">Associated Assets</h3>
+        <form method="POST" action="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {% for asset in company_assets %}
                 <div>
                     <label class="inline-flex items-center">
-                        <input type="checkbox" name="assets" value="{{ asset.id }}" {% if asset in contact.assets %}checked{% endif %} class="form-checkbox h-5 w-5 text-indigo-600">
+                        <input type="checkbox" name="asset_ids" value="{{ asset.id }}" {% if asset in contact.assets %}checked{% endif %} class="form-checkbox h-5 w-5 text-indigo-600 rounded">
                         <span class="ml-2 text-gray-700">{{ asset.hostname }}</span>
                     </label>
                 </div>
                 {% else %}
-                <p>No assets found for this contact's company.</p>
+                <p class="text-gray-500">No assets found for this contact's company.</p>
                 {% endfor %}
             </div>
-            <div class="mt-6">
-                <button type="submit" class="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md">Save Associations</button>
+            <div class="mt-6 flex justify-end">
+                <button type="submit" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md">Save Associations</button>
             </div>
         </form>
     </div>
 </div>
 {% endblock %}
-

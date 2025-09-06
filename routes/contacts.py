@@ -1,14 +1,40 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from models import db, Contact, Asset
+from models import db, Contact, Asset, Company
 from decorators import admin_required
+from sqlalchemy import asc, desc
 
-# Corrected Blueprint definition
 contacts_bp = Blueprint('contacts', __name__, url_prefix='/contacts')
 
 @contacts_bp.route('/')
 def list_contacts():
-    contacts = Contact.query.all()
-    return render_template('contacts.html', contacts=contacts)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    sort_by = request.args.get('sort_by', 'name')
+    order = request.args.get('order', 'asc')
+
+    query = Contact.query
+
+    if sort_by == 'company':
+        query = query.join(Contact.company)
+        if order == 'desc':
+            query = query.order_by(desc(Company.name))
+        else:
+            query = query.order_by(asc(Company.name))
+    else:
+        valid_sort_columns = ['name', 'email']
+        if sort_by not in valid_sort_columns:
+            sort_by = 'name'
+        column_to_sort = getattr(Contact, sort_by)
+        if order == 'desc':
+            query = query.order_by(desc(column_to_sort))
+        else:
+            query = query.order_by(asc(column_to_sort))
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    contacts = pagination.items
+
+    return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page)
+
 
 @contacts_bp.route('/<int:contact_id>', methods=['GET', 'POST'])
 def contact_details(contact_id):
@@ -25,5 +51,7 @@ def contact_details(contact_id):
         flash('Contact assets updated successfully.', 'success')
         return redirect(url_for('contacts.contact_details', contact_id=contact_id))
 
-    company_assets = Asset.query.filter_by(company_id=contact.company_id).all()
+    # Correctly query assets based on the company's account number
+    company_assets = Asset.query.filter_by(company_account_number=contact.company_account_number).all()
     return render_template('contact_details.html', contact=contact, company_assets=company_assets)
+

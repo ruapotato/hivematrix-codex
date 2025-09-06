@@ -40,6 +40,38 @@ app.register_blueprint(assets_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(settings_bp)
 
+def serialize_company(c):
+    """Helper function to serialize a Company object to a dictionary."""
+    return {
+        'account_number': c.account_number,
+        'name': c.name,
+        'freshservice_id': c.freshservice_id,
+        'datto_site_uid': c.datto_site_uid,
+        'description': c.description,
+        'plan_selected': c.plan_selected,
+        'profit_or_non_profit': c.profit_or_non_profit,
+        'company_main_number': c.company_main_number,
+        'address': c.address,
+        'company_start_date': c.company_start_date,
+        'head_name': c.head_name,
+        'primary_contact_name': c.primary_contact_name,
+        'primary_contact_email': c.primary_contact_email,
+        'domains': c.domains,
+    }
+
+def serialize_contact(c):
+    """Helper function to serialize a Contact object to a dictionary."""
+    return {
+        'id': c.id,
+        'name': c.name,
+        'email': c.email,
+        'company_account_number': c.company_account_number,
+        'active': c.active,
+        'mobile_phone_number': c.mobile_phone_number,
+        'work_phone_number': c.work_phone_number,
+        'secondary_emails': c.secondary_emails,
+    }
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
@@ -90,7 +122,17 @@ def api_companies():
                 name=data['name'],
                 account_number=data['account_number'],
                 datto_site_uid=data.get('datto_site_uid'),
-                freshservice_id=data.get('freshservice_id')
+                freshservice_id=data.get('freshservice_id'),
+                description=data.get('description'),
+                plan_selected=data.get('plan_selected'),
+                profit_or_non_profit=data.get('profit_or_non_profit'),
+                company_main_number=data.get('company_main_number'),
+                address=data.get('address'),
+                company_start_date=data.get('company_start_date'),
+                head_name=data.get('head_name'),
+                primary_contact_name=data.get('primary_contact_name'),
+                primary_contact_email=data.get('primary_contact_email'),
+                domains=data.get('domains')
             )
             db.session.add(new_company)
             db.session.commit()
@@ -101,14 +143,7 @@ def api_companies():
         query = query.filter_by(freshservice_id=request.args['freshservice_id'])
 
     companies = query.all()
-    return jsonify([{
-        'account_number': c.account_number, 'name': c.name, 'location': c.location,
-        'primary_contact_name': c.primary_contact_name,
-        'primary_contact_email': c.primary_contact_email,
-        'primary_contact_phone': c.primary_contact_phone,
-        'freshservice_id': c.freshservice_id,
-        'datto_site_uid': c.datto_site_uid
-    } for c in companies])
+    return jsonify([serialize_company(c) for c in companies])
 
 @app.route('/api/companies/<string:account_number>', methods=['GET', 'PUT'])
 @api_key_required(permission_level=['admin', 'user'])
@@ -122,17 +157,20 @@ def api_company_details(account_number):
         company.name = data.get('name', company.name)
         company.datto_site_uid = data.get('datto_site_uid', company.datto_site_uid)
         company.freshservice_id = data.get('freshservice_id', company.freshservice_id)
+        company.description = data.get('description', company.description)
+        company.plan_selected = data.get('plan_selected', company.plan_selected)
+        company.profit_or_non_profit = data.get('profit_or_non_profit', company.profit_or_non_profit)
+        company.company_main_number = data.get('company_main_number', company.company_main_number)
+        company.address = data.get('address', company.address)
+        company.company_start_date = data.get('company_start_date', company.company_start_date)
+        company.head_name = data.get('head_name', company.head_name)
+        company.primary_contact_name = data.get('primary_contact_name', company.primary_contact_name)
+        company.primary_contact_email = data.get('primary_contact_email', company.primary_contact_email)
+        company.domains = data.get('domains', company.domains)
         db.session.commit()
         return jsonify({'message': 'Company updated successfully'})
 
-    return jsonify({
-        'account_number': company.account_number, 'name': company.name, 'location': company.location,
-        'primary_contact_name': company.primary_contact_name,
-        'primary_contact_email': company.primary_contact_email,
-        'primary_contact_phone': company.primary_contact_phone,
-        'freshservice_id': company.freshservice_id,
-        'datto_site_uid': company.datto_site_uid
-    })
+    return jsonify(serialize_company(company))
 
 @app.route('/api/assets', methods=['GET', 'POST'])
 @api_key_required(permission_level=['admin', 'user'])
@@ -185,7 +223,11 @@ def api_contacts():
         new_contact = Contact(
             name=data['name'],
             email=data['email'],
-            company_account_number=data['company_account_number']
+            company_account_number=data['company_account_number'],
+            active=data.get('active'),
+            mobile_phone_number=data.get('mobile_phone_number'),
+            work_phone_number=data.get('work_phone_number'),
+            secondary_emails=data.get('secondary_emails')
         )
         db.session.add(new_contact)
         db.session.commit()
@@ -196,7 +238,7 @@ def api_contacts():
         query = query.filter_by(email=request.args['email'])
 
     contacts = query.all()
-    return jsonify([{'id': c.id, 'name': c.name, 'email': c.email} for c in contacts])
+    return jsonify([serialize_contact(c) for c in contacts])
 
 
 @app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
@@ -209,6 +251,10 @@ def api_contact_details(contact_id):
     contact.name = data.get('name', contact.name)
     contact.email = data.get('email', contact.email)
     contact.company_account_number = data.get('company_account_number', contact.company_account_number)
+    contact.active = data.get('active', contact.active)
+    contact.mobile_phone_number = data.get('mobile_phone_number', contact.mobile_phone_number)
+    contact.work_phone_number = data.get('work_phone_number', contact.work_phone_number)
+    contact.secondary_emails = data.get('secondary_emails', contact.secondary_emails)
     db.session.commit()
     return jsonify({'message': 'Contact updated successfully'})
 
@@ -252,22 +298,26 @@ def schedule_jobs():
             )
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        if not SchedulerJob.query.first():
-            default_jobs = [
-                SchedulerJob(job_name='Sync Freshservice Data', script_path='pull_freshservice.py', interval_minutes=1440),
-                SchedulerJob(job_name='Sync Datto RMM Assets', script_path='pull_datto.py', interval_minutes=1440),
-                SchedulerJob(job_name='Assign Missing Freshservice Account Numbers', script_path='set_account_numbers.py', interval_minutes=1440, enabled=False),
-                SchedulerJob(job_name='Push Account Numbers to Datto RMM', script_path='push_account_nums_to_datto.py', interval_minutes=1440, enabled=False)
-            ]
-            db.session.bulk_save_objects(default_jobs)
-            db.session.commit()
+    # When running in debug mode, Flask's reloader will execute this script twice.
+    # The 'WERKZEUG_RUN_MAIN' env var is set in the child process.
+    # We only initialize things once, in the child process, to avoid duplication.
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        with app.app_context():
+            db.create_all()
+            if not SchedulerJob.query.first():
+                default_jobs = [
+                    SchedulerJob(job_name='Sync Freshservice Data', script_path='pull_freshservice.py', interval_minutes=1440),
+                    SchedulerJob(job_name='Sync Datto RMM Assets', script_path='pull_datto.py', interval_minutes=1440),
+                    SchedulerJob(job_name='Assign Missing Freshservice Account Numbers', script_path='set_account_numbers.py', interval_minutes=1440, enabled=False),
+                    SchedulerJob(job_name='Push Account Numbers to Datto RMM', script_path='push_account_nums_to_datto.py', interval_minutes=1440, enabled=False)
+                ]
+                db.session.bulk_save_objects(default_jobs)
+                db.session.commit()
 
-    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-        schedule_jobs()
         if not scheduler.running:
+            schedule_jobs()
             scheduler.start()
-            print("Scheduler started.")
+            print("Scheduler started in reloader process.")
 
     app.run(debug=True)
+

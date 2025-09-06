@@ -89,8 +89,17 @@ def populate_database_via_api(companies_data, users_data, api_key):
 
         company_payload = {
             'name': company_data['name'],
-            'account_number': account_number,
+            'account_number': str(account_number),
             'freshservice_id': fs_id,
+            'description': company_data.get('description'),
+            'plan_selected': custom_fields.get('plan_selected'),
+            'profit_or_non_profit': custom_fields.get('profit_or_non_profit'),
+            'company_main_number': custom_fields.get('company_main_number'),
+            'address': custom_fields.get('address'),
+            'company_start_date': custom_fields.get('company_start_date'),
+            'head_name': company_data.get('head_name'),
+            'primary_contact_name': company_data.get('prime_user_name'),
+            'domains': json.dumps(company_data.get('domains', []))
         }
 
         if response.status_code == 404:
@@ -125,7 +134,11 @@ def populate_database_via_api(companies_data, users_data, api_key):
         contact_payload = {
             'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
             'email': user_data['primary_email'],
-            'company_account_number': account_number
+            'company_account_number': account_number,
+            'active': user_data.get('active'),
+            'mobile_phone_number': user_data.get('mobile_phone_number'),
+            'work_phone_number': user_data.get('work_phone_number'),
+            'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
         }
 
         if not existing_contact:
@@ -163,3 +176,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
+
