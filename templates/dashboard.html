@@ -7,35 +7,45 @@
     <h1 class="text-3xl font-bold">Dashboard</h1>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <a href="{{ url_for('companies.list_companies') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-        <h2 class="text-2xl font-semibold mb-2">Companies</h2>
-        <p class="text-gray-600 text-center">Manage client company information.</p>
-    </a>
-    <a href="{{ url_for('contacts.list_contacts') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-        <h2 class="text-2xl font-semibold mb-2">Contacts</h2>
-        <p class="text-gray-600 text-center">Access and update contact details.</p>
-    </a>
-    <a href="{{ url_for('assets.list_assets') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-        <h2 class="text-2xl font-semibold mb-2">Assets</h2>
-        <p class="text-gray-600 text-center">View and manage company assets.</p>
-    </a>
+<div>
+    <h2 class="text-2xl font-bold mb-4">Nexus</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <a href="{{ url_for('companies.list_companies') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+            <h2 class="text-2xl font-semibold mb-2">Companies</h2>
+            <p class="text-gray-600 text-center">Manage client company information.</p>
+        </a>
+        <a href="{{ url_for('contacts.list_contacts') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+            <h2 class="text-2xl font-semibold mb-2">Contacts</h2>
+            <p class="text-gray-600 text-center">Access and update contact details.</p>
+        </a>
+        <a href="{{ url_for('assets.list_assets') }}" class="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+            <h2 class="text-2xl font-semibold mb-2">Assets</h2>
+            <p class="text-gray-600 text-center">View and manage company assets.</p>
+        </a>
+    </div>
 
-    <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
-        <h2 class="text-2xl font-semibold mb-2 text-gray-500">Billing</h2>
-        <p class="text-gray-500 text-center">Coming Soon</p>
-    </div>
-    <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
-        <h2 class="text-2xl font-semibold mb-2 text-gray-500">Wiki</h2>
-        <p class="text-gray-500 text-center">Coming Soon</p>
-    </div>
-    <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
-        <h2 class="text-2xl font-semibold mb-2 text-gray-500">Orders</h2>
-        <p class="text-gray-500 text-center">Coming Soon</p>
-    </div>
-    <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
-        <h2 class="text-2xl font-semibold mb-2 text-gray-500">Project Management</h2>
-        <p class="text-gray-500 text-center">Coming Soon</p>
+    <h2 class="text-2xl font-bold mb-4">Other Modules</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
+            <h2 class="text-2xl font-semibold mb-2 text-gray-500">Tickets</h2>
+            <p class="text-gray-500 text-center">Coming Soon</p>
+        </div>
+        <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
+            <h2 class="text-2xl font-semibold mb-2 text-gray-500">Billing</h2>
+            <p class="text-gray-500 text-center">Coming Soon</p>
+        </div>
+        <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
+            <h2 class="text-2xl font-semibold mb-2 text-gray-500">Wiki</h2>
+            <p class="text-gray-500 text-center">Coming Soon</p>
+        </div>
+        <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
+            <h2 class="text-2xl font-semibold mb-2 text-gray-500">Orders</h2>
+            <p class="text-gray-500 text-center">Coming Soon</p>
+        </div>
+        <div class="flex flex-col items-center justify-center p-6 bg-gray-200 rounded-lg shadow-md cursor-not-allowed">
+            <h2 class="text-2xl font-semibold mb-2 text-gray-500">Project Management</h2>
+            <p class="text-gray-500 text-center">Coming Soon</p>
+        </div>
     </div>
 </div>
 {% endblock %}

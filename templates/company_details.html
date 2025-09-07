@@ -14,13 +14,7 @@
             <h3 class="text-xl font-semibold mb-4 border-b pb-2">Company Information</h3>
             <div class="grid grid-cols-1 gap-y-4 text-gray-700">
                 <div><strong>Account #:</strong> {{ company.account_number or 'N/A' }}</div>
-                <div><strong>Main Number:</strong> {% if company.company_main_number %}<a href="tel:{{ company.company_main_number }}" class="text-indigo-600 hover:underline">{{ company.company_main_number }}</a>{% else %}N/A{% endif %}</div>
-                <div><strong>Start Date:</strong> <span id="start-date">{{ company.company_start_date or 'N/A' }}</span></div>
-                <div><strong>Business Type:</strong> {{ company.profit_or_non_profit or 'N/A' }}</div>
                 <div><strong>Plan:</strong> {{ company.plan_selected or 'N/A' }}</div>
-                <div><strong>Description:</strong> <span class="text-gray-600">{{ company.description or 'N/A' }}</span></div>
-                <div><strong>Email System:</strong> {{ company.email_system or 'N/A' }}</div>
-                <div><strong>Phone System:</strong> {{ company.phone_system or 'N/A' }}</div>
                 <div>
                     <strong>Company Owner:</strong>
                     {% set owner_contact = company.contacts|selectattr('name', 'equalto', company.head_name)|first %}
@@ -39,9 +33,13 @@
                         {{ company.primary_contact_name or 'N/A' }}
                     {% endif %}
                 </div>
+                <div><strong>Main Number:</strong> {% if company.company_main_number %}<a href="tel:{{ company.company_main_number }}" class="text-indigo-600 hover:underline">{{ company.company_main_number }}</a>{% else %}N/A{% endif %}</div>
+                <div><strong>Business Type:</strong> {{ company.profit_or_non_profit or 'N/A' }}</div>
+                <div><strong>Phone System:</strong> {{ company.phone_system or 'N/A' }}</div>
+                <div><strong>Email System:</strong> {{ company.email_system or 'N/A' }}</div>
                 <div><strong>Domains:</strong> <span id="domains-list">{{ company.domains or 'N/A' }}</span></div>
-                <div><strong>Freshservice ID:</strong> {{ company.freshservice_id or 'N/A' }}</div>
-                <div><strong>Datto Site UID:</strong> {{ company.datto_site_uid or 'N/A' }}</div>
+                <div><strong>Start Date:</strong> <span id="start-date">{{ company.company_start_date or 'N/A' }}</span></div>
+                <div><strong>Description:</strong> <span class="text-gray-600">{{ company.description or 'N/A' }}</span></div>
             </div>
         </div>
 
