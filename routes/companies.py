@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
-from models import db, Company
+from models import db, Company, CompanyFeatureOverride
 from sqlalchemy import asc, desc
 import configparser
+import json
 
 companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
 
@@ -64,7 +65,17 @@ def company_details(account_number):
             feature_key = get_feature_key(feature_name)
             plan_features[feature_name] = config.get(section_name, feature_key, fallback="Not Included")
 
-    return render_template('company_details.html', company=company, plan_features=plan_features)
+    overrides = {override.feature_key: override.value for override in company.feature_overrides}
+
+    final_features = {}
+    for feature_name, options in features.items():
+        feature_key = get_feature_key(feature_name)
+        if feature_key in overrides:
+            final_features[feature_name] = overrides[feature_key]
+        else:
+            final_features[feature_name] = plan_features.get(feature_name, "Not Included")
+
+    return render_template('company_details.html', company=company, plan_features=final_features, plans=plan_names, contacts=company.contacts, features=features, overrides=overrides)
 
 @companies_bp.route('/edit/<string:account_number>', methods=['POST'])
 def edit_company(account_number):
@@ -76,10 +87,33 @@ def edit_company(account_number):
         company.profit_or_non_profit = request.form.get('profit_or_non_profit')
         company.company_main_number = request.form.get('company_main_number')
         company.address = request.form.get('address')
-        company.company_start_date = request.form.get('company_start_date')
+        company.company_start_date = request.form.get('company_start_date', '').split('T')[0]
         company.head_name = request.form.get('head_name')
         company.primary_contact_name = request.form.get('primary_contact_name')
-        company.domains = request.form.get('domains')
+
+        raw_domains = request.form.get('domains', '')
+        try:
+            domains_list = json.loads(raw_domains)
+            company.domains = ", ".join(domains_list)
+        except json.JSONDecodeError:
+            company.domains = raw_domains
+
+        config = current_app.config.get('NEXUS_CONFIG', configparser.ConfigParser())
+        _, features = load_plans_from_config(config)
+
+        for feature_name in features.keys():
+            feature_key = get_feature_key(feature_name)
+            override_value = request.form.get(f'override-{feature_key}')
+
+            existing_override = company.feature_overrides.filter_by(feature_key=feature_key).first()
+
+            if override_value:
+                if existing_override:
+                    existing_override.value = override_value
+                else:
+                    new_override = CompanyFeatureOverride(company_account_number=account_number, feature_key=feature_key, value=override_value)
+                    db.session.add(new_override)
+
         db.session.commit()
         flash('Company details updated successfully.', 'success')
     else:

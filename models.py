@@ -45,6 +45,7 @@ class Company(db.Model):
     users = db.relationship('User', back_populates='company', lazy=True)
     assets = db.relationship('Asset', back_populates='company', lazy=True)
     contacts = db.relationship('Contact', back_populates='company', lazy=True)
+    feature_overrides = db.relationship('CompanyFeatureOverride', back_populates='company', lazy='dynamic', cascade="all, delete-orphan")
 
 asset_contact_link = db.Table('asset_contact_link',
     db.Column('asset_id', db.Integer, db.ForeignKey('assets.id'), primary_key=True),
@@ -109,3 +110,11 @@ class SchedulerJob(db.Model):
     last_status = db.Column(db.String(50))
     last_run_log = db.Column(db.Text)
 
+class CompanyFeatureOverride(db.Model):
+    __tablename__ = 'company_feature_overrides'
+    id = db.Column(db.Integer, primary_key=True)
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    feature_key = db.Column(db.String(100), nullable=False)
+    value = db.Column(db.String(100), nullable=False)
+
+    company = db.relationship('Company', back_populates='feature_overrides')

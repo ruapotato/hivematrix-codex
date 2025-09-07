@@ -133,6 +133,10 @@
                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="editModalTitle">Edit Company: {{ company.name }}</h3>
                 <div class="mt-4 space-y-4">
                     <div>
+                        <label for="account_number" class="block text-sm font-medium text-gray-700">Account #</label>
+                        <input type="text" name="account_number" id="account_number" value="{{ company.account_number }}" readonly class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
+                    </div>
+                    <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">Company Name</label>
                         <input type="text" name="name" id="name" value="{{ company.name }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
@@ -142,7 +146,11 @@
                     </div>
                     <div>
                         <label for="plan_selected" class="block text-sm font-medium text-gray-700">Plan Selected</label>
-                        <input type="text" name="plan_selected" id="plan_selected" value="{{ company.plan_selected }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <select name="plan_selected" id="plan_selected" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            {% for plan in plans %}
+                            <option value="{{ plan }}" {% if plan == company.plan_selected %}selected{% endif %}>{{ plan }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div>
                         <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
@@ -158,19 +166,42 @@
                     </div>
                     <div>
                         <label for="company_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-                        <input type="text" name="company_start_date" id="company_start_date" value="{{ company.company_start_date }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="text" name="company_start_date" id="company_start_date" value="{{ company.company_start_date.split('T')[0] if company.company_start_date else '' }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
                         <label for="head_name" class="block text-sm font-medium text-gray-700">Company Owner</label>
-                        <input type="text" name="head_name" id="head_name" value="{{ company.head_name }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <select name="head_name" id="head_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            {% for contact in contacts %}
+                            <option value="{{ contact.name }}" {% if contact.name == company.head_name %}selected{% endif %}>{{ contact.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div>
                         <label for="primary_contact_name" class="block text-sm font-medium text-gray-700">Primary Contact</label>
-                        <input type="text" name="primary_contact_name" id="primary_contact_name" value="{{ company.primary_contact_name }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <select name="primary_contact_name" id="primary_contact_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            {% for contact in contacts %}
+                            <option value="{{ contact.name }}" {% if contact.name == company.primary_contact_name %}selected{% endif %}>{{ contact.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div>
                         <label for="domains" class="block text-sm font-medium text-gray-700">Domains</label>
                         <input type="text" name="domains" id="domains" value="{{ company.domains }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div class="mt-6">
+                        <h4 class="text-lg font-semibold mb-2">Feature Overrides</h4>
+                        {% for feature_name, options in features.items() %}
+                        {% set feature_key = feature_name.lower().replace(' ', '_') %}
+                        <div class="mt-4">
+                            <label for="override-{{ feature_key }}" class="block text-sm font-medium text-gray-700">{{ feature_name }}</label>
+                            <select name="override-{{ feature_key }}" id="override-{{ feature_key }}" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                {% set current_value = overrides.get(feature_key) or plan_features.get(feature_name) %}
+                                {% for option in options %}
+                                <option value="{{ option }}" {% if option == current_value %}selected{% endif %}>{{ option }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -200,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Sanitize and format the start date
     const dateEl = document.getElementById('start-date');
     if (dateEl && dateEl.textContent && dateEl.textContent !== 'N/A') {
-        const date = new Date(dateEl.textContent);
+        const date = new Date(dateEl.textContent.split('T')[0]);
         if (!isNaN(date)) {
             // Using toLocaleDateString to respect the user's local timezone and format
             dateEl.textContent = date.toLocaleDateString(undefined, {
