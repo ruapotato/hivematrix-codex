@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from models import db, Contact, Asset, Company
 from decorators import admin_required
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, func
 
 contacts_bp = Blueprint('contacts', __name__, url_prefix='/contacts')
 
@@ -20,8 +20,14 @@ def list_contacts():
             query = query.order_by(desc(Company.name))
         else:
             query = query.order_by(asc(Company.name))
+    elif sort_by == 'associated_assets':
+        query = query.outerjoin(Contact.assets).group_by(Contact.id)
+        if order == 'desc':
+            query = query.order_by(desc(func.count(Asset.id)))
+        else:
+            query = query.order_by(asc(func.count(Asset.id)))
     else:
-        valid_sort_columns = ['name', 'email']
+        valid_sort_columns = ['name', 'email', 'active', 'mobile_phone_number', 'work_phone_number']
         if sort_by not in valid_sort_columns:
             sort_by = 'name'
         column_to_sort = getattr(Contact, sort_by)

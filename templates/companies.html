@@ -48,10 +48,26 @@
                             Account # {% if sort_by == 'account_number' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
                         </a>
                     </th>
-                    <th data-column="plan_selected" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
-                    <th data-column="company_main_number" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Main Number</th>
-                    <th data-column="head_name" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Owner</th>
-                    <th data-column="primary_contact_name" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Primary Contact</th>
+                    <th data-column="plan_selected" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('companies.list_companies', sort_by='plan_selected', order='desc' if sort_by == 'plan_selected' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Plan {% if sort_by == 'plan_selected' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="company_main_number" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('companies.list_companies', sort_by='company_main_number', order='desc' if sort_by == 'company_main_number' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Main Number {% if sort_by == 'company_main_number' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="head_name" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('companies.list_companies', sort_by='head_name', order='desc' if sort_by == 'head_name' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Company Owner {% if sort_by == 'head_name' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th data-column="primary_contact_name" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <a href="{{ url_for('companies.list_companies', sort_by='primary_contact_name', order='desc' if sort_by == 'primary_contact_name' and order == 'asc' else 'asc', per_page=per_page) }}" class="hover:text-gray-900">
+                            Primary Contact {% if sort_by == 'primary_contact_name' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">

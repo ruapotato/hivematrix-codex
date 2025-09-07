@@ -23,7 +23,8 @@ def list_assets():
         valid_sort_columns = [
             'hostname', 'hardware_type', 'operating_system', 'antivirus_product',
             'online', 'patch_status', 'device_type', 'domain', 'int_ip_address',
-            'ext_ip_address', 'last_logged_in_user', 'last_seen', 'backup_usage_tb'
+            'ext_ip_address', 'last_logged_in_user', 'last_seen', 'backup_usage_tb',
+            'description'
         ]
         if sort_by not in valid_sort_columns:
             sort_by = 'hostname'
@@ -44,4 +45,3 @@ def list_assets():
 def asset_details(asset_id):
     asset = Asset.query.get_or_404(asset_id)
     return render_template('asset_details.html', asset=asset)
-
