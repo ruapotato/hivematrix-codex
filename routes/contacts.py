@@ -55,3 +55,20 @@ def contact_details(contact_id):
     company_assets = Asset.query.filter_by(company_account_number=contact.company_account_number).all()
     return render_template('contact_details.html', contact=contact, company_assets=company_assets)
 
+@contacts_bp.route('/edit/<int:contact_id>', methods=['POST'])
+def edit_contact(contact_id):
+    contact = Contact.query.get_or_404(contact_id)
+    if contact:
+        contact.name = request.form.get('name')
+        contact.email = request.form.get('email')
+        contact.title = request.form.get('title')
+        contact.employment_type = request.form.get('employment_type')
+        contact.active = 'active' in request.form
+        contact.mobile_phone_number = request.form.get('mobile_phone_number')
+        contact.work_phone_number = request.form.get('work_phone_number')
+        contact.secondary_emails = request.form.get('secondary_emails')
+        db.session.commit()
+        flash('Contact details updated successfully.', 'success')
+    else:
+        flash('Contact not found.', 'danger')
+    return redirect(url_for('contacts.contact_details', contact_id=contact_id))

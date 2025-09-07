@@ -4,9 +4,11 @@
 
 {% block content %}
 <div class="w-full max-w-6xl mx-auto">
-    <h2 class="text-3xl font-bold text-center mb-6">{{ contact.name }}</h2>
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-center">{{ contact.name }}</h2>
+        <button class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md shadow-md" onclick="openEditContactModal()">Edit Contact</button>
+    </div>
 
-    <!-- Contact Info Card -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
         <h3 class="text-xl font-semibold mb-4 border-b pb-2">Contact Information</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
@@ -29,7 +31,6 @@
         </div>
     </div>
 
-    <!-- Associated Assets Card -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
         <h3 class="text-xl font-semibold mb-4">Associated Assets</h3>
         <div class="overflow-x-auto">
@@ -60,7 +61,6 @@
         </div>
     </div>
 
-    <!-- Manage Asset Associations Card -->
     <div class="bg-white p-6 rounded-lg shadow-md">
         <h3 class="text-xl font-semibold mb-4">Manage Asset Associations</h3>
         <p class="text-sm text-gray-600 mb-4">Select the assets from this contact's company to associate them.</p>
@@ -84,7 +84,71 @@
     </div>
 </div>
 
+<div id="editContactModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <form id="editContactForm" method="POST" action="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="editModalTitle">Edit Contact: {{ contact.name }}</h3>
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                        <input type="text" name="name" id="name" value="{{ contact.name }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" name="email" id="email" value="{{ contact.email }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
+                        <input type="text" name="title" id="title" value="{{ contact.title }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="employment_type" class="block text-sm font-medium text-gray-700">Employment Type</label>
+                        <input type="text" name="employment_type" id="employment_type" value="{{ contact.employment_type }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" name="active" id="active" {% if contact.active %}checked{% endif %} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                        <label for="active" class="ml-2 block text-sm text-gray-900">Active</label>
+                    </div>
+                    <div>
+                        <label for="mobile_phone_number" class="block text-sm font-medium text-gray-700">Mobile Phone</label>
+                        <input type="text" name="mobile_phone_number" id="mobile_phone_number" value="{{ contact.mobile_phone_number }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="work_phone_number" class="block text-sm font-medium text-gray-700">Work Phone</label>
+                        <input type="text" name="work_phone_number" id="work_phone_number" value="{{ contact.work_phone_number }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="secondary_emails" class="block text-sm font-medium text-gray-700">Secondary Emails</label>
+                        <input type="text" name="secondary_emails" id="secondary_emails" value="{{ contact.secondary_emails }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 sm:ml-3 sm:w-auto sm:text-sm">
+                    Save Changes
+                </button>
+                <button type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm" onclick="closeEditContactModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+  </div>
+</div>
+
 <script>
+function openEditContactModal() {
+    document.getElementById('editContactModal').classList.remove('hidden');
+}
+
+function closeEditContactModal() {
+    document.getElementById('editContactModal').classList.add('hidden');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // mailto: link for primary email
     const primaryEmailEl = document.getElementById('primary-email');
@@ -128,4 +192,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

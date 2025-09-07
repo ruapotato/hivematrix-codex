@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, request
-from models import Company
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from models import db, Company
 from sqlalchemy import asc, desc
 
 companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
@@ -32,3 +32,23 @@ def list_companies():
 def company_details(account_number):
     company = Company.query.get_or_404(account_number)
     return render_template('company_details.html', company=company)
+
+@companies_bp.route('/edit/<string:account_number>', methods=['POST'])
+def edit_company(account_number):
+    company = Company.query.get_or_404(account_number)
+    if company:
+        company.name = request.form.get('name')
+        company.description = request.form.get('description')
+        company.plan_selected = request.form.get('plan_selected')
+        company.profit_or_non_profit = request.form.get('profit_or_non_profit')
+        company.company_main_number = request.form.get('company_main_number')
+        company.address = request.form.get('address')
+        company.company_start_date = request.form.get('company_start_date')
+        company.head_name = request.form.get('head_name')
+        company.primary_contact_name = request.form.get('primary_contact_name')
+        company.domains = request.form.get('domains')
+        db.session.commit()
+        flash('Company details updated successfully.', 'success')
+    else:
+        flash('Company not found.', 'danger')
+    return redirect(url_for('companies.company_details', account_number=account_number))
