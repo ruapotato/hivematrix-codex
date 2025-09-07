@@ -19,6 +19,7 @@ app = Flask(__name__, instance_relative_config=True)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_secure_random_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(app.instance_path, 'nexus_brainhair.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.debug = True # Set debug mode here
 
 try:
     os.makedirs(app.instance_path)
@@ -108,7 +109,7 @@ def api_companies():
         'description': c.description, 'plan_selected': c.plan_selected,
         'profit_or_non_profit': c.profit_or_non_profit, 'company_main_number': c.company_main_number,
         'address': c.address, 'company_start_date': c.company_start_date,
-        'head_name': c.head_name, 'prime_user_name': c.prime_user_name, 'domains': c.domains
+        'head_name': c.head_name, 'primary_contact_name': c.primary_contact_name, 'domains': c.domains
     } for c in companies])
 
 @app.route('/api/companies/<string:account_number>', methods=['GET', 'PUT'])
@@ -120,18 +121,18 @@ def api_company_details(account_number):
 
     if request.method == 'PUT':
         data = request.get_json()
-        company.name = data.get('name', company.name)
-        company.datto_site_uid = data.get('datto_site_uid', company.datto_site_uid)
-        company.freshservice_id = data.get('freshservice_id', company.freshservice_id)
-        company.description = data.get('description', company.description)
-        company.plan_selected = data.get('plan_selected', company.plan_selected)
-        company.profit_or_non_profit = data.get('profit_or_non_profit', company.profit_or_non_profit)
-        company.company_main_number = data.get('company_main_number', company.company_main_number)
-        company.address = data.get('address', company.address)
-        company.company_start_date = data.get('company_start_date', company.company_start_date)
-        company.head_name = data.get('head_name', company.head_name)
-        company.prime_user_name = data.get('prime_user_name', company.prime_user_name)
-        company.domains = data.get('domains', company.domains)
+        if 'name' in data: company.name = data['name']
+        if 'datto_site_uid' in data: company.datto_site_uid = data['datto_site_uid']
+        if 'freshservice_id' in data: company.freshservice_id = data['freshservice_id']
+        if 'description' in data: company.description = data['description']
+        if 'plan_selected' in data: company.plan_selected = data['plan_selected']
+        if 'profit_or_non_profit' in data: company.profit_or_non_profit = data['profit_or_non_profit']
+        if 'company_main_number' in data: company.company_main_number = data['company_main_number']
+        if 'address' in data: company.address = data['address']
+        if 'company_start_date' in data: company.company_start_date = data['company_start_date']
+        if 'head_name' in data: company.head_name = data['head_name']
+        if 'primary_contact_name' in data: company.primary_contact_name = data['primary_contact_name']
+        if 'domains' in data: company.domains = data['domains']
         db.session.commit()
         return jsonify({'message': 'Company updated successfully'})
 
@@ -141,7 +142,7 @@ def api_company_details(account_number):
         'description': company.description, 'plan_selected': company.plan_selected,
         'profit_or_non_profit': company.profit_or_non_profit, 'company_main_number': company.company_main_number,
         'address': company.address, 'company_start_date': company.company_start_date,
-        'head_name': company.head_name, 'prime_user_name': company.prime_user_name, 'domains': company.domains
+        'head_name': company.head_name, 'primary_contact_name': company.primary_contact_name, 'domains': company.domains
     })
 
 @app.route('/api/assets', methods=['GET', 'POST'])
@@ -192,26 +193,26 @@ def api_asset_details(asset_id):
     if not asset:
         return jsonify({"error": "Asset not found"}), 404
     data = request.get_json()
-    asset.hostname = data.get('hostname', asset.hostname)
-    asset.company_account_number = data.get('company_account_number', asset.company_account_number)
-    asset.operating_system = data.get('operating_system', asset.operating_system)
-    asset.last_logged_in_user = data.get('last_logged_in_user', asset.last_logged_in_user)
-    asset.hardware_type = data.get('hardware_type', asset.hardware_type)
-    asset.antivirus_product = data.get('antivirus_product', asset.antivirus_product)
-    asset.description = data.get('description', asset.description)
-    asset.ext_ip_address = data.get('ext_ip_address', asset.ext_ip_address)
-    asset.int_ip_address = data.get('int_ip_address', asset.int_ip_address)
-    asset.domain = data.get('domain', asset.domain)
-    asset.last_audit_date = data.get('last_audit_date', asset.last_audit_date)
-    asset.last_reboot = data.get('last_reboot', asset.last_reboot)
-    asset.last_seen = data.get('last_seen', asset.last_seen)
-    asset.online = data.get('online', asset.online)
-    asset.patch_status = data.get('patch_status', asset.patch_status)
-    asset.backup_usage_tb = data.get('backup_usage_tb', asset.backup_usage_tb)
-    asset.enabled_administrators = data.get('enabled_administrators', asset.enabled_administrators)
-    asset.device_type = data.get('device_type', asset.device_type)
-    asset.portal_url = data.get('portal_url', asset.portal_url)
-    asset.web_remote_url = data.get('web_remote_url', asset.web_remote_url)
+    if 'hostname' in data: asset.hostname = data['hostname']
+    if 'company_account_number' in data: asset.company_account_number = data['company_account_number']
+    if 'operating_system' in data: asset.operating_system = data['operating_system']
+    if 'last_logged_in_user' in data: asset.last_logged_in_user = data['last_logged_in_user']
+    if 'hardware_type' in data: asset.hardware_type = data['hardware_type']
+    if 'antivirus_product' in data: asset.antivirus_product = data['antivirus_product']
+    if 'description' in data: asset.description = data['description']
+    if 'ext_ip_address' in data: asset.ext_ip_address = data['ext_ip_address']
+    if 'int_ip_address' in data: asset.int_ip_address = data['int_ip_address']
+    if 'domain' in data: asset.domain = data['domain']
+    if 'last_audit_date' in data: asset.last_audit_date = data['last_audit_date']
+    if 'last_reboot' in data: asset.last_reboot = data['last_reboot']
+    if 'last_seen' in data: asset.last_seen = data['last_seen']
+    if 'online' in data: asset.online = data['online']
+    if 'patch_status' in data: asset.patch_status = data['patch_status']
+    if 'backup_usage_tb' in data: asset.backup_usage_tb = data['backup_usage_tb']
+    if 'enabled_administrators' in data: asset.enabled_administrators = data['enabled_administrators']
+    if 'device_type' in data: asset.device_type = data['device_type']
+    if 'portal_url' in data: asset.portal_url = data['portal_url']
+    if 'web_remote_url' in data: asset.web_remote_url = data['web_remote_url']
     db.session.commit()
     return jsonify({'message': 'Asset updated successfully'})
 
@@ -226,10 +227,11 @@ def api_contacts():
             name=data['name'],
             email=data['email'],
             company_account_number=data['company_account_number'],
+            title=data.get('title'),
             active=data.get('active'),
             mobile_phone_number=data.get('mobile_phone_number'),
             work_phone_number=data.get('work_phone_number'),
-            secondary_emails=','.join(data.get('secondary_emails', []))
+            secondary_emails=data.get('secondary_emails')
         )
         db.session.add(new_contact)
         db.session.commit()
@@ -250,13 +252,15 @@ def api_contact_details(contact_id):
     if not contact:
         return jsonify({"error": "Contact not found"}), 404
     data = request.get_json()
-    contact.name = data.get('name', contact.name)
-    contact.email = data.get('email', contact.email)
-    contact.company_account_number = data.get('company_account_number', contact.company_account_number)
-    contact.active = data.get('active', contact.active)
-    contact.mobile_phone_number = data.get('mobile_phone_number', contact.mobile_phone_number)
-    contact.work_phone_number = data.get('work_phone_number', contact.work_phone_number)
-    contact.secondary_emails = ','.join(data.get('secondary_emails', []))
+    if 'name' in data: contact.name = data['name']
+    if 'email' in data: contact.email = data['email']
+    if 'company_account_number' in data: contact.company_account_number = data['company_account_number']
+    if 'title' in data: contact.title = data['title']
+    if 'employment_type' in data: contact.employment_type = data['employment_type']
+    if 'active' in data: contact.active = data['active']
+    if 'mobile_phone_number' in data: contact.mobile_phone_number = data['mobile_phone_number']
+    if 'work_phone_number' in data: contact.work_phone_number = data['work_phone_number']
+    if 'secondary_emails' in data: contact.secondary_emails = data['secondary_emails']
     db.session.commit()
     return jsonify({'message': 'Contact updated successfully'})
 
@@ -300,6 +304,9 @@ def schedule_jobs():
             )
 
 if __name__ == '__main__':
+    # The condition `not app.debug` is True in the parent reloader process,
+    # but the `WERKZEUG_RUN_MAIN` env var is only 'true' in the child process.
+    # This ensures the scheduler only starts once when in debug mode.
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         with app.app_context():
             db.create_all()
@@ -318,5 +325,5 @@ if __name__ == '__main__':
             scheduler.start()
             print("Scheduler started.")
 
-    app.run(debug=True)
+    app.run()
 

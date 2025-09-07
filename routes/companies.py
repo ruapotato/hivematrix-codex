@@ -11,7 +11,7 @@ def list_companies():
     sort_by = request.args.get('sort_by', 'name')
     order = request.args.get('order', 'asc')
 
-    valid_sort_columns = ['name', 'account_number', 'location']
+    valid_sort_columns = ['name', 'account_number']
     if sort_by not in valid_sort_columns:
         sort_by = 'name'
 
@@ -32,4 +32,3 @@ def list_companies():
 def company_details(account_number):
     company = Company.query.get_or_404(account_number)
     return render_template('company_details.html', company=company)
-

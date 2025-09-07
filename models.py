@@ -30,7 +30,6 @@ class Company(db.Model):
     __tablename__ = 'companies'
     account_number = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(150), nullable=False)
-    location = db.Column(db.String(200))
     freshservice_id = db.Column(db.Integer, unique=True)
     datto_site_uid = db.Column(db.String(100), unique=True)
     description = db.Column(db.Text)
@@ -40,7 +39,7 @@ class Company(db.Model):
     address = db.Column(db.String(255))
     company_start_date = db.Column(db.String(100))
     head_name = db.Column(db.String(150))
-    prime_user_name = db.Column(db.String(150))
+    primary_contact_name = db.Column(db.String(150))
     domains = db.Column(db.String(255))
 
     users = db.relationship('User', back_populates='company', lazy=True)
@@ -87,6 +86,8 @@ class Contact(db.Model):
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    title = db.Column(db.String(150))
+    employment_type = db.Column(db.String(100), nullable=False, default='Full Time')
 
     # New columns from Freshservice
     active = db.Column(db.Boolean)

@@ -11,15 +11,15 @@
         <h3 class="text-xl font-semibold mb-4 border-b pb-2">Company Information</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
             <div><strong>Account #:</strong> {{ company.account_number or 'N/A' }}</div>
-            <div><strong>Main Number:</strong> {{ company.company_main_number or 'N/A' }}</div>
-            <div><strong>Start Date:</strong> {{ company.company_start_date or 'N/A' }}</div>
+            <div><strong>Main Number:</strong> {% if company.company_main_number %}<a href="tel:{{ company.company_main_number }}" class="text-indigo-600 hover:underline">{{ company.company_main_number }}</a>{% else %}N/A{% endif %}</div>
+            <div><strong>Start Date:</strong> <span id="start-date">{{ company.company_start_date or 'N/A' }}</span></div>
             <div><strong>Business Type:</strong> {{ company.profit_or_non_profit or 'N/A' }}</div>
             <div><strong>Plan:</strong> {{ company.plan_selected or 'N/A' }}</div>
             <div class="md:col-span-2"><strong>Description:</strong> <span class="text-gray-600">{{ company.description or 'N/A' }}</span></div>
             <div class="md:col-span-2"><strong>Address:</strong> <span class="text-gray-600">{{ company.address or 'N/A' }}</span></div>
             <div><strong>Company Owner:</strong> {{ company.head_name or 'N/A' }}</div>
             <div><strong>Primary Contact:</strong> {{ company.primary_contact_name or 'N/A' }}</div>
-            <div><strong>Domains:</strong> {{ company.domains or 'N/A' }}</div>
+            <div class="md:col-span-2"><strong>Domains:</strong> <span id="domains-list">{{ company.domains or 'N/A' }}</span></div>
             <div><strong>Freshservice ID:</strong> {{ company.freshservice_id or 'N/A' }}</div>
             <div><strong>Datto Site UID:</strong> {{ company.datto_site_uid or 'N/A' }}</div>
         </div>
@@ -34,16 +34,24 @@
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associated Assets</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for contact in company.contacts %}
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ contact.name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.email }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="text-indigo-600 hover:text-indigo-900">Details</a>
+                             <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ contact.name }}</a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.email }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if contact.assets %}
+                                {% for asset in contact.assets %}
+                                    <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ asset.hostname }}</a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                N/A
+                            {% endif %}
                         </td>
                     </tr>
                     {% else %}
@@ -66,18 +74,36 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Type</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operating System</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associated User</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for asset in company.assets %}
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ asset.hostname }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ asset.hostname }}</a>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if asset.contacts %}
+                                {% for contact in asset.contacts %}
+                                    <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ contact.name }}</a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if asset.web_remote_url %}
+                            <a href="{{ asset.web_remote_url }}" target="_blank" class="py-1 px-3 bg-green-500 hover:bg-green-600 text-white text-xs rounded-md">Remote</a>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" class="px-6 py-4 text-center text-gray-500">No assets found for this company.</td>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">No assets found for this company.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -85,5 +111,49 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sanitize and format the start date
+    const dateEl = document.getElementById('start-date');
+    if (dateEl && dateEl.textContent && dateEl.textContent !== 'N/A') {
+        const date = new Date(dateEl.textContent);
+        if (!isNaN(date)) {
+            // Using toLocaleDateString to respect the user's local timezone and format
+            dateEl.textContent = date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+    }
+
+    // Sanitize and link domains
+    const domainsEl = document.getElementById('domains-list');
+    if (domainsEl && domainsEl.textContent && domainsEl.textContent !== 'N/A') {
+        try {
+            // It's stored as a stringified JSON array, e.g., "[\"domain.com\"]"
+            const domains = JSON.parse(domainsEl.textContent);
+            if (Array.isArray(domains) && domains.length > 0) {
+                domainsEl.innerHTML = ''; // Clear original content
+                domains.forEach((domain, index) => {
+                    if (index > 0) {
+                        domainsEl.append(document.createTextNode(', '));
+                    }
+                    const link = document.createElement('a');
+                    link.href = `http://${domain}`;
+                    link.textContent = domain;
+                    link.target = '_blank'; // Open in new tab
+                    link.className = 'text-indigo-600 hover:underline';
+                    domainsEl.appendChild(link);
+                });
+            }
+        } catch (e) {
+            console.error("Could not parse domains:", e);
+            // If it's not a valid JSON array string, just display the text.
+        }
+    }
+});
+</script>
 {% endblock %}
 

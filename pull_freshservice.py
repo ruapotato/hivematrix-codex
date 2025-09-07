@@ -135,6 +135,7 @@ def populate_database_via_api(companies_data, users_data, api_key):
             'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
             'email': user_data['primary_email'],
             'company_account_number': account_number,
+            'title': user_data.get('job_title'),
             'active': user_data.get('active'),
             'mobile_phone_number': user_data.get('mobile_phone_number'),
             'work_phone_number': user_data.get('work_phone_number'),
