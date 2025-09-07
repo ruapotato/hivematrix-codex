@@ -65,7 +65,7 @@
     </div>
 
     <!-- Scheduler Settings Section -->
-    <div class="bg-white p-6 rounded-lg shadow-md">
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
         <h3 class="text-xl font-semibold mb-4">Scheduler Settings</h3>
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -103,6 +103,48 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- Plan Management Section -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h3 class="text-xl font-semibold mb-4">Plan Management</h3>
+        <p class="text-sm text-gray-600 mb-4">Define the features included in each service plan. These settings are stored in `instance/nexus.conf`.</p>
+        <form action="{{ url_for('settings.update_plans') }}" method="POST">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                            {% for feature_name in features.keys() %}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ feature_name }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for plan_name in plan_names %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ plan_name }}</td>
+                            {% for feature_name, options in features.items() %}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% set feature_key = feature_name.lower().replace(' ', '_') %}
+                                {% set section_name = 'plan_' + plan_name.replace(' ', '_') %}
+                                {% set selected_value = plans[plan_name][feature_name] %}
+                                <select name="{{ section_name }}-{{ feature_key }}" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    {% for option in options %}
+                                    <option value="{{ option }}" {% if option == selected_value %}selected{% endif %}>{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button type="submit" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md">Save Plan Settings</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -216,4 +258,3 @@ function closeEditUserModal() {
 
 </script>
 {% endblock %}
-

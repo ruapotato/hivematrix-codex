@@ -47,7 +47,7 @@ def init_db():
 
         if not config.has_section('nexus'):
             config.add_section('nexus')
-        
+
         config.set('nexus', 'api_key', admin_api_key)
 
         # Add placeholder sections if they don't exist to guide the user
@@ -62,11 +62,46 @@ def init_db():
             config.set('datto', 'public_key', 'YOUR_DATTO_PUBLIC_KEY')
             config.set('datto', 'secret_key', 'YOUR_DATTO_SECRET_KEY')
 
+        # --- Configure Plans and Features ---
+        # Use generic placeholders. The user should customize these in nexus.conf
+        DEFAULT_PLAN_NAMES = ["Generic Plan"]
+        DEFAULT_FEATURES = {
+            "Generic Feature": ["Option A", "Option B", "Not Included"]
+        }
+
+        if not config.has_section('plans'):
+            print("Creating default 'plans' section in config.")
+            config.add_section('plans')
+            config.set('plans', 'plan_names', ','.join(DEFAULT_PLAN_NAMES))
+
+        if not config.has_section('features'):
+            print("Creating default 'features' section in config.")
+            config.add_section('features')
+            for feature, options in DEFAULT_FEATURES.items():
+                config.set('features', feature.lower().replace(' ', '_'), ','.join(options))
+
+        plan_names_str = config.get('plans', 'plan_names', fallback=','.join(DEFAULT_PLAN_NAMES))
+        plan_names = [p.strip() for p in plan_names_str.split(',')]
+
+        # Read feature keys from the config to ensure we use what's defined there
+        feature_keys = []
+        if config.has_section('features'):
+            feature_keys = [key for key, value in config.items('features')]
+
+        for plan_name in plan_names:
+            section_name = f"plan_{plan_name.replace(' ', '_')}"
+            if not config.has_section(section_name):
+                print(f"Creating section for plan: {plan_name}")
+                config.add_section(section_name)
+                for key in feature_keys:
+                    config.set(section_name, key, "Not Included")
+
         with open(config_path, 'w') as configfile:
             config.write(configfile)
-        
-        print("`nexus.conf` has been created/updated with the admin API key.")
+
+        print("`nexus.conf` has been created/updated with the admin API key and plan structure.")
 
 
 if __name__ == '__main__':
     init_db()
+

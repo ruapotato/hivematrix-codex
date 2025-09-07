@@ -91,7 +91,16 @@ def api_companies():
                 name=data['name'],
                 account_number=data['account_number'],
                 datto_site_uid=data.get('datto_site_uid'),
-                freshservice_id=data.get('freshservice_id')
+                freshservice_id=data.get('freshservice_id'),
+                description=data.get('description'),
+                plan_selected=data.get('plan_selected'),
+                profit_or_non_profit=data.get('profit_or_non_profit'),
+                company_main_number=data.get('company_main_number'),
+                address=data.get('address'),
+                company_start_date=data.get('company_start_date'),
+                head_name=data.get('head_name'),
+                primary_contact_name=data.get('primary_contact_name'),
+                domains=data.get('domains')
             )
             db.session.add(new_company)
             db.session.commit()
