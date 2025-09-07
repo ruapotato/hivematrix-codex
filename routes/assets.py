@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request
 from models import Asset, Company
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, or_
 
 assets_bp = Blueprint('assets', __name__, url_prefix='/assets')
 
@@ -10,8 +10,23 @@ def list_assets():
     per_page = request.args.get('per_page', 50, type=int)
     sort_by = request.args.get('sort_by', 'hostname')
     order = request.args.get('order', 'asc')
+    search_query = request.args.get('search', '')
 
     query = Asset.query
+
+    if search_query:
+        search_term = f'%{search_query}%'
+        query = query.join(Company).filter(or_(
+            Asset.hostname.ilike(search_term),
+            Asset.operating_system.ilike(search_term),
+            Asset.last_logged_in_user.ilike(search_term),
+            Asset.antivirus_product.ilike(search_term),
+            Asset.description.ilike(search_term),
+            Asset.ext_ip_address.ilike(search_term),
+            Asset.int_ip_address.ilike(search_term),
+            Asset.domain.ilike(search_term),
+            Company.name.ilike(search_term)
+        ))
 
     if sort_by == 'company':
         query = query.join(Asset.company)
@@ -39,7 +54,7 @@ def list_assets():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     assets = pagination.items
 
-    return render_template('assets.html', assets=assets, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page)
+    return render_template('assets.html', assets=assets, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, search_query=search_query)
 
 @assets_bp.route('/<int:asset_id>')
 def asset_details(asset_id):

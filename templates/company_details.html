@@ -14,7 +14,7 @@
             <h3 class="text-xl font-semibold mb-4 border-b pb-2">Company Information</h3>
             <div class="grid grid-cols-1 gap-y-4 text-gray-700">
                 <div><strong>Account #:</strong> {{ company.account_number or 'N/A' }}</div>
-                <div><strong>Plan:</strong> {{ company.plan_selected or 'N/A' }}</div>
+                <div><strong>Plan:</strong> <span id="company-plan-display">{{ company.plan_selected or 'N/A' }}</span></div>
                 <div>
                     <strong>Company Owner:</strong>
                     {% set owner_contact = company.contacts|selectattr('name', 'equalto', company.head_name)|first %}
@@ -45,9 +45,9 @@
 
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h3 class="text-xl font-semibold mb-4 border-b pb-2">Plan Features</h3>
-            <div class="grid grid-cols-1 gap-y-4 text-gray-700">
+            <div id="plan-features-list" class="grid grid-cols-1 gap-y-4 text-gray-700">
                 {% for feature, value in plan_features.items() %}
-                <div><strong>{{ feature }}:</strong> {{ value }}</div>
+                <div><strong>{{ feature }}:</strong> <span>{{ value }}</span></div>
                 {% else %}
                 <p class="text-gray-500">No plan features found for this company.</p>
                 {% endfor %}
@@ -196,52 +196,12 @@
                         <input type="text" name="name" id="name" value="{{ company.name }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                        <textarea name="description" id="description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">{{ company.description }}</textarea>
-                    </div>
-                    <div>
                         <label for="plan_selected" class="block text-sm font-medium text-gray-700">Plan Selected</label>
                         <select name="plan_selected" id="plan_selected" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                             {% for plan in plans %}
                             <option value="{{ plan }}" {% if plan == company.plan_selected %}selected{% endif %}>{{ plan }}</option>
                             {% endfor %}
                         </select>
-                    </div>
-                    <div>
-                        <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
-                        <select name="profit_or_non_profit" id="profit_or_non_profit" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="For Profit" {% if company.profit_or_non_profit == 'For Profit' %}selected{% endif %}>For Profit</option>
-                            <option value="Non-Profit" {% if company.profit_or_non_profit == 'Non-Profit' %}selected{% endif %}>Non-Profit</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="company_main_number" class="block text-sm font-medium text-gray-700">Main Number</label>
-                        <input type="text" name="company_main_number" id="company_main_number" value="{{ company.company_main_number }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    </div>
-                    <div>
-                        <label for="email_system" class="block text-sm font-medium text-gray-700">Email System</label>
-                        <select name="email_system" id="email_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="Microsoft 365" {% if company.email_system == 'Microsoft 365' %}selected{% endif %}>Microsoft 365</option>
-                            <option value="Google Workspace" {% if company.email_system == 'Google Workspace' %}selected{% endif %}>Google Workspace</option>
-                            <option value="Other Business Email" {% if company.email_system == 'Other Business Email' %}selected{% endif %}>Other Business Email</option>
-                            <option value="No Business Email" {% if company.email_system == 'No Business Email' %}selected{% endif %}>No Business Email</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="phone_system" class="block text-sm font-medium text-gray-700">Phone System</label>
-                        <select name="phone_system" id="phone_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="Zoom" {% if company.phone_system == 'Zoom' %}selected{% endif %}>Zoom</option>
-                            <option value="DFN" {% if company.phone_system == 'DFN' %}selected{% endif %}>DFN</option>
-                            <option value="Spectrum" {% if company.phone_system == 'Spectrum' %}selected{% endif %}>Spectrum</option>
-                            <option value="RingCentral" {% if company.phone_system == 'RingCentral' %}selected{% endif %}>RingCentral</option>
-                            <option value="Nextiva" {% if company.phone_system == 'Nextiva' %}selected{% endif %}>Nextiva</option>
-                            <option value="Other Business Phone" {% if company.phone_system == 'Other Business Phone' %}selected{% endif %}>Other Business Phone</option>
-                            <option value="No Business Phone" {% if company.phone_system == 'No Business Phone' %}selected{% endif %}>No Business Phone</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="company_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-                        <input type="text" name="company_start_date" id="company_start_date" value="{{ company.company_start_date.split('T')[0] if company.company_start_date else '' }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
                         <label for="head_name" class="block text-sm font-medium text-gray-700">Company Owner</label>
@@ -260,8 +220,48 @@
                         </select>
                     </div>
                     <div>
+                        <label for="company_main_number" class="block text-sm font-medium text-gray-700">Main Number</label>
+                        <input type="text" name="company_main_number" id="company_main_number" value="{{ company.company_main_number or '' }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
+                        <select name="profit_or_non_profit" id="profit_or_non_profit" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="For Profit" {% if company.profit_or_non_profit == 'For Profit' %}selected{% endif %}>For Profit</option>
+                            <option value="Non-Profit" {% if company.profit_or_non_profit == 'Non-Profit' %}selected{% endif %}>Non-Profit</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="phone_system" class="block text-sm font-medium text-gray-700">Phone System</label>
+                        <select name="phone_system" id="phone_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="Zoom" {% if company.phone_system == 'Zoom' %}selected{% endif %}>Zoom</option>
+                            <option value="DFN" {% if company.phone_system == 'DFN' %}selected{% endif %}>DFN</option>
+                            <option value="Spectrum" {% if company.phone_system == 'Spectrum' %}selected{% endif %}>Spectrum</option>
+                            <option value="RingCentral" {% if company.phone_system == 'RingCentral' %}selected{% endif %}>RingCentral</option>
+                            <option value="Nextiva" {% if company.phone_system == 'Nextiva' %}selected{% endif %}>Nextiva</option>
+                            <option value="Other Business Phone" {% if company.phone_system == 'Other Business Phone' %}selected{% endif %}>Other Business Phone</option>
+                            <option value="No Business Phone" {% if company.phone_system == 'No Business Phone' %}selected{% endif %}>No Business Phone</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="email_system" class="block text-sm font-medium text-gray-700">Email System</label>
+                        <select name="email_system" id="email_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="Microsoft 365" {% if company.email_system == 'Microsoft 365' %}selected{% endif %}>Microsoft 365</option>
+                            <option value="Google Workspace" {% if company.email_system == 'Google Workspace' %}selected{% endif %}>Google Workspace</option>
+                            <option value="Other Business Email" {% if company.email_system == 'Other Business Email' %}selected{% endif %}>Other Business Email</option>
+                            <option value="No Business Email" {% if company.email_system == 'No Business Email' %}selected{% endif %}>No Business Email</option>
+                        </select>
+                    </div>
+                    <div>
                         <label for="domains" class="block text-sm font-medium text-gray-700">Domains</label>
                         <input type="text" name="domains" id="domains" value="{{ domains_for_input }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="company_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
+                        <input type="date" name="company_start_date" id="company_start_date" value="{{ (company.company_start_date.split('T')[0] if company.company_start_date else '') }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea name="description" id="description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">{{ company.description or '' }}</textarea>
                     </div>
                     <div class="mt-6">
                         <h4 class="text-lg font-semibold mb-2">Feature Overrides</h4>
@@ -269,12 +269,19 @@
                         {% set feature_key = feature_name.lower().replace(' ', '_') %}
                         <div class="mt-4">
                             <label for="override-{{ feature_key }}" class="block text-sm font-medium text-gray-700">{{ feature_name }}</label>
-                            <select name="override-{{ feature_key }}" id="override-{{ feature_key }}" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                                {% set current_value = overrides.get(feature_key) or plan_features.get(feature_name) %}
-                                {% for option in options %}
-                                <option value="{{ option }}" {% if option == current_value %}selected{% endif %}>{{ option }}</option>
-                                {% endfor %}
-                            </select>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <input type="checkbox" name="override-{{ feature_key }}-enabled" id="override-{{ feature_key }}-enabled"
+                                       class="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                                       {% if overrides[feature_key] and overrides[feature_key].enabled %}checked{% endif %}>
+                                <select name="override-{{ feature_key }}" id="override-{{ feature_key }}"
+                                        class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                        {% if not (overrides[feature_key] and overrides[feature_key].enabled) %}disabled{% endif %}>
+                                    {% set current_value = overrides[feature_key].value if overrides[feature_key] else plan_features.get(feature_name) %}
+                                    {% for option in options %}
+                                    <option value="{{ option }}" {% if option == current_value %}selected{% endif %}>{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -366,8 +373,11 @@
     </div>
 </div>
 
-
 <script>
+// Data passed from the backend
+const allPlanFeatures = JSON.parse('{{ all_plan_features_json | safe }}');
+const currentOverrides = JSON.parse('{{ overrides | tojson | safe }}');
+
 // Company Modal Functions
 function openEditCompanyModal() {
     document.getElementById('editCompanyModal').classList.remove('hidden');
@@ -402,15 +412,15 @@ function closeEditLocationModal() {
 document.addEventListener('DOMContentLoaded', function() {
     // Sanitize and format the start date
     const dateEl = document.getElementById('start-date');
-    if (dateEl && dateEl.textContent && dateEl.textContent !== 'N/A') {
-        const date = new Date(dateEl.textContent.split('T')[0]);
+    if (dateEl && dateEl.textContent && dateEl.textContent.trim() !== 'N/A') {
+        // Assuming the date is in ISO format from the DB (e.g., "2025-09-07T00:00:00")
+        const date = new Date(dateEl.textContent.trim().split('T')[0] + 'T00:00:00'); // Normalize to UTC midnight
         if (!isNaN(date)) {
-            // Using toLocaleDateString to respect the user's local timezone and format
-            dateEl.textContent = date.toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
+            // Display as MM-DD-YYYY
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            dateEl.textContent = `${month}-${day}-${year}`;
         }
     }
 
@@ -418,7 +428,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const domainsEl = document.getElementById('domains-list');
     if (domainsEl && domainsEl.textContent && domainsEl.textContent !== 'N/A') {
         try {
-            // It's stored as a stringified JSON array, e.g., "[\"domain.com\"]"
             const domains = JSON.parse(domainsEl.textContent);
             if (Array.isArray(domains) && domains.length > 0) {
                 domainsEl.innerHTML = ''; // Clear original content
@@ -436,9 +445,75 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             console.error("Could not parse domains:", e);
-            // If it's not a valid JSON array string, just display the text.
         }
     }
+
+    // Dynamic Plan Feature Updates
+    const planSelector = document.getElementById('plan_selected');
+    planSelector.addEventListener('change', function() {
+        updateDisplayedFeatures();
+        updateOverrideDropdowns();
+    });
+
+    // Toggle override enable/disable
+    const overrideCheckboxes = document.querySelectorAll('input[id$="-enabled"]');
+    overrideCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const featureKey = this.id.replace('-enabled', '');
+            const selectElement = document.getElementById(featureKey);
+            selectElement.disabled = !this.checked;
+
+            if (!this.checked) {
+                const selectedPlanName = document.getElementById('plan_selected').value;
+                const planFeatures = allPlanFeatures[selectedPlanName];
+                const featureName = Object.keys(planFeatures).find(name => name.toLowerCase().replace(/ /g, '_') === featureKey);
+                if (featureName) {
+                    selectElement.value = planFeatures[featureName];
+                }
+            }
+
+            updateDisplayedFeatures();
+        });
+    });
 });
+
+function updateDisplayedFeatures() {
+    const selectedPlanName = document.getElementById('plan_selected').value;
+    const planFeatures = allPlanFeatures[selectedPlanName];
+    const planFeaturesList = document.getElementById('plan-features-list');
+
+    document.getElementById('company-plan-display').textContent = selectedPlanName;
+    planFeaturesList.innerHTML = '';
+
+    for (const featureName in planFeatures) {
+        const featureKey = featureName.toLowerCase().replace(/ /g, '_');
+        const overrideEnabledCheckbox = document.getElementById(`override-${featureKey}-enabled`);
+        const overrideSelect = document.getElementById(`override-${featureKey}`);
+
+        let displayValue = planFeatures[featureName];
+        if (overrideEnabledCheckbox && overrideEnabledCheckbox.checked) {
+            displayValue = overrideSelect.value;
+        }
+
+        const featureDiv = document.createElement('div');
+        featureDiv.innerHTML = `<strong>${featureName}:</strong> <span>${displayValue}</span>`;
+        planFeaturesList.appendChild(featureDiv);
+    }
+}
+
+function updateOverrideDropdowns() {
+    const selectedPlanName = document.getElementById('plan_selected').value;
+    const planFeatures = allPlanFeatures[selectedPlanName];
+
+    for (const featureName in planFeatures) {
+        const featureKey = featureName.toLowerCase().replace(/ /g, '_');
+        const overrideEnabledCheckbox = document.getElementById(`override-${featureKey}-enabled`);
+        const overrideSelect = document.getElementById(`override-${featureKey}`);
+
+        if (overrideEnabledCheckbox && !overrideEnabledCheckbox.checked) {
+            overrideSelect.value = planFeatures[featureName];
+        }
+    }
+}
 </script>
 {% endblock %}

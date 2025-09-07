@@ -6,6 +6,10 @@
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold">Assets</h1>
     <div class="flex items-center space-x-4">
+        <form method="GET" action="{{ url_for('assets.list_assets') }}" class="flex items-center">
+            <input type="text" name="search" placeholder="Search..." value="{{ search_query or '' }}" class="form-input rounded-l-md border-gray-300">
+            <button type="submit" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-r-md">Search</button>
+        </form>
         <div class="flex items-center space-x-2">
             <span class="text-sm text-gray-700">Show</span>
             <select id="per_page_selector" class="form-select text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">

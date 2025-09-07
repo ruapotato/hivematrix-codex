@@ -119,6 +119,7 @@ class CompanyFeatureOverride(db.Model):
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
     feature_key = db.Column(db.String(100), nullable=False)
     value = db.Column(db.String(100), nullable=False)
+    override_enabled = db.Column(db.Boolean, nullable=False, default=True)
 
     company = db.relationship('Company', back_populates='feature_overrides')
 
