@@ -5,9 +5,14 @@ import os
 import sys
 import configparser
 from datetime import datetime
+import warnings
+
+# Suppress InsecureRequestWarning for self-signed certs in development
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # --- API Configuration ---
-NEXUS_API_URL = 'http://127.0.0.1:5000/api'
+NEXUS_API_URL = 'https://127.0.0.1:5000/api'
 DATTO_VARIABLE_NAME = "AccountNumber"
 
 def get_config():
@@ -25,7 +30,9 @@ def get_config():
 def get_nexus_token(username, password):
     """Authenticates with the Nexus API and returns a JWT."""
     try:
-        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10)
+        # NOTE: verify=False is used here for local development with a self-signed certificate.
+        # In a production environment, you would use a trusted certificate and remove this.
+        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10, verify=False)
         response.raise_for_status()
         token = response.json().get('token')
         if not token:
@@ -126,7 +133,8 @@ def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
         datto_uid = site.get('uid')
         account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME) or '000000'
 
-        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers)
+        # NOTE: verify=False is used for local dev with a self-signed cert. Remove in production.
+        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
         if response.status_code == 404:
              print(f" -> Company with account number '{account_number}' not found. Creating new entry for '{site['name']}'.")
              company_payload = {
@@ -134,12 +142,12 @@ def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
                 'account_number': account_number,
                 'datto_site_uid': datto_uid
              }
-             post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+             post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False)
              post_response.raise_for_status()
         else:
             response.raise_for_status() # Check for other errors on the GET
             company_payload = {'name': site['name'], 'datto_site_uid': datto_uid}
-            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False)
             put_response.raise_for_status()
             print(f" -> Found company '{site['name']}'. Fetching devices...")
 
@@ -170,16 +178,16 @@ def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
                     'portal_url': device_data.get('portalUrl'),
                     'web_remote_url': device_data.get('webRemoteUrl'),
                 }
-                get_asset_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number})
+                get_asset_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number}, verify=False)
                 get_asset_response.raise_for_status()
                 asset_data = get_asset_response.json()
 
                 if not asset_data:
-                    post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload)
+                    post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload, verify=False)
                     post_asset_response.raise_for_status()
                 else:
                     asset_id = asset_data[0]['id']
-                    put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload)
+                    put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload, verify=False)
                     put_asset_response.raise_for_status()
     print(" -> Finished processing assets.")
 

@@ -7,9 +7,14 @@ import sys
 import time
 import configparser
 import json
+import warnings
+
+# Suppress InsecureRequestWarning for self-signed certs in development
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # --- API Configuration ---
-NEXUS_API_URL = 'http://127.0.0.1:5000/api'
+NEXUS_API_URL = 'https://127.0.0.1:5000/api'
 ACCOUNT_NUMBER_FIELD = "account_number"
 
 def get_config():
@@ -27,7 +32,9 @@ def get_config():
 def get_nexus_token(username, password):
     """Authenticates with the Nexus API and returns a JWT."""
     try:
-        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10)
+        # NOTE: verify=False is used here for local development with a self-signed certificate.
+        # In a production environment, you would use a trusted certificate and remove this.
+        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10, verify=False)
         response.raise_for_status()
         token = response.json().get('token')
         if not token:
@@ -103,7 +110,8 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
             print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
             continue
 
-        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers)
+        # NOTE: verify=False is used for local dev with a self-signed cert. Remove in production.
+        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
 
         company_payload = {
             'name': company_data['name'],
@@ -122,12 +130,12 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
 
         if response.status_code == 404:
             print(f" -> Creating new company: {company_data['name']}")
-            post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+            post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False)
             post_response.raise_for_status()
         else:
             response.raise_for_status()
             print(f" -> Updating existing company: {company_data['name']}")
-            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False)
             put_response.raise_for_status()
 
     print(" -> Finished processing companies.")
@@ -140,7 +148,7 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
         account_number = None
         if user_data.get('department_ids'):
             fs_company_id = user_data['department_ids'][0]
-            comp_response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id})
+            comp_response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id}, verify=False)
             comp_response.raise_for_status()
             company_data_nexus = comp_response.json()
             if company_data_nexus:
@@ -150,7 +158,7 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
             print(f" -> Skipping contact for {user_data['primary_email']} as their associated company is not in Nexus.")
             continue
 
-        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']})
+        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']}, verify=False)
         contact_response.raise_for_status()
         existing_contact = contact_response.json()
 
@@ -166,11 +174,11 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
         }
 
         if not existing_contact:
-            post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload)
+            post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False)
             post_contact_response.raise_for_status()
         else:
             contact_id = existing_contact[0]['id']
-            put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload)
+            put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False)
             put_contact_response.raise_for_status()
 
     print(" -> Finished processing contacts.")

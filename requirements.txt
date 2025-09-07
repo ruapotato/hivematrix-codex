@@ -5,3 +5,4 @@ Werkzeug
 requests
 apscheduler
 PyJWT
+cryptography

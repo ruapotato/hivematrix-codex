@@ -361,5 +361,18 @@ if __name__ == '__main__':
         if not scheduler.running:
             scheduler.start()
             print("Scheduler started.")
+    
+    # Check for SSL certificates and run with HTTPS for local development
+    cert_path = os.path.join('certs', 'cert.pem')
+    key_path = os.path.join('certs', 'key.pem')
 
-    app.run()
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        print("Starting Flask server with HTTPS on 0.0.0.0:5000...")
+        app.run(host='0.0.0.0', ssl_context=(cert_path, key_path))
+    else:
+        print("\n--- WARNING ---")
+        print("SSL certificates not found. The server will run on standard HTTP on 0.0.0.0:5000.")
+        print("For a secure local connection, please run 'python gen_certs.py' first.")
+        print("---------------\n")
+        app.run(host='0.0.0.0')
+

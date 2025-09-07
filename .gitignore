@@ -3,6 +3,8 @@ pyenv
 nexus.conf
 *.conf
 *.json
+certs/
+*.pem
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
