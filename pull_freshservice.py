@@ -100,10 +100,10 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
     headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
     print("\nStarting database population...")
 
-    processed_emails = set()
-
-    # Create a mapping of Freshservice department ID to user data
+    fs_dept_id_to_account_number = {}
     users_by_department = {}
+
+    # Pre-process users to group them by department
     for user in users_data:
         for dept_id in user.get('department_ids', []):
             if dept_id not in users_by_department:
@@ -122,113 +122,76 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
             print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
             continue
 
-        # NOTE: verify=False is used for local dev with a self-signed cert. Remove in production.
-        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
+        fs_dept_id_to_account_number[fs_id] = str(account_number)
 
+        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
         company_payload = {
-            'name': company_data['name'],
-            'account_number': str(account_number),
-            'freshservice_id': fs_id,
-            'description': company_data.get('description'),
-            'plan_selected': custom_fields.get('plan_selected'),
-            'profit_or_non_profit': custom_fields.get('profit_or_non_profit'),
-            'company_main_number': main_phone,
-            'company_start_date': custom_fields.get('company_start_date'),
-            'head_name': company_data.get('head_name'),
-            'primary_contact_name': company_data.get('prime_user_name'),
-            'domains': json.dumps(company_data.get('domains', []))
+            'name': company_data['name'], 'account_number': str(account_number), 'freshservice_id': fs_id,
+            'description': company_data.get('description'), 'plan_selected': custom_fields.get('plan_selected'),
+            'profit_or_non_profit': custom_fields.get('profit_or_non_profit'), 'company_main_number': main_phone,
+            'company_start_date': custom_fields.get('company_start_date'), 'head_name': company_data.get('head_name'),
+            'primary_contact_name': company_data.get('prime_user_name'), 'domains': json.dumps(company_data.get('domains', []))
         }
 
         if response.status_code == 404:
             print(f" -> Creating new company: {company_data['name']}")
-            post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False)
-            post_response.raise_for_status()
+            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False).raise_for_status()
         else:
             response.raise_for_status()
             print(f" -> Updating existing company: {company_data['name']}")
-            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False)
-            put_response.raise_for_status()
+            requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False).raise_for_status()
 
-        # Create or Update the "Main Office" location
         if address:
-            # This part of the script runs outside of the Flask app context,
-            # so we need to interact with the database directly.
-            from models import db, Company, Location
+            from models import db, Location
             from main import app
             with app.app_context():
                 location = Location.query.filter_by(company_account_number=account_number, name="Main Office").first()
                 if not location:
-                    location = Location(
-                        name="Main Office",
-                        company_account_number=account_number
-                    )
+                    location = Location(name="Main Office", company_account_number=account_number)
                     db.session.add(location)
                 location.address = address
                 location.phone_number = main_phone
                 db.session.commit()
                 print(f"   -> Synced 'Main Office' location for {company_data['name']}")
 
-        # Now, process contacts for this company
-        nexus_contacts_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'company_account_number': account_number}, verify=False)
-        if nexus_contacts_response.status_code != 200:
-            print(f"   -> FAILED to get contacts for company '{company_data['name']}': {nexus_contacts_response.text}", file=sys.stderr)
+    print(" -> Finished processing companies.")
+    print("\nProcessing contacts...")
+
+    # Process Users/Contacts
+    for user_data in users_data:
+        email = user_data.get('primary_email')
+        if not email:
             continue
 
-        nexus_contacts_by_email = {contact['email']: contact for contact in nexus_contacts_response.json()}
+        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': email}, verify=False)
+        contact_response.raise_for_status()
+        existing_contact_list = contact_response.json()
+        existing_contact = existing_contact_list[0] if existing_contact_list else None
 
-        freshservice_contacts_for_company = users_by_department.get(fs_id, [])
-        freshservice_emails = set()
+        fs_company_account_numbers = {fs_dept_id_to_account_number.get(dept_id) for dept_id in user_data.get('department_ids', []) if fs_dept_id_to_account_number.get(dept_id)}
 
-        for user_data in freshservice_contacts_for_company:
-            email = user_data.get('primary_email')
-            if not email:
-                continue
+        contact_payload = {
+            'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+            'email': email, 'title': user_data.get('job_title'), 'active': user_data.get('active'),
+            'mobile_phone_number': user_data.get('mobile_phone_number'), 'work_phone_number': user_data.get('work_phone_number'),
+            'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
+        }
 
-            if email in processed_emails:
-                continue
+        if not existing_contact:
+            contact_payload['company_account_numbers'] = list(fs_company_account_numbers)
+            requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False).raise_for_status()
+        else:
+            contact_id = existing_contact['id']
+            detailed_contact_res = requests.get(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, verify=False)
+            detailed_contact_res.raise_for_status()
+            nexus_company_account_numbers = set(detailed_contact_res.json().get('company_account_numbers', []))
 
-            freshservice_emails.add(email)
-            processed_emails.add(email)
+            all_account_numbers = nexus_company_account_numbers.union(fs_company_account_numbers)
+            contact_payload['company_account_numbers'] = list(all_account_numbers)
 
-            contact_payload = {
-                'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
-                'email': email,
-                'company_account_number': str(account_number),
-                'title': user_data.get('job_title'),
-                'active': user_data.get('active'),
-                'mobile_phone_number': user_data.get('mobile_phone_number'),
-                'work_phone_number': user_data.get('work_phone_number'),
-                'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
-            }
+            requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False).raise_for_status()
 
-            existing_contact = nexus_contacts_by_email.get(email)
-
-            if not existing_contact:
-                post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False)
-                post_contact_response.raise_for_status()
-            else:
-                contact_id = existing_contact['id']
-                put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False)
-                put_contact_response.raise_for_status()
-
-        # Deactivate contacts that are in Nexus but not in Freshservice for this company
-        nexus_emails = set(nexus_contacts_by_email.keys())
-        emails_to_deactivate = nexus_emails - freshservice_emails
-
-        if emails_to_deactivate:
-            print(f"   -> Deactivating {len(emails_to_deactivate)} contact(s) for '{company_data['name']}'...")
-            for email in emails_to_deactivate:
-                contact_to_deactivate = nexus_contacts_by_email[email]
-                contact_id = contact_to_deactivate['id']
-                if contact_to_deactivate.get('active', True):
-                    deactivate_payload = {'active': False}
-                    put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=deactivate_payload, verify=False)
-                    if put_contact_response.status_code == 200:
-                        print(f"      -> Deactivated contact '{email}' (ID: {contact_id})")
-                    else:
-                        print(f"      -> FAILED to deactivate contact '{email}' (ID: {contact_id}): {put_contact_response.text}", file=sys.stderr)
-
-    print(" -> Finished processing companies and contacts.")
+    print(" -> Finished processing contacts.")
 
 
 # --- Main Execution ---
@@ -263,3 +226,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
+

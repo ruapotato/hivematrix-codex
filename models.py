@@ -26,6 +26,11 @@ class User(UserMixin, db.Model):
     def regenerate_api_key(self):
         self.api_key = secrets.token_hex(32)
 
+contact_company_link = db.Table('contact_company_link',
+    db.Column('contact_id', db.Integer, db.ForeignKey('contacts.id'), primary_key=True),
+    db.Column('company_account_number', db.String(50), db.ForeignKey('companies.account_number'), primary_key=True)
+)
+
 class Company(db.Model):
     __tablename__ = 'companies'
     account_number = db.Column(db.String(50), primary_key=True)
@@ -42,10 +47,9 @@ class Company(db.Model):
     email_system = db.Column(db.String(100), default='No Business Email')
     phone_system = db.Column(db.String(100), default='No Business Phone')
 
-
     users = db.relationship('User', back_populates='company', lazy=True)
     assets = db.relationship('Asset', back_populates='company', lazy=True)
-    contacts = db.relationship('Contact', back_populates='company', lazy=True)
+    # The 'contacts' attribute is now created by the backref in the Contact model
     feature_overrides = db.relationship('CompanyFeatureOverride', back_populates='company', lazy='dynamic', cascade="all, delete-orphan")
     locations = db.relationship('Location', back_populates='company', lazy=True, cascade="all, delete-orphan")
     datto_site_links = db.relationship('DattoSiteLink', back_populates='company', lazy=True, cascade="all, delete-orphan")
@@ -65,6 +69,7 @@ class Asset(db.Model):
     last_logged_in_user = db.Column(db.String(150))
 
     # New columns from Datto RMM
+    datto_site_name = db.Column(db.String(150))
     antivirus_product = db.Column(db.String(100))
     description = db.Column(db.Text)
     ext_ip_address = db.Column(db.String(50))
@@ -89,7 +94,6 @@ class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
     title = db.Column(db.String(150))
     employment_type = db.Column(db.String(100), nullable=False, default='Full Time')
 
@@ -99,7 +103,7 @@ class Contact(db.Model):
     work_phone_number = db.Column(db.String(50))
     secondary_emails = db.Column(db.String(255))
 
-    company = db.relationship('Company', back_populates='contacts')
+    companies = db.relationship('Company', secondary=contact_company_link, backref='contacts')
     assets = db.relationship('Asset', secondary='asset_contact_link', back_populates='contacts')
 
 class SchedulerJob(db.Model):
@@ -140,3 +144,4 @@ class DattoSiteLink(db.Model):
     datto_site_uid = db.Column(db.String(100), unique=True, nullable=False)
 
     company = db.relationship('Company', back_populates='datto_site_links')
+

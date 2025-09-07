@@ -92,7 +92,7 @@
                         <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ contact.name }}</a>
                     </td>
                     <td data-column="email" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.email }}</td>
-                    <td data-column="company" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.company.name if contact.company else 'N/A' }}</td>
+                    <td data-column="company" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.companies|map(attribute='name')|join(', ') if contact.companies else 'N/A' }}</td>
                     <td data-column="active" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ 'Yes' if contact.active else 'No' }}</td>
                     <td data-column="mobile_phone_number" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.mobile_phone_number or 'N/A' }}</td>
                     <td data-column="work_phone_number" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ contact.work_phone_number or 'N/A' }}</td>
@@ -163,9 +163,8 @@
                         <input type="email" name="email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
-                        <label for="company_account_number" class="block text-sm font-medium text-gray-700">Company</label>
-                        <select name="company_account_number" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="">-- Select Company --</option>
+                        <label for="company_account_numbers" class="block text-sm font-medium text-gray-700">Company</label>
+                        <select name="company_account_numbers" multiple required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                             {% for company in companies %}
                                 <option value="{{ company.account_number }}">{{ company.name }}</option>
                             {% endfor %}

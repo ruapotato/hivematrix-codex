@@ -21,6 +21,7 @@
         <h3 class="text-xl font-semibold mb-4 border-b pb-2">Device Information</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-gray-700">
             <div><strong>Company:</strong> <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}" class="text-indigo-600 hover:underline">{{ asset.company.name or 'N/A' }}</a></div>
+            <div><strong>Datto Site:</strong> {{ asset.datto_site_name or 'N/A' }}</div>
             <div><strong>Description:</strong> {{ asset.description or 'N/A' }}</div>
             <div><strong>Domain:</strong> {{ asset.domain or 'N/A' }}</div>
 
@@ -82,3 +83,4 @@
     </div>
 </div>
 {% endblock %}
+

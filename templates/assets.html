@@ -48,6 +48,9 @@
                     <th data-column="company" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         <a href="{{ url_for('assets.list_assets', sort_by='company', order='desc' if sort_by == 'company' and order == 'asc' else 'asc', per_page=per_page) }}">Company {% if sort_by == 'company' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
+                    <th data-column="datto_site_name" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        <a href="{{ url_for('assets.list_assets', sort_by='datto_site_name', order='desc' if sort_by == 'datto_site_name' and order == 'asc' else 'asc', per_page=per_page) }}">Datto Site {% if sort_by == 'datto_site_name' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
+                    </th>
                     <th data-column="description" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                         <a href="{{ url_for('assets.list_assets', sort_by='description', order='desc' if sort_by == 'description' and order == 'asc' else 'asc', per_page=per_page) }}">Description {% if sort_by == 'description' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</a>
                     </th>
@@ -96,6 +99,7 @@
                         <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ asset.hostname }}</a>
                     </td>
                     <td data-column="company" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.company.name if asset.company else 'N/A' }}</td>
+                    <td data-column="datto_site_name" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.datto_site_name or 'N/A' }}</td>
                     <td data-column="description" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.description or 'N/A' }}</td>
                     <td data-column="domain" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.domain or 'N/A' }}</td>
                     <td data-column="hardware_type" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.hardware_type or 'N/A' }}</td>
@@ -179,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const columns = {
         'hostname': 'Hostname',
         'company': 'Company',
+        'datto_site_name': 'Datto Site',
         'description': 'Description',
         'domain': 'Domain',
         'hardware_type': 'Hardware Type',
@@ -200,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let savedVisibility = JSON.parse(localStorage.getItem(storageKey));
     if (!savedVisibility) {
         savedVisibility = {
-            'hostname': true, 'company': true, 'description': false, 'domain': false,
+            'hostname': true, 'company': true, 'datto_site_name': true, 'description': false, 'domain': false,
             'hardware_type': true, 'device_type': true, 'operating_system': true,
             'int_ip_address': false, 'ext_ip_address': false, 'last_logged_in_user': false,
             'antivirus_product': true, 'patch_status': true, 'online': true,
@@ -256,3 +261,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+

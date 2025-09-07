@@ -187,6 +187,7 @@ def api_assets(current_user):
         new_asset = Asset(
             hostname=data.get('hostname'),
             company_account_number=data.get('company_account_number'),
+            datto_site_name=data.get('datto_site_name'),
             operating_system=data.get('operating_system'),
             last_logged_in_user=data.get('last_logged_in_user'),
             hardware_type=data.get('hardware_type'),
@@ -235,6 +236,7 @@ def api_asset_details(current_user, asset_id):
     data = request.get_json()
     if 'hostname' in data: asset.hostname = data['hostname']
     if 'company_account_number' in data: asset.company_account_number = data['company_account_number']
+    if 'datto_site_name' in data: asset.datto_site_name = data['datto_site_name']
     if 'operating_system' in data: asset.operating_system = data['operating_system']
     if 'last_logged_in_user' in data: asset.last_logged_in_user = data['last_logged_in_user']
     if 'hardware_type' in data: asset.hardware_type = data['hardware_type']
@@ -261,25 +263,32 @@ def api_asset_details(current_user, asset_id):
 def api_contacts(current_user):
     if request.method == 'POST':
         data = request.get_json()
-        if not data or 'name' not in data or 'email' not in data or 'company_account_number' not in data:
-            return jsonify({"error": "Missing name, email, or company_account_number"}), 400
+        if not data or 'name' not in data or 'email' not in data:
+            return jsonify({"error": "Missing name or email"}), 400
+
         new_contact = Contact(
             name=data['name'],
             email=data['email'],
-            company_account_number=data['company_account_number'],
             title=data.get('title'),
-            active=data.get('active'),
+            active=data.get('active', True),
             mobile_phone_number=data.get('mobile_phone_number'),
             work_phone_number=data.get('work_phone_number'),
             secondary_emails=data.get('secondary_emails')
         )
+
+        if 'company_account_numbers' in data:
+            for acc_num in data['company_account_numbers']:
+                company = db.session.get(Company, acc_num)
+                if company:
+                    new_contact.companies.append(company)
+
         db.session.add(new_contact)
         db.session.commit()
         return jsonify({'message': 'Contact created successfully', 'id': new_contact.id}), 201
 
     query = Contact.query
     if 'company_account_number' in request.args:
-        query = query.filter_by(company_account_number=request.args['company_account_number'])
+        query = query.join(Contact.companies).filter(Company.account_number == request.args['company_account_number'])
     if 'email' in request.args:
         query = query.filter_by(email=request.args['email'])
 
@@ -287,22 +296,43 @@ def api_contacts(current_user):
     return jsonify([{'id': c.id, 'name': c.name, 'email': c.email, 'active': c.active} for c in contacts])
 
 
-@app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
+@app.route('/api/contacts/<int:contact_id>', methods=['GET', 'PUT'])
 @token_required(permission_level=['admin', 'technician'])
 def api_contact_details(current_user, contact_id):
     contact = db.session.get(Contact, contact_id)
     if not contact:
         return jsonify({"error": "Contact not found"}), 404
+
+    if request.method == 'GET':
+        return jsonify({
+            'id': contact.id,
+            'name': contact.name,
+            'email': contact.email,
+            'title': contact.title,
+            'active': contact.active,
+            'mobile_phone_number': contact.mobile_phone_number,
+            'work_phone_number': contact.work_phone_number,
+            'secondary_emails': contact.secondary_emails,
+            'company_account_numbers': [c.account_number for c in contact.companies]
+        })
+
     data = request.get_json()
     if 'name' in data: contact.name = data['name']
     if 'email' in data: contact.email = data['email']
-    if 'company_account_number' in data: contact.company_account_number = data['company_account_number']
     if 'title' in data: contact.title = data['title']
     if 'employment_type' in data: contact.employment_type = data['employment_type']
     if 'active' in data: contact.active = data['active']
     if 'mobile_phone_number' in data: contact.mobile_phone_number = data['mobile_phone_number']
     if 'work_phone_number' in data: contact.work_phone_number = data['work_phone_number']
     if 'secondary_emails' in data: contact.secondary_emails = data['secondary_emails']
+
+    if 'company_account_numbers' in data:
+        contact.companies = []
+        for acc_num in data['company_account_numbers']:
+            company = db.session.get(Company, acc_num)
+            if company:
+                contact.companies.append(company)
+
     db.session.commit()
     return jsonify({'message': 'Contact updated successfully'})
 
@@ -413,3 +443,4 @@ if __name__ == '__main__':
         print("For a secure local connection, please run 'python gen_certs.py' first.")
         print("---------------\n")
         app.run(host='0.0.0.0')
+

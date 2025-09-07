@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from models import db, Contact, Asset, Company
 from decorators import admin_required
 from sqlalchemy import asc, desc, func, or_
+from sqlalchemy.orm import joinedload
 import json
 
 contacts_bp = Blueprint('contacts', __name__, url_prefix='/contacts')
@@ -16,12 +17,14 @@ def list_contacts():
     show_inactive = request.args.get('show_inactive', 'false').lower() == 'true'
 
     query = Contact.query
+
     if not show_inactive:
-        query = query.filter_by(active=True)
+        query = query.filter(Contact.active == True)
 
     if search_query:
         search_term = f'%{search_query}%'
-        query = query.join(Company).filter(or_(
+        # Join for searching by company name
+        query = query.outerjoin(Contact.companies).filter(or_(
             Contact.name.ilike(search_term),
             Contact.email.ilike(search_term),
             Contact.title.ilike(search_term),
@@ -31,7 +34,8 @@ def list_contacts():
         ))
 
     if sort_by == 'company':
-        query = query.join(Contact.company)
+        # Join for sorting
+        query = query.join(Contact.companies)
         if order == 'desc':
             query = query.order_by(desc(Company.name))
         else:
@@ -52,21 +56,24 @@ def list_contacts():
         else:
             query = query.order_by(asc(column_to_sort))
 
+    # Apply distinct to prevent duplicates from joins
+    query = query.distinct()
+
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     contacts = pagination.items
-    companies = Company.query.order_by(Company.name).all()
+    all_companies = Company.query.order_by(Company.name).all()
 
-    return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, companies=companies, search_query=search_query, show_inactive=show_inactive)
+    return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, companies=all_companies, search_query=search_query, show_inactive=show_inactive)
 
 @contacts_bp.route('/add', methods=['POST'])
 def add_contact():
     """Adds a new contact."""
     name = request.form.get('name')
     email = request.form.get('email')
-    company_account_number = request.form.get('company_account_number')
+    company_account_numbers = request.form.getlist('company_account_numbers')
 
-    if not all([name, email, company_account_number]):
-        flash('Name, email, and company are required fields.', 'danger')
+    if not all([name, email, company_account_numbers]):
+        flash('Name, email, and at least one company are required fields.', 'danger')
         return redirect(url_for('contacts.list_contacts'))
 
     if Contact.query.filter_by(email=email).first():
@@ -76,12 +83,17 @@ def add_contact():
     new_contact = Contact(
         name=name,
         email=email,
-        company_account_number=company_account_number,
         title=request.form.get('title'),
         work_phone_number=request.form.get('work_phone_number'),
         mobile_phone_number=request.form.get('mobile_phone_number'),
         active=True
     )
+
+    for acc_num in company_account_numbers:
+        company = db.session.get(Company, acc_num)
+        if company:
+            new_contact.companies.append(company)
+
     db.session.add(new_contact)
     db.session.commit()
     flash(f"Contact '{name}' created successfully.", 'success')
@@ -90,6 +102,8 @@ def add_contact():
 @contacts_bp.route('/<int:contact_id>', methods=['GET', 'POST'])
 def contact_details(contact_id):
     contact = Contact.query.get_or_404(contact_id)
+    all_companies = Company.query.order_by(Company.name).all()
+
     if request.method == 'POST':
         # Link assets
         asset_ids = request.form.getlist('asset_ids')
@@ -102,8 +116,9 @@ def contact_details(contact_id):
         flash('Contact assets updated successfully.', 'success')
         return redirect(url_for('contacts.contact_details', contact_id=contact_id))
 
-    # Correctly query assets based on the company's account number
-    company_assets = Asset.query.filter_by(company_account_number=contact.company_account_number).all()
+    # Correctly query assets based on all associated companies
+    company_account_numbers = [c.account_number for c in contact.companies]
+    company_assets = Asset.query.filter(Asset.company_account_number.in_(company_account_numbers)).all()
 
     # Sanitize secondary emails for the edit modal input
     secondary_emails_for_input = ''
@@ -117,7 +132,7 @@ def contact_details(contact_id):
         except (json.JSONDecodeError, TypeError):
             secondary_emails_for_input = contact.secondary_emails
 
-    return render_template('contact_details.html', contact=contact, company_assets=company_assets, secondary_emails_for_input=secondary_emails_for_input)
+    return render_template('contact_details.html', contact=contact, company_assets=company_assets, all_companies=all_companies, secondary_emails_for_input=secondary_emails_for_input)
 
 @contacts_bp.route('/edit/<int:contact_id>', methods=['POST'])
 def edit_contact(contact_id):
@@ -135,6 +150,14 @@ def edit_contact(contact_id):
         emails_list = [email.strip() for email in raw_secondary_emails.split(',') if email.strip()]
         contact.secondary_emails = json.dumps(emails_list)
 
+        # Update company associations
+        company_account_numbers = request.form.getlist('company_account_numbers')
+        contact.companies = []
+        for acc_num in company_account_numbers:
+            company = db.session.get(Company, acc_num)
+            if company:
+                contact.companies.append(company)
+
         db.session.commit()
         flash('Contact details updated successfully.', 'success')
     else:
@@ -149,6 +172,7 @@ def delete_contact(contact_id):
     if contact:
         # Manually clear the asset associations to be safe.
         contact.assets = []
+        contact.companies = []
         db.session.commit()
 
         db.session.delete(contact)
@@ -158,3 +182,4 @@ def delete_contact(contact_id):
         flash('Contact not found.', 'danger')
 
     return redirect(url_for('contacts.list_contacts'))
+

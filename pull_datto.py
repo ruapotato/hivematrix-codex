@@ -161,6 +161,7 @@ def process_datto_data(sites, access_token, api_endpoint, nexus_token):
 
             for site in site_list:
                 datto_uid = site.get('uid')
+                site_name = site.get('name') # Get the site name
                 link = DattoSiteLink.query.filter_by(datto_site_uid=datto_uid).first()
                 if not link:
                     link = DattoSiteLink(company_account_number=account_number, datto_site_uid=datto_uid)
@@ -182,6 +183,7 @@ def process_datto_data(sites, access_token, api_endpoint, nexus_token):
                         asset_payload = {
                             'hostname': hostname,
                             'company_account_number': account_number,
+                            'datto_site_name': site_name, # Add site name to payload
                             'operating_system': device_data.get('operatingSystem'),
                             'last_logged_in_user': device_data.get('lastLoggedInUser'),
                             'hardware_type': (device_data.get('deviceType') or {}).get('category'),
@@ -258,3 +260,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
+

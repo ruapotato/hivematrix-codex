@@ -26,7 +26,16 @@
                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>
                 {% endif %}
             </div>
-            <div><strong>Company:</strong> <a href="{{ url_for('companies.company_details', account_number=contact.company.account_number) }}" class="text-indigo-600 hover:underline">{{ contact.company.name or 'N/A' }}</a></div>
+            <div class="md:col-span-2">
+                <strong>Companies:</strong>
+                {% if contact.companies %}
+                    {% for company in contact.companies %}
+                        <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}" class="text-indigo-600 hover:underline">{{ company.name }}</a>{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                {% else %}
+                    N/A
+                {% endif %}
+            </div>
             <div><strong>Title:</strong> {{ contact.title or 'N/A' }}</div>
             <div><strong>Employment Type:</strong> {{ contact.employment_type or 'N/A' }}</div>
             <div><strong>Primary Email:</strong> <a id="primary-email" href="#" class="text-indigo-600 hover:underline">{{ contact.email or 'N/A' }}</a></div>
@@ -86,6 +95,17 @@
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
                         <input type="email" name="email" id="email" value="{{ contact.email }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="company_account_numbers" class="block text-sm font-medium text-gray-700">Companies</label>
+                        <select name="company_account_numbers" id="company_account_numbers" multiple class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-40">
+                            {% set associated_company_nums = contact.companies|map(attribute='account_number')|list %}
+                            {% for company in all_companies %}
+                                <option value="{{ company.account_number }}" {% if company.account_number in associated_company_nums %}selected{% endif %}>
+                                    {{ company.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div>
                         <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
@@ -224,3 +244,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
