@@ -36,16 +36,19 @@ class Company(db.Model):
     plan_selected = db.Column(db.String(100))
     profit_or_non_profit = db.Column(db.String(50))
     company_main_number = db.Column(db.String(50))
-    address = db.Column(db.String(255))
     company_start_date = db.Column(db.String(100))
     head_name = db.Column(db.String(150))
     primary_contact_name = db.Column(db.String(150))
     domains = db.Column(db.String(255))
+    email_system = db.Column(db.String(100), default='No Business Email')
+    phone_system = db.Column(db.String(100), default='No Business Phone')
+
 
     users = db.relationship('User', back_populates='company', lazy=True)
     assets = db.relationship('Asset', back_populates='company', lazy=True)
     contacts = db.relationship('Contact', back_populates='company', lazy=True)
     feature_overrides = db.relationship('CompanyFeatureOverride', back_populates='company', lazy='dynamic', cascade="all, delete-orphan")
+    locations = db.relationship('Location', back_populates='company', lazy=True, cascade="all, delete-orphan")
 
 asset_contact_link = db.Table('asset_contact_link',
     db.Column('asset_id', db.Integer, db.ForeignKey('assets.id'), primary_key=True),
@@ -118,3 +121,13 @@ class CompanyFeatureOverride(db.Model):
     value = db.Column(db.String(100), nullable=False)
 
     company = db.relationship('Company', back_populates='feature_overrides')
+
+class Location(db.Model):
+    __tablename__ = 'locations'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    address = db.Column(db.String(255))
+    phone_number = db.Column(db.String(50))
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+
+    company = db.relationship('Company', back_populates='locations')

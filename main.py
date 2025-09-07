@@ -5,10 +5,10 @@ import configparser
 import jwt
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from extensions import db, scheduler
-from models import User, Company, Asset, Contact, SchedulerJob
+from models import User, Company, Asset, Contact, SchedulerJob, Location
 from routes.companies import companies_bp
 from routes.contacts import contacts_bp
 from routes.assets import assets_bp
@@ -88,7 +88,7 @@ def get_token():
             'user_id': user.id,
             'permission_level': user.permission_level,
             'company_account_number': user.company_account_number,
-            'exp': datetime.utcnow() + timedelta(hours=24) # Token expires in 24 hours
+            'exp': datetime.now(timezone.utc) + timedelta(hours=24) # Token expires in 24 hours
         }, app.config['SECRET_KEY'], algorithm="HS256")
         return jsonify({'token': token})
 
@@ -117,7 +117,6 @@ def api_companies(current_user):
                 plan_selected=data.get('plan_selected'),
                 profit_or_non_profit=data.get('profit_or_non_profit'),
                 company_main_number=data.get('company_main_number'),
-                address=data.get('address'),
                 company_start_date=data.get('company_start_date'),
                 head_name=data.get('head_name'),
                 primary_contact_name=data.get('primary_contact_name'),
@@ -138,7 +137,7 @@ def api_companies(current_user):
         'datto_site_uid': c.datto_site_uid,
         'description': c.description, 'plan_selected': c.plan_selected,
         'profit_or_non_profit': c.profit_or_non_profit, 'company_main_number': c.company_main_number,
-        'address': c.address, 'company_start_date': c.company_start_date,
+        'company_start_date': c.company_start_date,
         'head_name': c.head_name, 'primary_contact_name': c.primary_contact_name, 'domains': c.domains
     } for c in companies])
 
@@ -163,7 +162,6 @@ def api_company_details(current_user, account_number):
         if 'plan_selected' in data: company.plan_selected = data['plan_selected']
         if 'profit_or_non_profit' in data: company.profit_or_non_profit = data['profit_or_non_profit']
         if 'company_main_number' in data: company.company_main_number = data['company_main_number']
-        if 'address' in data: company.address = data['address']
         if 'company_start_date' in data: company.company_start_date = data['company_start_date']
         if 'head_name' in data: company.head_name = data['head_name']
         if 'primary_contact_name' in data: company.primary_contact_name = data['primary_contact_name']
@@ -176,7 +174,7 @@ def api_company_details(current_user, account_number):
         'freshservice_id': company.freshservice_id, 'datto_site_uid': company.datto_site_uid,
         'description': company.description, 'plan_selected': company.plan_selected,
         'profit_or_non_profit': company.profit_or_non_profit, 'company_main_number': company.company_main_number,
-        'address': company.address, 'company_start_date': company.company_start_date,
+        'company_start_date': company.company_start_date,
         'head_name': company.head_name, 'primary_contact_name': company.primary_contact_name, 'domains': company.domains
     })
 
@@ -361,7 +359,7 @@ if __name__ == '__main__':
         if not scheduler.running:
             scheduler.start()
             print("Scheduler started.")
-    
+
     # Check for SSL certificates and run with HTTPS for local development
     cert_path = os.path.join('certs', 'cert.pem')
     key_path = os.path.join('certs', 'key.pem')
@@ -375,4 +373,3 @@ if __name__ == '__main__':
         print("For a secure local connection, please run 'python gen_certs.py' first.")
         print("---------------\n")
         app.run(host='0.0.0.0')
-

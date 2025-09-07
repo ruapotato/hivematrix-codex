@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
-from models import db, Company, CompanyFeatureOverride
+from models import db, Company, CompanyFeatureOverride, Location
 from sqlalchemy import asc, desc
 import configparser
 import json
@@ -19,6 +19,10 @@ def load_plans_from_config(config):
     if config.has_section('features'):
         for key, value in config.items('features'):
             feature_name = key.replace('_', ' ').title()
+            if 'Sat' in feature_name:
+                feature_name = feature_name.replace('Sat', 'SAT')
+            if 'Soc' in feature_name:
+                feature_name = feature_name.replace('Soc', 'SOC')
             options = [opt.strip() for opt in value.split(',')]
             features[feature_name] = options
     else:
@@ -94,10 +98,11 @@ def edit_company(account_number):
         company.plan_selected = request.form.get('plan_selected')
         company.profit_or_non_profit = request.form.get('profit_or_non_profit')
         company.company_main_number = request.form.get('company_main_number')
-        company.address = request.form.get('address')
         company.company_start_date = request.form.get('company_start_date', '').split('T')[0]
         company.head_name = request.form.get('head_name')
         company.primary_contact_name = request.form.get('primary_contact_name')
+        company.email_system = request.form.get('email_system')
+        company.phone_system = request.form.get('phone_system')
 
         raw_domains = request.form.get('domains', '')
         domains_list = [domain.strip() for domain in raw_domains.split(',') if domain.strip()]
@@ -123,4 +128,51 @@ def edit_company(account_number):
         flash('Company details updated successfully.', 'success')
     else:
         flash('Company not found.', 'danger')
+    return redirect(url_for('companies.company_details', account_number=account_number))
+
+@companies_bp.route('/<string:account_number>/locations/add', methods=['POST'])
+def add_location(account_number):
+    company = Company.query.get_or_404(account_number)
+    name = request.form.get('name')
+    address = request.form.get('address')
+    phone_number = request.form.get('phone_number')
+
+    if name:
+        new_location = Location(
+            name=name,
+            address=address,
+            phone_number=phone_number,
+            company_account_number=company.account_number
+        )
+        db.session.add(new_location)
+        db.session.commit()
+        flash('New location added successfully.', 'success')
+    else:
+        flash('Location name is required.', 'danger')
+    return redirect(url_for('companies.company_details', account_number=account_number))
+
+@companies_bp.route('/<string:account_number>/locations/edit/<int:location_id>', methods=['POST'])
+def edit_location(account_number, location_id):
+    location = Location.query.get_or_404(location_id)
+    if location.company_account_number != account_number:
+        flash('Invalid location.', 'danger')
+        return redirect(url_for('companies.company_details', account_number=account_number))
+
+    location.name = request.form.get('name')
+    location.address = request.form.get('address')
+    location.phone_number = request.form.get('phone_number')
+    db.session.commit()
+    flash('Location updated successfully.', 'success')
+    return redirect(url_for('companies.company_details', account_number=account_number))
+
+@companies_bp.route('/<string:account_number>/locations/delete/<int:location_id>', methods=['POST'])
+def delete_location(account_number, location_id):
+    location = Location.query.get_or_404(location_id)
+    if location.company_account_number != account_number:
+        flash('Invalid location.', 'danger')
+        return redirect(url_for('companies.company_details', account_number=account_number))
+
+    db.session.delete(location)
+    db.session.commit()
+    flash('Location deleted successfully.', 'success')
     return redirect(url_for('companies.company_details', account_number=account_number))

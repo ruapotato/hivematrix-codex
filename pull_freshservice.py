@@ -105,6 +105,8 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
         custom_fields = company_data.get('custom_fields', {})
         account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
         fs_id = company_data.get('id')
+        address = custom_fields.get('address')
+        main_phone = custom_fields.get('company_main_number')
 
         if not account_number:
             print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
@@ -120,8 +122,7 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
             'description': company_data.get('description'),
             'plan_selected': custom_fields.get('plan_selected'),
             'profit_or_non_profit': custom_fields.get('profit_or_non_profit'),
-            'company_main_number': custom_fields.get('company_main_number'),
-            'address': custom_fields.get('address'),
+            'company_main_number': main_phone,
             'company_start_date': custom_fields.get('company_start_date'),
             'head_name': company_data.get('head_name'),
             'primary_contact_name': company_data.get('prime_user_name'),
@@ -137,6 +138,25 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
             print(f" -> Updating existing company: {company_data['name']}")
             put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False)
             put_response.raise_for_status()
+
+        # Create or Update the "Main Office" location
+        if address:
+            # This part of the script runs outside of the Flask app context,
+            # so we need to interact with the database directly.
+            from models import db, Company, Location
+            from main import app
+            with app.app_context():
+                location = Location.query.filter_by(company_account_number=account_number, name="Main Office").first()
+                if not location:
+                    location = Location(
+                        name="Main Office",
+                        company_account_number=account_number
+                    )
+                    db.session.add(location)
+                location.address = address
+                location.phone_number = main_phone
+                db.session.commit()
+                print(f"   -> Synced 'Main Office' location for {company_data['name']}")
 
     print(" -> Finished processing companies.")
 

@@ -21,6 +21,10 @@ def load_plans_from_config(config):
     if config.has_section('features'):
         for key, value in config.items('features'):
             feature_name = key.replace('_', ' ').title()
+            if 'Sat' in feature_name:
+                feature_name = feature_name.replace('Sat', 'SAT')
+            if 'Soc' in feature_name:
+                feature_name = feature_name.replace('Soc', 'SOC')
             options = [opt.strip() for opt in value.split(',')]
             features[feature_name] = options
     else:
@@ -118,4 +122,3 @@ def update_plans():
     current_app.config['NEXUS_CONFIG'] = config
     flash('Plan settings have been updated successfully.', 'success')
     return redirect(url_for('settings.settings_page'))
-
