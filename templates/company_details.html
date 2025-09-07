@@ -137,13 +137,13 @@
     </div>
 
     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Assets</h3>
+        <h3 class="text-xl font-semibold mb-4 border-b pb-2">Assets ({{ company.assets|length }})</h3>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hostname</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Type</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hardware Type</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operating System</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associated User</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -155,7 +155,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" class="text-indigo-600 hover:text-indigo-900">{{ asset.hostname }}</a>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.device_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.hardware_type }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ asset.operating_system }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {% if asset.contacts %}
@@ -187,108 +187,116 @@
   <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
     <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
         <form id="editCompanyForm" method="POST" action="{{ url_for('companies.edit_company', account_number=company.account_number) }}">
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="editModalTitle">Edit Company: {{ company.name }}</h3>
-                <div class="mt-4 space-y-4">
-                    <div>
-                        <label for="account_number" class="block text-sm font-medium text-gray-700">Account #</label>
-                        <input type="text" name="account_number" id="account_number" value="{{ company.account_number }}" readonly class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
-                    </div>
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700">Company Name</label>
-                        <input type="text" name="name" id="name" value="{{ company.name }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    </div>
-                    <div>
-                        <label for="plan_selected" class="block text-sm font-medium text-gray-700">Plan Selected</label>
-                        <select name="plan_selected" id="plan_selected" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            {% for plan in plans %}
-                            <option value="{{ plan }}" {% if plan == company.plan_selected %}selected{% endif %}>{{ plan }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label for="head_name" class="block text-sm font-medium text-gray-700">Company Owner</label>
-                        <select name="head_name" id="head_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            {% for contact in contacts %}
-                            <option value="{{ contact.name }}" {% if contact.name == company.head_name %}selected{% endif %}>{{ contact.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label for="primary_contact_name" class="block text-sm font-medium text-gray-700">Primary Contact</label>
-                        <select name="primary_contact_name" id="primary_contact_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            {% for contact in contacts %}
-                            <option value="{{ contact.name }}" {% if contact.name == company.primary_contact_name %}selected{% endif %}>{{ contact.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label for="company_main_number" class="block text-sm font-medium text-gray-700">Main Number</label>
-                        <input type="text" name="company_main_number" id="company_main_number" value="{{ company.company_main_number or '' }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    </div>
-                    <div>
-                        <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
-                        <select name="profit_or_non_profit" id="profit_or_non_profit" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="For Profit" {% if company.profit_or_non_profit == 'For Profit' %}selected{% endif %}>For Profit</option>
-                            <option value="Non-Profit" {% if company.profit_or_non_profit == 'Non-Profit' %}selected{% endif %}>Non-Profit</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="phone_system" class="block text-sm font-medium text-gray-700">Phone System</label>
-                        <select name="phone_system" id="phone_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="Zoom" {% if company.phone_system == 'Zoom' %}selected{% endif %}>Zoom</option>
-                            <option value="DFN" {% if company.phone_system == 'DFN' %}selected{% endif %}>DFN</option>
-                            <option value="Spectrum" {% if company.phone_system == 'Spectrum' %}selected{% endif %}>Spectrum</option>
-                            <option value="RingCentral" {% if company.phone_system == 'RingCentral' %}selected{% endif %}>RingCentral</option>
-                            <option value="Nextiva" {% if company.phone_system == 'Nextiva' %}selected{% endif %}>Nextiva</option>
-                            <option value="Other Business Phone" {% if company.phone_system == 'Other Business Phone' %}selected{% endif %}>Other Business Phone</option>
-                            <option value="No Business Phone" {% if company.phone_system == 'No Business Phone' %}selected{% endif %}>No Business Phone</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="email_system" class="block text-sm font-medium text-gray-700">Email System</label>
-                        <select name="email_system" id="email_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="Microsoft 365" {% if company.email_system == 'Microsoft 365' %}selected{% endif %}>Microsoft 365</option>
-                            <option value="Google Workspace" {% if company.email_system == 'Google Workspace' %}selected{% endif %}>Google Workspace</option>
-                            <option value="Other Business Email" {% if company.email_system == 'Other Business Email' %}selected{% endif %}>Other Business Email</option>
-                            <option value="No Business Email" {% if company.email_system == 'No Business Email' %}selected{% endif %}>No Business Email</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="domains" class="block text-sm font-medium text-gray-700">Domains</label>
-                        <input type="text" name="domains" id="domains" value="{{ domains_for_input }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    </div>
-                    <div>
-                        <label for="company_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-                        <input type="date" name="company_start_date" id="company_start_date" value="{{ (company.company_start_date.split('T')[0] if company.company_start_date else '') }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    </div>
-                    <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                        <textarea name="description" id="description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">{{ company.description or '' }}</textarea>
-                    </div>
-                    <div class="mt-6">
-                        <h4 class="text-lg font-semibold mb-2">Feature Overrides</h4>
-                        {% for feature_name, options in features.items() %}
-                        {% set feature_key = feature_name.lower().replace(' ', '_') %}
-                        <div class="mt-4">
-                            <label for="override-{{ feature_key }}" class="block text-sm font-medium text-gray-700">{{ feature_name }}</label>
-                            <div class="flex items-center space-x-2 mt-1">
-                                <input type="checkbox" name="override-{{ feature_key }}-enabled" id="override-{{ feature_key }}-enabled"
-                                       class="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                                       {% if overrides[feature_key] and overrides[feature_key].enabled %}checked{% endif %}>
-                                <select name="override-{{ feature_key }}" id="override-{{ feature_key }}"
-                                        class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                        {% if not (overrides[feature_key] and overrides[feature_key].enabled) %}disabled{% endif %}>
-                                    {% set current_value = overrides[feature_key].value if overrides[feature_key] else plan_features.get(feature_name) %}
-                                    {% for option in options %}
-                                    <option value="{{ option }}" {% if option == current_value %}selected{% endif %}>{{ option }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6">
+
+                    <!-- Left Column -->
+                    <div class="space-y-4">
+                        <div>
+                            <label for="account_number" class="block text-sm font-medium text-gray-700">Account #</label>
+                            <input type="text" name="account_number" id="account_number" value="{{ company.account_number }}" readonly class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
                         </div>
-                        {% endfor %}
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Company Name</label>
+                            <input type="text" name="name" id="name" value="{{ company.name }}" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="plan_selected" class="block text-sm font-medium text-gray-700">Plan Selected</label>
+                            <select name="plan_selected" id="plan_selected" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                {% for plan in plans %}
+                                <option value="{{ plan }}" {% if plan == company.plan_selected %}selected{% endif %}>{{ plan }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="head_name" class="block text-sm font-medium text-gray-700">Company Owner</label>
+                            <select name="head_name" id="head_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                {% for contact in contacts %}
+                                <option value="{{ contact.name }}" {% if contact.name == company.head_name %}selected{% endif %}>{{ contact.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="primary_contact_name" class="block text-sm font-medium text-gray-700">Primary Contact</label>
+                            <select name="primary_contact_name" id="primary_contact_name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                {% for contact in contacts %}
+                                <option value="{{ contact.name }}" {% if contact.name == company.primary_contact_name %}selected{% endif %}>{{ contact.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="company_main_number" class="block text-sm font-medium text-gray-700">Main Number</label>
+                            <input type="text" name="company_main_number" id="company_main_number" value="{{ company.company_main_number or '' }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
+                            <select name="profit_or_non_profit" id="profit_or_non_profit" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <option value="For Profit" {% if company.profit_or_non_profit == 'For Profit' %}selected{% endif %}>For Profit</option>
+                                <option value="Non-Profit" {% if company.profit_or_non_profit == 'Non-Profit' %}selected{% endif %}>Non-Profit</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="phone_system" class="block text-sm font-medium text-gray-700">Phone System</label>
+                            <select name="phone_system" id="phone_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <option value="Zoom" {% if company.phone_system == 'Zoom' %}selected{% endif %}>Zoom</option>
+                                <option value="DFN" {% if company.phone_system == 'DFN' %}selected{% endif %}>DFN</option>
+                                <option value="Spectrum" {% if company.phone_system == 'Spectrum' %}selected{% endif %}>Spectrum</option>
+                                <option value="RingCentral" {% if company.phone_system == 'RingCentral' %}selected{% endif %}>RingCentral</option>
+                                <option value="Nextiva" {% if company.phone_system == 'Nextiva' %}selected{% endif %}>Nextiva</option>
+                                <option value="Other Business Phone" {% if company.phone_system == 'Other Business Phone' %}selected{% endif %}>Other Business Phone</option>
+                                <option value="No Business Phone" {% if company.phone_system == 'No Business Phone' %}selected{% endif %}>No Business Phone</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="email_system" class="block text-sm font-medium text-gray-700">Email System</label>
+                            <select name="email_system" id="email_system" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <option value="Microsoft 365" {% if company.email_system == 'Microsoft 365' %}selected{% endif %}>Microsoft 365</option>
+                                <option value="Google Workspace" {% if company.email_system == 'Google Workspace' %}selected{% endif %}>Google Workspace</option>
+                                <option value="Other Business Email" {% if company.email_system == 'Other Business Email' %}selected{% endif %}>Other Business Email</option>
+                                <option value="No Business Email" {% if company.email_system == 'No Business Email' %}selected{% endif %}>No Business Email</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="domains" class="block text-sm font-medium text-gray-700">Domains</label>
+                            <input type="text" name="domains" id="domains" value="{{ domains_for_input }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="company_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" name="company_start_date" id="company_start_date" value="{{ (company.company_start_date.split('T')[0] if company.company_start_date else '') }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea name="description" id="description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">{{ company.description or '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div>
+                        <h4 class="text-lg font-semibold mb-2">Feature Overrides</h4>
+                        <div class="space-y-4">
+                            {% for feature_name, options in features.items() %}
+                            {% set feature_key = feature_name.lower().replace(' ', '_') %}
+                            <div>
+                                <label for="override-{{ feature_key }}" class="block text-sm font-medium text-gray-700">{{ feature_name }}</label>
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <input type="checkbox" name="override-{{ feature_key }}-enabled" id="override-{{ feature_key }}-enabled"
+                                           class="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                                           {% if overrides[feature_key] and overrides[feature_key].enabled %}checked{% endif %}>
+                                    <select name="override-{{ feature_key }}" id="override-{{ feature_key }}"
+                                            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                            {% if not (overrides[feature_key] and overrides[feature_key].enabled) %}disabled{% endif %}>
+                                        {% set current_value = overrides[feature_key].value if overrides[feature_key] else plan_features.get(feature_name) %}
+                                        {% for option in options %}
+                                        <option value="{{ option }}" {% if option == current_value %}selected{% endif %}>{{ option }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>

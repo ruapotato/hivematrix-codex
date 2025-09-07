@@ -31,7 +31,6 @@ class Company(db.Model):
     account_number = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     freshservice_id = db.Column(db.Integer, unique=True)
-    datto_site_uid = db.Column(db.String(100), unique=True)
     description = db.Column(db.Text)
     plan_selected = db.Column(db.String(100))
     profit_or_non_profit = db.Column(db.String(50))
@@ -49,6 +48,7 @@ class Company(db.Model):
     contacts = db.relationship('Contact', back_populates='company', lazy=True)
     feature_overrides = db.relationship('CompanyFeatureOverride', back_populates='company', lazy='dynamic', cascade="all, delete-orphan")
     locations = db.relationship('Location', back_populates='company', lazy=True, cascade="all, delete-orphan")
+    datto_site_links = db.relationship('DattoSiteLink', back_populates='company', lazy=True, cascade="all, delete-orphan")
 
 asset_contact_link = db.Table('asset_contact_link',
     db.Column('asset_id', db.Integer, db.ForeignKey('assets.id'), primary_key=True),
@@ -132,3 +132,11 @@ class Location(db.Model):
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
 
     company = db.relationship('Company', back_populates='locations')
+
+class DattoSiteLink(db.Model):
+    __tablename__ = 'datto_site_links'
+    id = db.Column(db.Integer, primary_key=True)
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    datto_site_uid = db.Column(db.String(100), unique=True, nullable=False)
+
+    company = db.relationship('Company', back_populates='datto_site_links')

@@ -113,7 +113,6 @@ def api_companies(current_user):
             new_company = Company(
                 name=data['name'],
                 account_number=data['account_number'],
-                datto_site_uid=data.get('datto_site_uid'),
                 freshservice_id=data.get('freshservice_id'),
                 description=data.get('description'),
                 plan_selected=data.get('plan_selected'),
@@ -136,7 +135,6 @@ def api_companies(current_user):
     return jsonify([{
         'account_number': c.account_number, 'name': c.name,
         'freshservice_id': c.freshservice_id,
-        'datto_site_uid': c.datto_site_uid,
         'description': c.description, 'plan_selected': c.plan_selected,
         'profit_or_non_profit': c.profit_or_non_profit, 'company_main_number': c.company_main_number,
         'company_start_date': c.company_start_date,
@@ -158,7 +156,6 @@ def api_company_details(current_user, account_number):
             return jsonify({"error": "Clients cannot update company details"}), 403
         data = request.get_json()
         if 'name' in data: company.name = data['name']
-        if 'datto_site_uid' in data: company.datto_site_uid = data['datto_site_uid']
         if 'freshservice_id' in data: company.freshservice_id = data['freshservice_id']
         if 'description' in data: company.description = data['description']
         if 'plan_selected' in data: company.plan_selected = data['plan_selected']
@@ -173,7 +170,7 @@ def api_company_details(current_user, account_number):
 
     return jsonify({
         'account_number': company.account_number, 'name': company.name,
-        'freshservice_id': company.freshservice_id, 'datto_site_uid': company.datto_site_uid,
+        'freshservice_id': company.freshservice_id,
         'description': company.description, 'plan_selected': company.plan_selected,
         'profit_or_non_profit': company.profit_or_non_profit, 'company_main_number': company.company_main_number,
         'company_start_date': company.company_start_date,

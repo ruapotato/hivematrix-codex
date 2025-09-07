@@ -1,5 +1,3 @@
-# ruapotato/hivematrix-nexus/hivematrix-nexus-main/pull_datto.py
-
 import requests
 import os
 import sys
@@ -123,99 +121,113 @@ def bytes_to_tb(b):
     except (ValueError, TypeError):
         return None
 
-def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
+def process_datto_data(sites, access_token, api_endpoint, nexus_token):
     if not nexus_token:
         print("Cannot proceed without a Nexus API token.", file=sys.stderr)
         return
+
     headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
-    print("\nProcessing sites and devices...")
+    from main import app
+    from models import db, Company, DattoSiteLink
+
+    # Group sites by account number
+    sites_by_account = {}
+    print("\nGrouping Datto sites by AccountNumber...")
     for site in sites:
-        datto_uid = site.get('uid')
-        account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME) or '000000'
-
-        # NOTE: verify=False is used for local dev with a self-signed cert. Remove in production.
-        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
-        if response.status_code == 404:
-             print(f" -> Company with account number '{account_number}' not found. Creating new entry for '{site['name']}'.")
-             company_payload = {
-                'name': site['name'] if account_number != '000000' else 'Unknown',
-                'account_number': account_number,
-                'datto_site_uid': datto_uid
-             }
-             post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False)
-             post_response.raise_for_status()
+        account_number = get_site_variable(api_endpoint, access_token, site['uid'], DATTO_VARIABLE_NAME)
+        if account_number:
+            if account_number not in sites_by_account:
+                sites_by_account[account_number] = []
+            sites_by_account[account_number].append(site)
         else:
-            response.raise_for_status() # Check for other errors on the GET
-            company_payload = {'name': site['name'], 'datto_site_uid': datto_uid}
-            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False)
-            put_response.raise_for_status()
-            print(f" -> Found company '{site['name']}'. Fetching devices...")
+            print(f" -> WARNING: No AccountNumber for site '{site['name']}'. Skipping.")
 
-        # Get all assets currently in Nexus for this company
-        nexus_assets_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'company_account_number': account_number}, verify=False)
-        nexus_assets_response.raise_for_status()
-        nexus_assets_by_hostname = {asset['hostname']: asset for asset in nexus_assets_response.json()}
+    print("Processing companies and their assets...")
+    with app.app_context():
+        for account_number, site_list in sites_by_account.items():
+            company = db.session.get(Company, account_number)
+            if not company:
+                print(f" -> WARNING: Company with account '{account_number}' not in Nexus. Skipping {len(site_list)} site(s).")
+                continue
 
-        devices = get_devices_for_site(api_endpoint, access_token, site['uid'])
-        datto_hostnames = set()
+            print(f"\n--- Processing Company: {company.name} ({account_number}) ---")
 
-        if devices:
-            print(f"   -> Found {len(devices)} devices. Syncing with database...")
-            for device_data in devices:
-                hostname = device_data.get('hostname')
-                if hostname:
-                    datto_hostnames.add(hostname)
+            # Get all assets currently in Nexus for this company
+            nexus_assets_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'company_account_number': account_number}, verify=False)
+            nexus_assets_response.raise_for_status()
+            nexus_assets_by_hostname = {asset['hostname']: asset for asset in nexus_assets_response.json()}
 
-                udf = device_data.get('udf', {})
-                asset_payload = {
-                    'hostname': device_data.get('hostname'),
-                    'company_account_number': account_number,
-                    'operating_system': device_data.get('operatingSystem'),
-                    'last_logged_in_user': device_data.get('lastLoggedInUser'),
-                    'hardware_type': (device_data.get('deviceType') or {}).get('category'),
-                    'antivirus_product': (device_data.get('antivirus') or {}).get('antivirusProduct'),
-                    'description': device_data.get('description'),
-                    'ext_ip_address': device_data.get('extIpAddress'),
-                    'int_ip_address': device_data.get('intIpAddress'),
-                    'domain': device_data.get('domain'),
-                    'last_audit_date': format_timestamp(device_data.get('lastAuditDate')),
-                    'last_reboot': format_timestamp(device_data.get('lastReboot')),
-                    'last_seen': format_timestamp(device_data.get('lastSeen')),
-                    'online': device_data.get('online'),
-                    'patch_status': (device_data.get('patchManagement') or {}).get('patchStatus'),
-                    'backup_usage_tb': bytes_to_tb(udf.get('udf6')),
-                    'enabled_administrators': udf.get('udf4'),
-                    'device_type': udf.get('udf7'),
-                    'portal_url': device_data.get('portalUrl'),
-                    'web_remote_url': device_data.get('webRemoteUrl'),
-                }
+            all_datto_hostnames_for_company = set()
 
-                existing_asset = nexus_assets_by_hostname.get(hostname)
+            for site in site_list:
+                datto_uid = site.get('uid')
+                link = DattoSiteLink.query.filter_by(datto_site_uid=datto_uid).first()
+                if not link:
+                    link = DattoSiteLink(company_account_number=account_number, datto_site_uid=datto_uid)
+                    db.session.add(link)
+                    db.session.commit()
+                    print(f" -> Linked Datto site '{site['name']}' to company '{company.name}'.")
 
-                if not existing_asset:
-                    post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload, verify=False)
-                    post_asset_response.raise_for_status()
-                else:
-                    asset_id = existing_asset['id']
-                    put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload, verify=False)
-                    put_asset_response.raise_for_status()
+                devices = get_devices_for_site(api_endpoint, access_token, datto_uid)
+                if devices:
+                    print(f"   -> Found {len(devices)} devices for site '{site['name']}'. Syncing...")
+                    for device_data in devices:
+                        hostname = device_data.get('hostname')
+                        if not hostname:
+                            continue
 
-        # Compare and delete assets that are in Nexus but not in Datto
-        nexus_hostnames = set(nexus_assets_by_hostname.keys())
-        hostnames_to_delete = nexus_hostnames - datto_hostnames
+                        all_datto_hostnames_for_company.add(hostname)
 
-        if hostnames_to_delete:
-            print(f"   -> Found {len(hostnames_to_delete)} asset(s) to delete from Nexus...")
-            for hostname in hostnames_to_delete:
-                asset_to_delete = nexus_assets_by_hostname[hostname]
-                asset_id = asset_to_delete['id']
-                delete_response = requests.delete(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, verify=False)
-                if delete_response.status_code == 200:
-                    print(f"      -> Deleted asset '{hostname}' (ID: {asset_id})")
-                else:
-                    print(f"      -> FAILED to delete asset '{hostname}' (ID: {asset_id}): {delete_response.text}", file=sys.stderr)
+                        udf = device_data.get('udf', {})
+                        asset_payload = {
+                            'hostname': hostname,
+                            'company_account_number': account_number,
+                            'operating_system': device_data.get('operatingSystem'),
+                            'last_logged_in_user': device_data.get('lastLoggedInUser'),
+                            'hardware_type': (device_data.get('deviceType') or {}).get('category'),
+                            'antivirus_product': (device_data.get('antivirus') or {}).get('antivirusProduct'),
+                            'description': device_data.get('description'),
+                            'ext_ip_address': device_data.get('extIpAddress'),
+                            'int_ip_address': device_data.get('intIpAddress'),
+                            'domain': device_data.get('domain'),
+                            'last_audit_date': format_timestamp(device_data.get('lastAuditDate')),
+                            'last_reboot': format_timestamp(device_data.get('lastReboot')),
+                            'last_seen': format_timestamp(device_data.get('lastSeen')),
+                            'online': device_data.get('online'),
+                            'patch_status': (device_data.get('patchManagement') or {}).get('patchStatus'),
+                            'backup_usage_tb': bytes_to_tb(udf.get('udf6')),
+                            'enabled_administrators': udf.get('udf4'),
+                            'device_type': udf.get('udf7'),
+                            'portal_url': device_data.get('portalUrl'),
+                            'web_remote_url': device_data.get('webRemoteUrl'),
+                        }
 
-    print(" -> Finished processing assets.")
+                        existing_asset = nexus_assets_by_hostname.get(hostname)
+
+                        if not existing_asset:
+                            post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload, verify=False)
+                            post_asset_response.raise_for_status()
+                        else:
+                            asset_id = existing_asset['id']
+                            put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload, verify=False)
+                            put_asset_response.raise_for_status()
+
+            # Now, compare the complete list of Datto assets for this company against Nexus
+            nexus_hostnames = set(nexus_assets_by_hostname.keys())
+            hostnames_to_delete = nexus_hostnames - all_datto_hostnames_for_company
+
+            if hostnames_to_delete:
+                print(f"   -> Found {len(hostnames_to_delete)} asset(s) to delete from Nexus for '{company.name}'...")
+                for hostname in hostnames_to_delete:
+                    asset_to_delete = nexus_assets_by_hostname[hostname]
+                    asset_id = asset_to_delete['id']
+                    delete_response = requests.delete(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, verify=False)
+                    if delete_response.status_code == 200:
+                        print(f"      -> Deleted asset '{hostname}' (ID: {asset_id})")
+                    else:
+                        print(f"      -> FAILED to delete asset '{hostname}' (ID: {asset_id}): {delete_response.text}", file=sys.stderr)
+
+    print("\n -> Finished processing all companies and assets.")
 
 
 if __name__ == "__main__":
@@ -238,7 +250,7 @@ if __name__ == "__main__":
 
         sites = get_all_sites(DATTO_API_ENDPOINT, datto_token)
         if sites:
-            populate_assets_via_api(sites, datto_token, DATTO_API_ENDPOINT, nexus_token)
+            process_datto_data(sites, datto_token, DATTO_API_ENDPOINT, nexus_token)
             print("\n--- Datto RMM Data Sync Successful ---")
         else:
             print("\nCould not retrieve sites list.")
