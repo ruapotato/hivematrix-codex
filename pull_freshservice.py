@@ -100,6 +100,16 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
     headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
     print("\nStarting database population...")
 
+    processed_emails = set()
+
+    # Create a mapping of Freshservice department ID to user data
+    users_by_department = {}
+    for user in users_data:
+        for dept_id in user.get('department_ids', []):
+            if dept_id not in users_by_department:
+                users_by_department[dept_id] = []
+            users_by_department[dept_id].append(user)
+
     # Process Companies
     for company_data in companies_data:
         custom_fields = company_data.get('custom_fields', {})
@@ -158,50 +168,67 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
                 db.session.commit()
                 print(f"   -> Synced 'Main Office' location for {company_data['name']}")
 
-    print(" -> Finished processing companies.")
-
-    # Process Users and Contacts
-    for user_data in users_data:
-        if not user_data.get('primary_email'):
+        # Now, process contacts for this company
+        nexus_contacts_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'company_account_number': account_number}, verify=False)
+        if nexus_contacts_response.status_code != 200:
+            print(f"   -> FAILED to get contacts for company '{company_data['name']}': {nexus_contacts_response.text}", file=sys.stderr)
             continue
 
-        account_number = None
-        if user_data.get('department_ids'):
-            fs_company_id = user_data['department_ids'][0]
-            comp_response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id}, verify=False)
-            comp_response.raise_for_status()
-            company_data_nexus = comp_response.json()
-            if company_data_nexus:
-                account_number = company_data_nexus[0]['account_number']
+        nexus_contacts_by_email = {contact['email']: contact for contact in nexus_contacts_response.json()}
 
-        if not account_number:
-            print(f" -> Skipping contact for {user_data['primary_email']} as their associated company is not in Nexus.")
-            continue
+        freshservice_contacts_for_company = users_by_department.get(fs_id, [])
+        freshservice_emails = set()
 
-        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']}, verify=False)
-        contact_response.raise_for_status()
-        existing_contact = contact_response.json()
+        for user_data in freshservice_contacts_for_company:
+            email = user_data.get('primary_email')
+            if not email:
+                continue
 
-        contact_payload = {
-            'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
-            'email': user_data['primary_email'],
-            'company_account_number': account_number,
-            'title': user_data.get('job_title'),
-            'active': user_data.get('active'),
-            'mobile_phone_number': user_data.get('mobile_phone_number'),
-            'work_phone_number': user_data.get('work_phone_number'),
-            'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
-        }
+            if email in processed_emails:
+                continue
 
-        if not existing_contact:
-            post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False)
-            post_contact_response.raise_for_status()
-        else:
-            contact_id = existing_contact[0]['id']
-            put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False)
-            put_contact_response.raise_for_status()
+            freshservice_emails.add(email)
+            processed_emails.add(email)
 
-    print(" -> Finished processing contacts.")
+            contact_payload = {
+                'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+                'email': email,
+                'company_account_number': str(account_number),
+                'title': user_data.get('job_title'),
+                'active': user_data.get('active'),
+                'mobile_phone_number': user_data.get('mobile_phone_number'),
+                'work_phone_number': user_data.get('work_phone_number'),
+                'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
+            }
+
+            existing_contact = nexus_contacts_by_email.get(email)
+
+            if not existing_contact:
+                post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False)
+                post_contact_response.raise_for_status()
+            else:
+                contact_id = existing_contact['id']
+                put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False)
+                put_contact_response.raise_for_status()
+
+        # Deactivate contacts that are in Nexus but not in Freshservice for this company
+        nexus_emails = set(nexus_contacts_by_email.keys())
+        emails_to_deactivate = nexus_emails - freshservice_emails
+
+        if emails_to_deactivate:
+            print(f"   -> Deactivating {len(emails_to_deactivate)} contact(s) for '{company_data['name']}'...")
+            for email in emails_to_deactivate:
+                contact_to_deactivate = nexus_contacts_by_email[email]
+                contact_id = contact_to_deactivate['id']
+                if contact_to_deactivate.get('active', True):
+                    deactivate_payload = {'active': False}
+                    put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=deactivate_payload, verify=False)
+                    if put_contact_response.status_code == 200:
+                        print(f"      -> Deactivated contact '{email}' (ID: {contact_id})")
+                    else:
+                        print(f"      -> FAILED to deactivate contact '{email}' (ID: {contact_id}): {put_contact_response.text}", file=sys.stderr)
+
+    print(" -> Finished processing companies and contacts.")
 
 
 # --- Main Execution ---

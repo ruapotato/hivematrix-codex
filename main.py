@@ -66,7 +66,9 @@ def login():
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password')
-    return render_template('login.html')
+
+    users = User.query.order_by(User.username).all()
+    return render_template('login.html', users=users)
 
 @app.route('/logout')
 @login_required
@@ -212,19 +214,27 @@ def api_assets(current_user):
         return jsonify({'message': 'Asset created successfully', 'id': new_asset.id}), 201
 
     query = Asset.query
-    if 'hostname' in request.args and 'company_account_number' in request.args:
-        query = query.filter_by(hostname=request.args['hostname'], company_account_number=request.args['company_account_number'])
+    if 'company_account_number' in request.args:
+        query = query.filter_by(company_account_number=request.args['company_account_number'])
+    if 'hostname' in request.args:
+        query = query.filter_by(hostname=request.args['hostname'])
 
     assets = query.all()
-    return jsonify([{'id': a.id, 'hostname': a.hostname} for a in assets])
+    return jsonify([{'id': a.id, 'hostname': a.hostname, 'company_account_number': a.company_account_number} for a in assets])
 
 
-@app.route('/api/assets/<int:asset_id>', methods=['PUT'])
+@app.route('/api/assets/<int:asset_id>', methods=['PUT', 'DELETE'])
 @token_required(permission_level=['admin', 'technician'])
 def api_asset_details(current_user, asset_id):
     asset = db.session.get(Asset, asset_id)
     if not asset:
         return jsonify({"error": "Asset not found"}), 404
+
+    if request.method == 'DELETE':
+        db.session.delete(asset)
+        db.session.commit()
+        return jsonify({'message': 'Asset deleted successfully'})
+
     data = request.get_json()
     if 'hostname' in data: asset.hostname = data['hostname']
     if 'company_account_number' in data: asset.company_account_number = data['company_account_number']
@@ -271,11 +281,13 @@ def api_contacts(current_user):
         return jsonify({'message': 'Contact created successfully', 'id': new_contact.id}), 201
 
     query = Contact.query
+    if 'company_account_number' in request.args:
+        query = query.filter_by(company_account_number=request.args['company_account_number'])
     if 'email' in request.args:
         query = query.filter_by(email=request.args['email'])
 
     contacts = query.all()
-    return jsonify([{'id': c.id, 'name': c.name, 'email': c.email} for c in contacts])
+    return jsonify([{'id': c.id, 'name': c.name, 'email': c.email, 'active': c.active} for c in contacts])
 
 
 @app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
@@ -326,8 +338,39 @@ def get_users_for_company(current_user, account_number):
 def schedule_jobs():
     from scheduler import run_job
     with app.app_context():
-        jobs = SchedulerJob.query.filter_by(enabled=True).all()
-        for job in jobs:
+        # Schedule the Freshservice job to run first
+        freshservice_job = SchedulerJob.query.filter_by(script_path='pull_freshservice.py', enabled=True).first()
+        if freshservice_job:
+            scheduler.add_job(
+                run_job,
+                'interval',
+                minutes=freshservice_job.interval_minutes,
+                args=[freshservice_job.id, freshservice_job.script_path],
+                id=str(freshservice_job.id),
+                replace_existing=True,
+                next_run_time=datetime.now() + timedelta(seconds=10)
+            )
+
+        # Schedule the Datto job to run 5 minutes after the Freshservice job
+        datto_job = SchedulerJob.query.filter_by(script_path='pull_datto.py', enabled=True).first()
+        if datto_job:
+            scheduler.add_job(
+                run_job,
+                'interval',
+                minutes=datto_job.interval_minutes,
+                args=[datto_job.id, datto_job.script_path],
+                id=str(datto_job.id),
+                replace_existing=True,
+                next_run_time=datetime.now() + timedelta(minutes=1)
+            )
+
+        # Schedule other jobs
+        other_jobs = SchedulerJob.query.filter(
+            SchedulerJob.script_path != 'pull_freshservice.py',
+            SchedulerJob.script_path != 'pull_datto.py',
+            SchedulerJob.enabled == True
+        ).all()
+        for job in other_jobs:
             scheduler.add_job(
                 run_job,
                 'interval',

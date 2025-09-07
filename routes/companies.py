@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 from models import db, Company, CompanyFeatureOverride, Location
 from sqlalchemy import asc, desc, or_
+from decorators import admin_required
 import configparser
 import json
 import random
@@ -132,13 +133,15 @@ def company_details(account_number):
         except (json.JSONDecodeError, TypeError):
             domains_for_input = company.domains
 
+    active_contacts = [contact for contact in company.contacts if contact.active]
+
     return render_template(
         'company_details.html',
         company=company,
         plan_features=final_features,
         all_plan_features_json=json.dumps(all_plan_features),
         plans=plan_names,
-        contacts=company.contacts,
+        contacts=active_contacts,
         features=features,
         overrides=overrides,
         domains_for_input=domains_for_input
@@ -206,6 +209,29 @@ def edit_company(account_number):
     else:
         flash('Company not found.', 'danger')
     return redirect(url_for('companies.company_details', account_number=account_number))
+
+@companies_bp.route('/delete/<string:account_number>', methods=['POST'])
+@admin_required
+def delete_company(account_number):
+    """Deletes a company if it has no associated assets, contacts, or users."""
+    company = Company.query.get_or_404(account_number)
+
+    if company.assets:
+        flash(f"Cannot delete '{company.name}'. It has {len(company.assets)} associated asset(s).", 'danger')
+        return redirect(url_for('companies.company_details', account_number=account_number))
+
+    if company.contacts:
+        flash(f"Cannot delete '{company.name}'. It has {len(company.contacts)} associated contact(s).", 'danger')
+        return redirect(url_for('companies.company_details', account_number=account_number))
+
+    if company.users:
+        flash(f"Cannot delete '{company.name}'. It has {len(company.users)} associated user(s).", 'danger')
+        return redirect(url_for('companies.company_details', account_number=account_number))
+
+    db.session.delete(company)
+    db.session.commit()
+    flash(f"Company '{company.name}' has been deleted successfully.", 'success')
+    return redirect(url_for('companies.list_companies'))
 
 @companies_bp.route('/<string:account_number>/locations/add', methods=['POST'])
 def add_location(account_number):

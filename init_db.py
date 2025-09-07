@@ -58,6 +58,29 @@ def init_db():
             config.set('nexus_auth', 'password', 'admin')
             print("Added [nexus_auth] section to config for scripts.")
 
+        # Import users from nexus.conf if the section exists
+        if config.has_section('user_import'):
+            print("Importing users from nexus.conf...")
+            for key, value in config.items('user_import'):
+                try:
+                    username, email, password, permission_level = [item.strip() for item in value.split(',')]
+                    if not User.query.filter((User.username == username) | (User.email == email)).first():
+                        new_user = User(
+                            username=username,
+                            email=email,
+                            permission_level=permission_level
+                        )
+                        new_user.set_password(password)
+                        db.session.add(new_user)
+                        print(f" - Created user: {username}")
+                    else:
+                        print(f" - User '{username}' or email '{email}' already exists. Skipping.")
+                except ValueError:
+                    print(f" - WARNING: Could not parse user data for '{key}'. Ensure the format is: username, email, password, role")
+            db.session.commit()
+            print("Finished importing users.")
+
+
         # Add placeholder sections if they don't exist to guide the user
         if not config.has_section('freshservice'):
             config.add_section('freshservice')

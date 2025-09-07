@@ -9,8 +9,13 @@
         <form method="POST" action="{{ url_for('login') }}" class="space-y-6">
             <div>
                 <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                <input type="text" name="username" id="username" required
+                <select name="username" id="username" required
                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <option value="" disabled selected>Select a user</option>
+                    {% for user in users %}
+                        <option value="{{ user.username }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700">Password</label>

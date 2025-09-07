@@ -151,10 +151,21 @@ def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
             put_response.raise_for_status()
             print(f" -> Found company '{site['name']}'. Fetching devices...")
 
+        # Get all assets currently in Nexus for this company
+        nexus_assets_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'company_account_number': account_number}, verify=False)
+        nexus_assets_response.raise_for_status()
+        nexus_assets_by_hostname = {asset['hostname']: asset for asset in nexus_assets_response.json()}
+
         devices = get_devices_for_site(api_endpoint, access_token, site['uid'])
+        datto_hostnames = set()
+
         if devices:
-            print(f"   -> Found {len(devices)} devices. Updating database...")
+            print(f"   -> Found {len(devices)} devices. Syncing with database...")
             for device_data in devices:
+                hostname = device_data.get('hostname')
+                if hostname:
+                    datto_hostnames.add(hostname)
+
                 udf = device_data.get('udf', {})
                 asset_payload = {
                     'hostname': device_data.get('hostname'),
@@ -178,17 +189,32 @@ def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
                     'portal_url': device_data.get('portalUrl'),
                     'web_remote_url': device_data.get('webRemoteUrl'),
                 }
-                get_asset_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number}, verify=False)
-                get_asset_response.raise_for_status()
-                asset_data = get_asset_response.json()
 
-                if not asset_data:
+                existing_asset = nexus_assets_by_hostname.get(hostname)
+
+                if not existing_asset:
                     post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload, verify=False)
                     post_asset_response.raise_for_status()
                 else:
-                    asset_id = asset_data[0]['id']
+                    asset_id = existing_asset['id']
                     put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload, verify=False)
                     put_asset_response.raise_for_status()
+
+        # Compare and delete assets that are in Nexus but not in Datto
+        nexus_hostnames = set(nexus_assets_by_hostname.keys())
+        hostnames_to_delete = nexus_hostnames - datto_hostnames
+
+        if hostnames_to_delete:
+            print(f"   -> Found {len(hostnames_to_delete)} asset(s) to delete from Nexus...")
+            for hostname in hostnames_to_delete:
+                asset_to_delete = nexus_assets_by_hostname[hostname]
+                asset_id = asset_to_delete['id']
+                delete_response = requests.delete(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, verify=False)
+                if delete_response.status_code == 200:
+                    print(f"      -> Deleted asset '{hostname}' (ID: {asset_id})")
+                else:
+                    print(f"      -> FAILED to delete asset '{hostname}' (ID: {asset_id}): {delete_response.text}", file=sys.stderr)
+
     print(" -> Finished processing assets.")
 
 

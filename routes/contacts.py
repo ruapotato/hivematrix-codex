@@ -13,8 +13,11 @@ def list_contacts():
     sort_by = request.args.get('sort_by', 'name')
     order = request.args.get('order', 'asc')
     search_query = request.args.get('search', '')
+    show_inactive = request.args.get('show_inactive', 'false').lower() == 'true'
 
     query = Contact.query
+    if not show_inactive:
+        query = query.filter_by(active=True)
 
     if search_query:
         search_term = f'%{search_query}%'
@@ -53,7 +56,7 @@ def list_contacts():
     contacts = pagination.items
     companies = Company.query.order_by(Company.name).all()
 
-    return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, companies=companies, search_query=search_query)
+    return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, companies=companies, search_query=search_query, show_inactive=show_inactive)
 
 @contacts_bp.route('/add', methods=['POST'])
 def add_contact():
@@ -137,3 +140,21 @@ def edit_contact(contact_id):
     else:
         flash('Contact not found.', 'danger')
     return redirect(url_for('contacts.contact_details', contact_id=contact_id))
+
+@contacts_bp.route('/delete/<int:contact_id>', methods=['POST'])
+@admin_required
+def delete_contact(contact_id):
+    """Deletes a contact."""
+    contact = Contact.query.get_or_404(contact_id)
+    if contact:
+        # Manually clear the asset associations to be safe.
+        contact.assets = []
+        db.session.commit()
+
+        db.session.delete(contact)
+        db.session.commit()
+        flash(f"Contact '{contact.name}' has been deleted successfully.", 'success')
+    else:
+        flash('Contact not found.', 'danger')
+
+    return redirect(url_for('contacts.list_contacts'))

@@ -6,10 +6,15 @@
 <div class="flex justify-between items-center mb-6">
     <h1 class="text-3xl font-bold">Contacts</h1>
     <div class="flex items-center space-x-4">
-        <form method="GET" action="{{ url_for('contacts.list_contacts') }}" class="flex items-center">
+        <form id="filter-form" method="GET" action="{{ url_for('contacts.list_contacts') }}" class="flex items-center">
             <input type="text" name="search" placeholder="Search..." value="{{ search_query or '' }}" class="form-input rounded-l-md border-gray-300">
+            <input type="hidden" name="show_inactive" value="{{ 'true' if show_inactive else 'false' }}">
             <button type="submit" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-r-md">Search</button>
         </form>
+        <div class="flex items-center">
+            <input type="checkbox" id="show_inactive_checkbox" {% if show_inactive %}checked{% endif %} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+            <label for="show_inactive_checkbox" class="ml-2 text-sm text-gray-700">Show Inactive</label>
+        </div>
         <button class="py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-md shadow-md" onclick="openAddContactModal()">New Contact</button>
         <div class="flex items-center space-x-2">
             <span class="text-sm text-gray-700">Show</span>
@@ -203,6 +208,14 @@ document.addEventListener('DOMContentLoaded', function() {
         currentUrl.searchParams.set('per_page', perPage);
         currentUrl.searchParams.set('page', 1); // Reset to first page when changing items per page
         window.location.href = currentUrl.toString();
+    });
+
+    // Show Inactive Checkbox Logic
+    document.getElementById('show_inactive_checkbox').addEventListener('change', function() {
+        const form = document.getElementById('filter-form');
+        const showInactiveInput = form.querySelector('input[name="show_inactive"]');
+        showInactiveInput.value = this.checked ? 'true' : 'false';
+        form.submit();
     });
 
     // Column Chooser Logic
