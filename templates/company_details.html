@@ -154,7 +154,10 @@
                     </div>
                     <div>
                         <label for="profit_or_non_profit" class="block text-sm font-medium text-gray-700">Profit/Non-Profit</label>
-                        <input type="text" name="profit_or_non_profit" id="profit_or_non_profit" value="{{ company.profit_or_non_profit }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <select name="profit_or_non_profit" id="profit_or_non_profit" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="For Profit" {% if company.profit_or_non_profit == 'For Profit' %}selected{% endif %}>For Profit</option>
+                            <option value="Non-Profit" {% if company.profit_or_non_profit == 'Non-Profit' %}selected{% endif %}>Non-Profit</option>
+                        </select>
                     </div>
                     <div>
                         <label for="company_main_number" class="block text-sm font-medium text-gray-700">Main Number</label>
@@ -186,7 +189,7 @@
                     </div>
                     <div>
                         <label for="domains" class="block text-sm font-medium text-gray-700">Domains</label>
-                        <input type="text" name="domains" id="domains" value="{{ company.domains }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="text" name="domains" id="domains" value="{{ domains_for_input }}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div class="mt-6">
                         <h4 class="text-lg font-semibold mb-2">Feature Overrides</h4>

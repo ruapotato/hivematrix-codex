@@ -75,7 +75,15 @@ def company_details(account_number):
         else:
             final_features[feature_name] = plan_features.get(feature_name, "Not Included")
 
-    return render_template('company_details.html', company=company, plan_features=final_features, plans=plan_names, contacts=company.contacts, features=features, overrides=overrides)
+    domains_for_input = ''
+    if company.domains:
+        try:
+            domains_list = json.loads(company.domains)
+            domains_for_input = ', '.join(domains_list)
+        except (json.JSONDecodeError, TypeError):
+            domains_for_input = company.domains
+
+    return render_template('company_details.html', company=company, plan_features=final_features, plans=plan_names, contacts=company.contacts, features=features, overrides=overrides, domains_for_input=domains_for_input)
 
 @companies_bp.route('/edit/<string:account_number>', methods=['POST'])
 def edit_company(account_number):
@@ -92,11 +100,8 @@ def edit_company(account_number):
         company.primary_contact_name = request.form.get('primary_contact_name')
 
         raw_domains = request.form.get('domains', '')
-        try:
-            domains_list = json.loads(raw_domains)
-            company.domains = ", ".join(domains_list)
-        except json.JSONDecodeError:
-            company.domains = raw_domains
+        domains_list = [domain.strip() for domain in raw_domains.split(',') if domain.strip()]
+        company.domains = json.dumps(domains_list)
 
         config = current_app.config.get('NEXUS_CONFIG', configparser.ConfigParser())
         _, features = load_plans_from_config(config)
