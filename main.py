@@ -2,6 +2,7 @@
 
 import os
 import configparser
+import jwt
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
@@ -13,7 +14,7 @@ from routes.contacts import contacts_bp
 from routes.assets import assets_bp
 from routes.users import users_bp
 from routes.settings import settings_bp
-from decorators import admin_required, api_key_required
+from decorators import admin_required, token_required
 
 app = Flask(__name__, instance_relative_config=True)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_secure_random_secret_key')
@@ -74,9 +75,29 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/api/token', methods=['POST'])
+def get_token():
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({"error": "Missing username or password"}), 400
+
+    user = User.query.filter_by(username=data['username']).first()
+
+    if user and user.check_password(data['password']):
+        token = jwt.encode({
+            'user_id': user.id,
+            'permission_level': user.permission_level,
+            'company_account_number': user.company_account_number,
+            'exp': datetime.utcnow() + timedelta(hours=24) # Token expires in 24 hours
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+        return jsonify({'token': token})
+
+    return jsonify({"error": "Invalid credentials"}), 401
+
+
 @app.route('/api/companies', methods=['GET', 'POST'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_companies():
+@token_required(permission_level=['admin', 'technician'])
+def api_companies(current_user):
     if request.method == 'POST':
         data = request.get_json()
         if not data or 'name' not in data or 'account_number' not in data:
@@ -122,13 +143,18 @@ def api_companies():
     } for c in companies])
 
 @app.route('/api/companies/<string:account_number>', methods=['GET', 'PUT'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_company_details(account_number):
+@token_required(permission_level=['admin', 'technician', 'client'])
+def api_company_details(current_user, account_number):
+    if current_user.permission_level == 'client' and current_user.company_account_number != account_number:
+        return jsonify({"error": "Access denied"}), 403
+
     company = db.session.get(Company, account_number)
     if not company:
         return jsonify({"error": "Company not found"}), 404
 
     if request.method == 'PUT':
+        if current_user.permission_level == 'client':
+            return jsonify({"error": "Clients cannot update company details"}), 403
         data = request.get_json()
         if 'name' in data: company.name = data['name']
         if 'datto_site_uid' in data: company.datto_site_uid = data['datto_site_uid']
@@ -155,8 +181,8 @@ def api_company_details(account_number):
     })
 
 @app.route('/api/assets', methods=['GET', 'POST'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_assets():
+@token_required(permission_level=['admin', 'technician'])
+def api_assets(current_user):
     if request.method == 'POST':
         data = request.get_json()
         if not data or 'hostname' not in data or 'company_account_number' not in data:
@@ -196,8 +222,8 @@ def api_assets():
 
 
 @app.route('/api/assets/<int:asset_id>', methods=['PUT'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_asset_details(asset_id):
+@token_required(permission_level=['admin', 'technician'])
+def api_asset_details(current_user, asset_id):
     asset = db.session.get(Asset, asset_id)
     if not asset:
         return jsonify({"error": "Asset not found"}), 404
@@ -226,8 +252,8 @@ def api_asset_details(asset_id):
     return jsonify({'message': 'Asset updated successfully'})
 
 @app.route('/api/contacts', methods=['GET', 'POST'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_contacts():
+@token_required(permission_level=['admin', 'technician'])
+def api_contacts(current_user):
     if request.method == 'POST':
         data = request.get_json()
         if not data or 'name' not in data or 'email' not in data or 'company_account_number' not in data:
@@ -255,8 +281,8 @@ def api_contacts():
 
 
 @app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
-@api_key_required(permission_level=['admin', 'user'])
-def api_contact_details(contact_id):
+@token_required(permission_level=['admin', 'technician'])
+def api_contact_details(current_user, contact_id):
     contact = db.session.get(Contact, contact_id)
     if not contact:
         return jsonify({"error": "Contact not found"}), 404
@@ -274,22 +300,24 @@ def api_contact_details(contact_id):
     return jsonify({'message': 'Contact updated successfully'})
 
 @app.route('/api/users', methods=['GET'])
-@api_key_required(permission_level=['admin'])
-def get_users():
+@token_required(permission_level=['admin'])
+def get_users(current_user):
     users = User.query.all()
     return jsonify([{'id': u.id, 'username': u.username, 'email': u.email, 'company_account_number': u.company_account_number, 'permission_level': u.permission_level} for u in users])
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
-@api_key_required(permission_level=['admin'])
-def get_user(user_id):
+@token_required(permission_level=['admin'])
+def get_user(current_user, user_id):
     user = db.session.get(User, user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
     return jsonify({'id': user.id, 'username': user.username, 'email': user.email, 'company_account_number': user.company_account_number, 'permission_level': user.permission_level})
 
 @app.route('/api/companies/<string:account_number>/users', methods=['GET'])
-@api_key_required(permission_level=['admin', 'user'])
-def get_users_for_company(account_number):
+@token_required(permission_level=['admin', 'technician', 'client'])
+def get_users_for_company(current_user, account_number):
+    if current_user.permission_level == 'client' and current_user.company_account_number != account_number:
+        return jsonify({"error": "Access denied"}), 403
     company = db.session.get(Company, account_number)
     if not company:
         return jsonify({"error": "Company not found"}), 404
@@ -335,4 +363,3 @@ if __name__ == '__main__':
             print("Scheduler started.")
 
     app.run()
-

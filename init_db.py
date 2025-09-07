@@ -50,6 +50,14 @@ def init_db():
 
         config.set('nexus', 'api_key', admin_api_key)
 
+        # Add new section for service account credentials used by sync scripts
+        if not config.has_section('nexus_auth'):
+            config.add_section('nexus_auth')
+            # Use the default admin credentials for the scripts to get a token
+            config.set('nexus_auth', 'username', 'admin')
+            config.set('nexus_auth', 'password', 'admin')
+            print("Added [nexus_auth] section to config for scripts.")
+
         # Add placeholder sections if they don't exist to guide the user
         if not config.has_section('freshservice'):
             config.add_section('freshservice')
@@ -104,4 +112,3 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-

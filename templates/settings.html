@@ -6,7 +6,6 @@
 <div class="w-full max-w-6xl mx-auto">
     <h2 class="text-2xl font-bold text-center mb-6">Settings</h2>
 
-    <!-- User Management Section -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
         <h3 class="text-xl font-semibold mb-4">User Management</h3>
         <table class="min-w-full divide-y divide-gray-200">
@@ -28,13 +27,10 @@
                     <td class="px-6 py-4 whitespace-nowrap font-mono text-xs">{{ user.api_key or 'N/A' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center space-x-2">
-                             <!-- Edit User Button -->
-                            <button class="text-indigo-600 hover:text-indigo-900" onclick="openEditUserModal('{{ user.id }}', '{{ user.username }}', '{{ user.email }}', '{{ user.permission_level }}')">Edit</button>
-                            <!-- Regenerate API Key Form -->
+                             <button class="text-indigo-600 hover:text-indigo-900" onclick="openEditUserModal('{{ user.id }}', '{{ user.username }}', '{{ user.email }}', '{{ user.permission_level }}')">Edit</button>
                             <form action="{{ url_for('users.generate_api_key', user_id=user.id) }}" method="POST" class="inline">
                                 <button type="submit" class="text-blue-600 hover:text-blue-900">Regenerate Key</button>
                             </form>
-                            <!-- Delete User Form -->
                             {% if user.username != 'admin' %}
                             <form action="{{ url_for('users.delete_user', user_id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                 <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
@@ -54,7 +50,8 @@
                 <input type="email" name="email" placeholder="Email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 <input type="password" name="password" placeholder="Password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 <select name="permission_level" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="user">User</option>
+                    <option value="client">Client</option>
+                    <option value="technician">Technician</option>
                     <option value="admin">Admin</option>
                 </select>
                 <div class="md:col-span-4 flex justify-end">
@@ -64,7 +61,6 @@
         </div>
     </div>
 
-    <!-- Scheduler Settings Section -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-8">
         <h3 class="text-xl font-semibold mb-4">Scheduler Settings</h3>
         <table class="min-w-full divide-y divide-gray-200">
@@ -105,7 +101,6 @@
         </table>
     </div>
 
-    <!-- Plan Management Section -->
     <div class="bg-white p-6 rounded-lg shadow-md">
         <h3 class="text-xl font-semibold mb-4">Plan Management</h3>
         <p class="text-sm text-gray-600 mb-4">Define the features included in each service plan. These settings are stored in `instance/nexus.conf`.</p>
@@ -148,7 +143,6 @@
     </div>
 </div>
 
-<!-- Log Viewer Modal -->
 <div id="logModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
   <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -173,7 +167,6 @@
   </div>
 </div>
 
-<!-- Edit User Modal -->
 <div id="editUserModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
   <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
@@ -194,7 +187,8 @@
                      <div>
                         <label for="edit_permission_level" class="block text-sm font-medium text-gray-700">Permissions</label>
                         <select name="permission_level" id="edit_permission_level" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                            <option value="user">User</option>
+                            <option value="client">Client</option>
+                            <option value="technician">Technician</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>

@@ -22,6 +22,21 @@ def get_config():
     config.read(config_path)
     return config
 
+def get_nexus_token(username, password):
+    """Authenticates with the Nexus API and returns a JWT."""
+    try:
+        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10)
+        response.raise_for_status()
+        token = response.json().get('token')
+        if not token:
+            print("Failed to retrieve token from Nexus API.", file=sys.stderr)
+            return None
+        print("Successfully obtained Nexus API token.")
+        return token
+    except requests.exceptions.RequestException as e:
+        print(f"Error authenticating with Nexus API: {e}", file=sys.stderr)
+        return None
+
 def get_datto_access_token(api_endpoint, api_key, api_secret_key):
     token_url = f"{api_endpoint}/auth/oauth/token"
     payload = {'grant_type': 'password', 'username': api_key, 'password': api_secret_key}
@@ -101,8 +116,11 @@ def bytes_to_tb(b):
     except (ValueError, TypeError):
         return None
 
-def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
-    headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
+def populate_assets_via_api(sites, access_token, api_endpoint, nexus_token):
+    if not nexus_token:
+        print("Cannot proceed without a Nexus API token.", file=sys.stderr)
+        return
+    headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
     print("\nProcessing sites and devices...")
     for site in sites:
         datto_uid = site.get('uid')
@@ -116,10 +134,13 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
                 'account_number': account_number,
                 'datto_site_uid': datto_uid
              }
-             requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+             post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+             post_response.raise_for_status()
         else:
+            response.raise_for_status() # Check for other errors on the GET
             company_payload = {'name': site['name'], 'datto_site_uid': datto_uid}
-            requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response.raise_for_status()
             print(f" -> Found company '{site['name']}'. Fetching devices...")
 
         devices = get_devices_for_site(api_endpoint, access_token, site['uid'])
@@ -149,14 +170,17 @@ def populate_assets_via_api(sites, access_token, api_endpoint, api_key):
                     'portal_url': device_data.get('portalUrl'),
                     'web_remote_url': device_data.get('webRemoteUrl'),
                 }
-                response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number})
-                asset_data = response.json()
+                get_asset_response = requests.get(f"{NEXUS_API_URL}/assets", headers=headers, params={'hostname': device_data['hostname'], 'company_account_number': account_number})
+                get_asset_response.raise_for_status()
+                asset_data = get_asset_response.json()
 
                 if not asset_data:
-                    requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload)
+                    post_asset_response = requests.post(f"{NEXUS_API_URL}/assets", headers=headers, json=asset_payload)
+                    post_asset_response.raise_for_status()
                 else:
                     asset_id = asset_data[0]['id']
-                    requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload)
+                    put_asset_response = requests.put(f"{NEXUS_API_URL}/assets/{asset_id}", headers=headers, json=asset_payload)
+                    put_asset_response.raise_for_status()
     print(" -> Finished processing assets.")
 
 
@@ -167,15 +191,20 @@ if __name__ == "__main__":
         DATTO_API_ENDPOINT = config.get('datto', 'api_endpoint')
         DATTO_PUBLIC_KEY = config.get('datto', 'public_key')
         DATTO_SECRET_KEY = config.get('datto', 'secret_key')
-        NEXUS_API_KEY = config.get('nexus', 'api_key')
+        NEXUS_USERNAME = config.get('nexus_auth', 'username')
+        NEXUS_PASSWORD = config.get('nexus_auth', 'password')
 
-        token = get_datto_access_token(DATTO_API_ENDPOINT, DATTO_PUBLIC_KEY, DATTO_SECRET_KEY)
-        if not token:
-            sys.exit("\n- Failed to obtain access token.")
+        nexus_token = get_nexus_token(NEXUS_USERNAME, NEXUS_PASSWORD)
+        if not nexus_token:
+            sys.exit(1)
 
-        sites = get_all_sites(DATTO_API_ENDPOINT, token)
+        datto_token = get_datto_access_token(DATTO_API_ENDPOINT, DATTO_PUBLIC_KEY, DATTO_SECRET_KEY)
+        if not datto_token:
+            sys.exit(1)
+
+        sites = get_all_sites(DATTO_API_ENDPOINT, datto_token)
         if sites:
-            populate_assets_via_api(sites, token, DATTO_API_ENDPOINT, NEXUS_API_KEY)
+            populate_assets_via_api(sites, datto_token, DATTO_API_ENDPOINT, nexus_token)
             print("\n--- Datto RMM Data Sync Successful ---")
         else:
             print("\nCould not retrieve sites list.")

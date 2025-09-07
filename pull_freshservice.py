@@ -24,6 +24,21 @@ def get_config():
     config.read(config_path)
     return config
 
+def get_nexus_token(username, password):
+    """Authenticates with the Nexus API and returns a JWT."""
+    try:
+        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10)
+        response.raise_for_status()
+        token = response.json().get('token')
+        if not token:
+            print("Failed to retrieve token from Nexus API.", file=sys.stderr)
+            return None
+        print("Successfully obtained Nexus API token.")
+        return token
+    except requests.exceptions.RequestException as e:
+        print(f"Error authenticating with Nexus API: {e}", file=sys.stderr)
+        return None
+
 # --- API Functions ---
 def get_all_companies(base_url, headers):
     print("Fetching companies from Freshservice...")
@@ -71,8 +86,11 @@ def get_all_users(base_url, headers):
     return all_users
 
 # --- Database Functions ---
-def populate_database_via_api(companies_data, users_data, api_key):
-    headers = {'X-API-Key': api_key, 'Content-Type': 'application/json'}
+def populate_database_via_api(companies_data, users_data, nexus_token):
+    if not nexus_token:
+        print("Cannot proceed without a Nexus API token.", file=sys.stderr)
+        return
+    headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
     print("\nStarting database population...")
 
     # Process Companies
@@ -104,10 +122,13 @@ def populate_database_via_api(companies_data, users_data, api_key):
 
         if response.status_code == 404:
             print(f" -> Creating new company: {company_data['name']}")
-            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+            post_response = requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload)
+            post_response.raise_for_status()
         else:
+            response.raise_for_status()
             print(f" -> Updating existing company: {company_data['name']}")
-            requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response = requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload)
+            put_response.raise_for_status()
 
     print(" -> Finished processing companies.")
 
@@ -119,8 +140,9 @@ def populate_database_via_api(companies_data, users_data, api_key):
         account_number = None
         if user_data.get('department_ids'):
             fs_company_id = user_data['department_ids'][0]
-            response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id})
-            company_data_nexus = response.json()
+            comp_response = requests.get(f"{NEXUS_API_URL}/companies", headers=headers, params={'freshservice_id': fs_company_id})
+            comp_response.raise_for_status()
+            company_data_nexus = comp_response.json()
             if company_data_nexus:
                 account_number = company_data_nexus[0]['account_number']
 
@@ -128,8 +150,9 @@ def populate_database_via_api(companies_data, users_data, api_key):
             print(f" -> Skipping contact for {user_data['primary_email']} as their associated company is not in Nexus.")
             continue
 
-        response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']})
-        existing_contact = response.json()
+        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': user_data['primary_email']})
+        contact_response.raise_for_status()
+        existing_contact = contact_response.json()
 
         contact_payload = {
             'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
@@ -143,10 +166,12 @@ def populate_database_via_api(companies_data, users_data, api_key):
         }
 
         if not existing_contact:
-            requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload)
+            post_contact_response = requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload)
+            post_contact_response.raise_for_status()
         else:
             contact_id = existing_contact[0]['id']
-            requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload)
+            put_contact_response = requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload)
+            put_contact_response.raise_for_status()
 
     print(" -> Finished processing contacts.")
 
@@ -158,23 +183,28 @@ if __name__ == "__main__":
         config = get_config()
         FRESHSERVICE_API_KEY = config.get('freshservice', 'api_key')
         FRESHSERVICE_DOMAIN = config.get('freshservice', 'domain')
-        NEXUS_API_KEY = config.get('nexus', 'api_key')
+        NEXUS_USERNAME = config.get('nexus_auth', 'username')
+        NEXUS_PASSWORD = config.get('nexus_auth', 'password')
         BASE_URL = f"https://{FRESHSERVICE_DOMAIN}"
+
+        nexus_token = get_nexus_token(NEXUS_USERNAME, NEXUS_PASSWORD)
+        if not nexus_token:
+            sys.exit(1)
 
         auth_str = f"{FRESHSERVICE_API_KEY}:X"
         encoded_auth = base64.b64encode(auth_str.encode()).decode()
-        headers = {"Content-Type": "application/json", "Authorization": f"Basic {encoded_auth}"}
+        fs_headers = {"Content-Type": "application/json", "Authorization": f"Basic {encoded_auth}"}
 
-        companies = get_all_companies(BASE_URL, headers)
-        users = get_all_users(BASE_URL, headers)
+        companies = get_all_companies(BASE_URL, fs_headers)
+        users = get_all_users(BASE_URL, fs_headers)
 
         if companies and users:
-            populate_database_via_api(companies, users, NEXUS_API_KEY)
+            populate_database_via_api(companies, users, nexus_token)
             print("\n--- Freshservice Data Sync Successful ---")
         else:
             print("\n--- Freshservice Data Sync Failed: Could not fetch data ---")
+            sys.exit(1)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
-

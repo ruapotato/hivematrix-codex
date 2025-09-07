@@ -11,7 +11,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    permission_level = db.Column(db.String(50), nullable=False, default='user')
+    permission_level = db.Column(db.String(50), nullable=False, default='client')
     company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'))
     api_key = db.Column(db.String(64), unique=True, nullable=False, default=lambda: secrets.token_hex(32))
 

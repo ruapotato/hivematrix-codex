@@ -16,7 +16,7 @@ def add_user():
 
     if not all([username, email, password, permission_level]):
         flash('All fields are required to add a new user.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings.settings_page'))
 
     if User.query.filter((User.username == username) | (User.email == email)).first():
         flash('A user with that username or email already exists.', 'danger')
@@ -31,7 +31,7 @@ def add_user():
         db.session.commit()
         flash(f"User '{username}' created successfully.", 'success')
 
-    return redirect(url_for('settings'))
+    return redirect(url_for('settings.settings_page'))
 
 @users_bp.route('/edit/<int:user_id>', methods=['POST'])
 @admin_required
@@ -40,12 +40,12 @@ def edit_user(user_id):
     user = db.session.get(User, user_id)
     if not user:
         flash('User not found.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings.settings_page'))
 
     # The primary admin (user ID 1) cannot be edited.
     if user.id == 1:
         flash('The primary admin user cannot be modified.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings.settings_page'))
 
     username = request.form.get('username')
     email = request.form.get('email')
@@ -63,7 +63,7 @@ def edit_user(user_id):
         db.session.commit()
         flash('User updated successfully.', 'success')
 
-    return redirect(url_for('settings'))
+    return redirect(url_for('settings.settings_page'))
 
 
 @users_bp.route('/delete/<int:user_id>', methods=['POST'])
@@ -72,11 +72,11 @@ def delete_user(user_id):
     """Deletes an internal application user."""
     if user_id == 1:
         flash('The primary admin user cannot be deleted.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings.settings_page'))
 
     if user_id == current_user.id:
         flash('You cannot delete your own user account.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings.settings_page'))
 
     user = db.session.get(User, user_id)
     if user:
@@ -86,7 +86,7 @@ def delete_user(user_id):
     else:
         flash('User not found.', 'danger')
 
-    return redirect(url_for('settings'))
+    return redirect(url_for('settings.settings_page'))
 
 @users_bp.route('/generate_api_key/<int:user_id>', methods=['POST'])
 @admin_required
@@ -94,10 +94,9 @@ def generate_api_key(user_id):
     """Generates a new API key for a user."""
     user = db.session.get(User, user_id)
     if user:
-        user.generate_api_key()
+        user.regenerate_api_key()
         db.session.commit()
         flash(f"New API Key for {user.username}: {user.api_key}. Please copy it now, as it will not be shown again.", 'success')
     else:
         flash('User not found.', 'danger')
-    return redirect(url_for('settings'))
-
+    return redirect(url_for('settings.settings_page'))
