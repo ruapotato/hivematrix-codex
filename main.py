@@ -132,13 +132,11 @@ def api_companies(current_user):
         query = query.filter_by(freshservice_id=request.args['freshservice_id'])
 
     companies = query.all()
+    # Only return the fields that are part of the core directory service
     return jsonify([{
-        'account_number': c.account_number, 'name': c.name,
-        'freshservice_id': c.freshservice_id,
-        'description': c.description, 'plan_selected': c.plan_selected,
-        'profit_or_non_profit': c.profit_or_non_profit, 'company_main_number': c.company_main_number,
-        'company_start_date': c.company_start_date,
-        'head_name': c.head_name, 'primary_contact_name': c.primary_contact_name, 'domains': c.domains
+        'account_number': c.account_number,
+        'name': c.name,
+        'plan_selected': c.plan_selected # Treasury needs this to look up local billing details
     } for c in companies])
 
 @app.route('/api/companies/<string:account_number>', methods=['GET', 'PUT'])
@@ -168,6 +166,7 @@ def api_company_details(current_user, account_number):
         db.session.commit()
         return jsonify({'message': 'Company updated successfully'})
 
+    # Return all available fields for the detailed view
     return jsonify({
         'account_number': company.account_number, 'name': company.name,
         'freshservice_id': company.freshservice_id,
@@ -443,4 +442,3 @@ if __name__ == '__main__':
         print("For a secure local connection, please run 'python gen_certs.py' first.")
         print("---------------\n")
         app.run(host='0.0.0.0')
-

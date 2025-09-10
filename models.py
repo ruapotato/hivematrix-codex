@@ -44,8 +44,6 @@ class Company(db.Model):
     head_name = db.Column(db.String(150))
     primary_contact_name = db.Column(db.String(150))
     domains = db.Column(db.String(255))
-    email_system = db.Column(db.String(100), default='No Business Email')
-    phone_system = db.Column(db.String(100), default='No Business Phone')
 
     users = db.relationship('User', back_populates='company', lazy=True)
     assets = db.relationship('Asset', back_populates='company', lazy=True)
@@ -144,4 +142,3 @@ class DattoSiteLink(db.Model):
     datto_site_uid = db.Column(db.String(100), unique=True, nullable=False)
 
     company = db.relationship('Company', back_populates='datto_site_links')
-
