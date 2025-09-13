@@ -58,53 +58,77 @@ Authentication is centralized through Nexus to provide a single sign-on (SSO) ex
 5.  **Authenticated API Calls:** For every subsequent API call to Nexus or another module, the calling module attaches the JWT to the `Authorization: Bearer <token>` header.
     
 
-## 4. Production Deployment & Scalability
+## 4. Deployment Architecture
 
-To transition from the Flask development server (`app.run()`) to a commercial-grade platform capable of supporting 50+ concurrent technicians, the following production stack is required for each client's VPS.
+This architecture is designed for simplicity and robustness, using a consistent set of tools for both production and development.
 
-### 4.1. The Production Stack
+### 4.1. The Technology Stack
 
 -   **Database: PostgreSQL**
     
-    -   **Why:** SQLite is not suitable for concurrent multi-user write operations. PostgreSQL is a robust, open-source database that handles high concurrency with ease and is the industry standard for scalable web applications.
+    -   **Why:** A powerful, open-source database that handles high-concurrency reads and writes, essential for a multi-user PSA.
         
-    -   **Action:** Each module that requires a database (including Nexus) should connect to its own PostgreSQL database instance.
-        
--   **WSGI Server: Gunicorn**
+-   **WSGI Server: Waitress**
     
-    -   **Why:** The Flask development server is single-threaded. Gunicorn is a production-ready WSGI server that runs multiple Python processes ("workers") to handle simultaneous user requests efficiently.
+    -   **Why:** A production-quality, pure-Python WSGI server. Its key advantage is simplicity and cross-platform compatibility, running identically on both Windows and Linux without requiring compilers or complex dependencies. It will be used for both development and production.
         
-    -   **Action:** Launch each Flask application using a Gunicorn command, e.g., `gunicorn --workers 4 --bind 127.0.0.1:5000 main:app`.
-        
--   **Reverse Proxy: Nginx**
+-   **Reverse Proxy: Caddy**
     
-    -   **Why:** Exposing Gunicorn directly to the internet is inefficient and insecure. Nginx sits in front of all Gunicorn processes, handling incoming web traffic, managing SSL encryption, serving static files directly, and proxying application requests to the appropriate Gunicorn worker.
-        
-    -   **Action:** Configure Nginx with `server` blocks for Nexus and each module, proxying requests to their respective Gunicorn instances running on different local ports.
+    -   **Why:** A modern, secure web server that is significantly easier to configure than alternatives. Its primary benefit is **automatic HTTPS**, meaning it will automatically obtain and renew SSL certificates.
         
 
-### 4.2. Deployment on a VPS
+### 4.2. Deployment Models
 
-A typical deployment script for a new client on a fresh VPS (e.g., Ubuntu) would perform these steps:
-
-1.  Install system packages (Nginx, PostgreSQL, Python, etc.).
+-   **Production (Linux VPS):** The full stack is used. **Caddy** acts as the public-facing web server, handling HTTPS and proxying requests to the various **Waitress** processes. Each Waitress process runs a module and is bound to a different `localhost` port (e.g., 5000, 5001). This setup is secure, as the application servers are not directly exposed to the internet.
     
-2.  Create PostgreSQL databases and users for Nexus and each module.
+-   **Development (Windows/Linux):** For simplicity, developers run **Waitress** directly, bound to `localhost`. This allows for rapid testing without needing to configure a reverse proxy. Caddy is only required for production-like environments or when testing public-facing access.
+    
+
+### 4.3. Deployment Steps on a VPS
+
+A typical deployment script for a new client on a fresh Linux VPS would perform these steps:
+
+1.  Install system packages (Caddy, PostgreSQL, Python, etc.).
+    
+2.  **Create empty PostgreSQL databases and users** for Nexus and each required module.
     
 3.  Clone the Git repositories for Nexus and all required modules.
     
 4.  Set up Python virtual environments and install dependencies (`pip install -r requirements.txt`).
     
-5.  Run the `init_db.py` script for each service to create schemas and default data.
+5.  **Run each module's `init_db.py` script.** This script is responsible for connecting to its designated PostgreSQL database and creating the necessary **tables and schema**.
     
-6.  Configure Nginx to act as a reverse proxy for all services.
+6.  Create a simple `Caddyfile` to configure the reverse proxy.
     
-7.  Create and enable `systemd` service files to run each Gunicorn process as a background service and ensure they start on boot.
+7.  Create and enable `systemd` service files to run each **Waitress** process as a background service.
     
+
+### 4.4. Example Caddy Configuration
+
+This `Caddyfile` showcases the simplicity of managing multiple services. Caddy automatically handles acquiring and renewing SSL certificates for each domain.
+
+```
+# /etc/caddy/Caddyfile
+
+# Nexus Service (The Core)
+nexus.your-client-domain.com {
+    # Proxy requests to the Waitress process for Nexus
+    reverse_proxy 127.0.0.1:5000
+}
+
+# Treasury Module
+treasury.your-client-domain.com {
+    reverse_proxy 127.0.0.1:5001
+}
+
+# Wiki Module
+wiki.your-client-domain.com {
+    reverse_proxy 127.0.0.1:5003
+}
+
+```
 
 ## 5. Building a New Module: Code Template
-
-This section provides the boilerplate code to create a new module, using the **Wiki** service as an example.
 
 ### Step 1: Project Structure
 
@@ -129,7 +153,7 @@ requests
 PyJWT
 cryptography
 psycopg2-binary  # For PostgreSQL
-gunicorn         # For production deployment
+waitress         # For development and production
 
 ```
 
@@ -154,25 +178,22 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     if 'nexus_token' in session:
         return redirect(url_for('wiki.dashboard')) # Redirect to your module's main page
-        
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
+
         try:
-            # Call Nexus to get a JWT with the user's credentials
             response = requests.post(
-                f"{NEXUS_API_URL}/token", 
-                json={'username': username, 'password': password}, 
-                timeout=10, 
+                f"{NEXUS_API_URL}/token",
+                json={'username': username, 'password': password},
+                timeout=10,
                 verify=False # Set to True in production with a real SSL cert
             )
-            
-            # If authentication with Nexus is successful, create a local session
+
             if response.status_code == 200:
                 session['nexus_token'] = response.json().get('token')
                 session['username'] = username
-                
                 flash('Login successful!', 'success')
                 return redirect(url_for('wiki.dashboard')) # Redirect to your module's main page
             else:
@@ -180,7 +201,8 @@ def login():
 
         except requests.exceptions.RequestException as e:
             flash(f"Error connecting to Nexus authentication service: {e}", 'danger')
-            
+
+    # You will need to create a simple login.html template for your module
     return render_template('login.html')
 
 @auth_bp.route('/logout')
@@ -191,121 +213,77 @@ def logout():
 
 ```
 
-### Step 4: Authenticated API Calls
-
-A robust helper function is the best way to manage API calls to Nexus or other modules. This centralizes error handling and authentication logic.
-
-Here is a complete example for a `routes/wiki.py` file demonstrating this pattern.
+### Step 4: Authenticated API Calls (`routes/wiki.py`)
 
 ```
 # /hivematrix-wiki/routes/wiki.py
-from flask import Blueprint, render_template, session, abort, flash, request, redirect, url_for
+from flask import Blueprint, render_template, session, abort, flash
 import requests
-import sys
+import warnings
 
-# Assume models.py defines a 'WikiArticle' model for this module's database
-# from .. import db
-# from ..models import WikiArticle
+# Suppress InsecureRequestWarning for self-signed certs in dev
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # This URL should point to the Nexus instance on the same VPS
 NEXUS_API_URL = '[https://127.0.0.1:5000/api](https://127.0.0.1:5000/api)'
-wiki_bp = Blueprint('wiki', __name__, url_prefix='/wiki')
 
-def nexus_api_request(method, endpoint, json_data=None):
+wiki_bp = Blueprint('wiki', __name__)
+
+def make_nexus_request(method, endpoint, json_data=None):
     """
-    A centralized helper function for making authenticated API calls to Nexus.
-    
-    :param method: HTTP method (GET, POST, PUT, DELETE)
-    :param endpoint: The API endpoint path (e.g., 'companies')
-    :param json_data: A dictionary for the JSON payload for POST/PUT requests
-    :return: The JSON response as a dictionary, or None if an error occurs.
+    A robust helper function to make authenticated API requests to Nexus.
+    Handles GET, POST, PUT, DELETE.
     """
     token = session.get('nexus_token')
     if not token:
-        # If the token is missing, force the user to log in again.
-        flash("Your session has expired. Please log in again.", "danger")
-        abort(redirect(url_for('auth.login')))
+        abort(401)  # Unauthorized
 
     headers = {'Authorization': f'Bearer {token}'}
+    url = f"{NEXUS_API_URL}/{endpoint}"
+    
     try:
-        response = requests.request(
-            method,
-            f"{NEXUS_API_URL}/{endpoint}",
-            headers=headers,
-            json=json_data,
-            verify=False,  # Set to True in production with a real SSL cert
-            timeout=30
-        )
-        response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+        if method.upper() == 'GET':
+            response = requests.get(url, headers=headers, verify=False, timeout=30)
+        elif method.upper() == 'POST':
+            response = requests.post(url, headers=headers, json=json_data, verify=False, timeout=30)
+        # Add PUT, DELETE etc. as needed
+        # elif method.upper() == 'PUT':
+        #     response = requests.put(url, headers=headers, json=json_data, verify=False, timeout=30)
         
-        # Handle cases where the response might be empty (e.g., a 204 No Content)
-        if response.status_code == 204:
-            return None
-        
+        response.raise_for_status()
         return response.json()
-
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 401: # Unauthorized
-            session.clear()
-            flash("Your session token is invalid or has expired. Please log in again.", "danger")
-            abort(redirect(url_for('auth.login')))
-        else:
-            print(f"HTTP Error calling Nexus endpoint '{endpoint}': {e}", file=sys.stderr)
-            flash(f"An error occurred while communicating with Nexus ({e.response.status_code}).", "danger")
-            return None
     except requests.exceptions.RequestException as e:
-        print(f"Error calling Nexus endpoint '{endpoint}': {e}", file=sys.stderr)
-        flash("A critical error occurred: Could not connect to the Nexus service.", "danger")
+        print(f"Error making {method} request to Nexus endpoint '{endpoint}': {e}")
+        flash(f"Error communicating with Nexus: {e}", "danger")
         return None
 
 @wiki_bp.route('/dashboard')
 def dashboard():
-    """Example of a GET request to fetch a list of all companies."""
-    companies = nexus_api_request('GET', 'companies')
+    # Use the helper to get data from Nexus
+    companies = make_nexus_request('GET', 'companies')
+    
     if companies is None:
-        # The helper function flashes an error, so we just need to handle the None case.
+        # The helper function will have already flashed an error message
         companies = []
-    
-    # You would also fetch articles from the Wiki's own database here.
-    # recent_articles = WikiArticle.query.order_by(WikiArticle.updated_at.desc()).limit(10).all()
-    
+
+    # Example of combining Nexus data with this module's own data
+    # (Assuming you have a WikiArticle model and database setup for this module)
+    #
+    # try:
+    #     internal_articles = WikiArticle.query.filter_by(visibility='Internal').all()
+    # except Exception as e:
+    #     internal_articles = []
+    #     flash(f"Error loading local wiki data: {e}", "danger")
+
+    # You will need to create a wiki_dashboard.html template
     return render_template('wiki_dashboard.html', companies=companies)
-
-@wiki_bp.route('/company/<account_number>')
-def company_wiki(account_number):
-    """Example of a GET request for a specific item, combined with local data."""
-    company = nexus_api_request('GET', f'companies/{account_number}')
-    if company is None:
-        return redirect(url_for('wiki.dashboard'))
-
-    # Fetch articles from this module's database that are linked to the company
-    # company_articles = WikiArticle.query.filter_by(company_account_number=account_number).all()
-
-    return render_template('company_wiki.html', company=company)
-
-@wiki_bp.route('/article/new', methods=['POST'])
-def create_article():
-    """Example of a POST request to send data (hypothetically)."""
-    form_data = request.form
-    company_account_number = form_data.get('company_account_number')
-
-    # First, verify the company exists in Nexus before saving to our local DB
-    company = nexus_api_request('GET', f'companies/{company_account_number}')
-    if company:
-        # Logic to save the new wiki article to the Wiki's PostgreSQL database
-        # new_article = WikiArticle(title=form_data.get('title'), content=form_data.get('content'), company_account_number=company_account_number)
-        # db.session.add(new_article)
-        # db.session.commit()
-        flash("Article created successfully!", "success")
-    else:
-        # The helper function will have already flashed an error if the API call failed
-        flash("Could not create article because the selected company was not found.", "warning")
-
-    return redirect(url_for('wiki.company_wiki', account_number=company_account_number))
 
 ```
 
 ### Step 5: Main Application File (`main.py`)
+
+This file is now updated to show how you would run it with either the Flask dev server or Waitress.
 
 ```
 # /hivematrix-wiki/main.py
@@ -335,11 +313,17 @@ def create_app():
 
     return app
 
-# The main entry point for Gunicorn
+# The main entry point for Waitress
 app = create_app()
 
 if __name__ == '__main__':
-    # This block is for development only
+    # This block is for easy debugging with Flask's built-in server.
+    # For development, it's recommended to run with Waitress directly.
+    #
+    # Development command:
+    # waitress-serve --host 127.0.0.1 --port 5003 main:app
+    
+    print("Starting Flask development server...")
     app.run(host='0.0.0.0', port=5003, debug=True)
 
 ```
@@ -357,4 +341,40 @@ if __name__ == '__main__':
 -   **Stateless Authentication.** The JWT approach is stateless. Services validate tokens without needing to check back with a central session store, which enhances scalability.
     
 
-By following this guide, we can ensure that the HiveMatrix ecosystem remains robust, scalable, and easy to develop for years to come.
+## 7. HiveMatrix Module Ecosystem
+
+This section outlines the planned modules for the HiveMatrix PSA and their standard internal port assignments. This structure allows for clear separation of concerns and independent development.
+
+### How Multiple Services Work on One Port (443)
+
+You might wonder how all these services running on different internal ports can be accessed securely through the standard HTTPS port (443). This is the primary job of the **Caddy reverse proxy**.
+
+When a user visits `https://nexus.your-client-domain.com`, Caddy receives the request on port 443, handles the HTTPS encryption, and intelligently forwards (proxies) the request to the Nexus module running internally on port 5000. When they visit `https://treasury.your-client-domain.com`, Caddy does the same, but forwards it to the Treasury module on port 5001.
+
+This setup provides a single, secure entry point for all applications, while allowing each service to run independently inside the server. The Caddy configuration in section 4.4 is the "map" that tells the proxy where to send the traffic.
+
+### Standard Module Ports
+
+-   **HiveMatrix Nexus (Port 5000)**
+    
+    -   _Description:_ A unified client database aggregating companies, assets, and contacts from RMM and ticketing APIs. The central hub for identity and directory services.
+        
+-   **HiveMatrix Treasury (Port 5001)**
+    
+    -   _Description:_ An internal billing engine for MSPs to manage service plans and generate client bill estimates.
+        
+-   **HiveMatrix Resolve (Port 5002)**
+    
+    -   _Description:_ An AI-first ticketing system that leverages context from the entire HiveMatrix for faster resolutions.
+        
+-   **HiveMatrix Archive (Port 5003)**
+    
+    -   _Description:_ A centralized internal knowledge base for MSP processes and client-specific documentation.
+        
+-   **HiveMatrix Dispatch (Port 5004)**
+    
+    -   _Description:_ An internal procurement tool for end-to-end tracking of the hardware and software order lifecycle.
+        
+-   **HiveMatrix Architect (Port 5005)**
+    
+    -   _Description:_ An internal project management framework for planning, tracking, and executing client-facing initiatives.
