@@ -3,6 +3,7 @@
 import os
 import sys
 import subprocess
+import configparser
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -26,10 +27,7 @@ def run_job(job_id, script_path):
             capture_output=True, text=True, check=False, timeout=7200,
             encoding='utf-8', errors='replace', env=env
         )
-        # --- THIS IS THE FIX ---
-        # Capture both stdout and stderr for more complete logging
         log_output = f"--- STDOUT ---\n{result.stdout}\n\n--- STDERR ---\n{result.stderr}"
-        # --- END OF FIX ---
         if result.returncode == 0:
             status = "Success"
         print(f"[{datetime.now()}] SCHEDULER: Finished job '{job_id}' with status: {status}")
@@ -37,14 +35,21 @@ def run_job(job_id, script_path):
         log_output = f"Scheduler failed to run script: {e}"
         print(f"[{datetime.now()}] SCHEDULER: FATAL ERROR running job '{job_id}': {e}", file=sys.stderr)
     finally:
-        # Establish a new, independent database session to log the result
-        # Use a timeout to wait if the database is locked by the subprocess
-        instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
-        db_path = os.path.join(instance_path, 'nexus_brainhair.db')
-        engine = create_engine(f'sqlite:///{db_path}', connect_args={'timeout': 15})
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        session = None
         try:
+            instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+            config_path = os.path.join(instance_path, 'nexus.conf')
+            config = configparser.ConfigParser()
+            config.read(config_path)
+            connection_string = config.get('database', 'connection_string')
+
+            # --- THIS IS THE FIX ---
+            # The 'timeout' parameter is not a valid DSN option for psycopg2
+            engine = create_engine(connection_string)
+            # --- END OF FIX ---
+            Session = sessionmaker(bind=engine)
+            session = Session()
+
             job = session.query(SchedulerJob).get(job_id)
             if job:
                 job.last_run = datetime.now().isoformat(timespec='seconds')
@@ -53,6 +58,8 @@ def run_job(job_id, script_path):
                 session.commit()
         except Exception as e:
             print(f"[{datetime.now()}] SCHEDULER: Failed to log job result to DB: {e}", file=sys.stderr)
-            session.rollback()
+            if session:
+                session.rollback()
         finally:
-            session.close()
+            if session:
+                session.close()

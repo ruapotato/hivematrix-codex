@@ -4,6 +4,7 @@ from extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
+from sqlalchemy import BigInteger
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -35,7 +36,9 @@ class Company(db.Model):
     __tablename__ = 'companies'
     account_number = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(150), nullable=False)
-    freshservice_id = db.Column(db.Integer, unique=True)
+    # --- THIS IS THE FIX ---
+    freshservice_id = db.Column(BigInteger, unique=True)
+    # --- END OF FIX ---
     description = db.Column(db.Text)
     plan_selected = db.Column(db.String(100))
     profit_or_non_profit = db.Column(db.String(50))

@@ -32,9 +32,7 @@ def get_config():
 def get_nexus_token(username, password):
     """Authenticates with the Nexus API and returns a JWT."""
     try:
-        # NOTE: verify=False is used here for local development with a self-signed certificate.
-        # In a production environment, you would use a trusted certificate and remove this.
-        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=10, verify=False)
+        response = requests.post(f"{NEXUS_API_URL}/token", json={'username': username, 'password': password}, timeout=30, verify=False) # Increased timeout
         response.raise_for_status()
         token = response.json().get('token')
         if not token:
@@ -100,96 +98,96 @@ def populate_database_via_api(companies_data, users_data, nexus_token):
     headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
     print("\nStarting database population...")
 
-    fs_dept_id_to_account_number = {}
-    users_by_department = {}
+    from main import create_app
+    from models import db, Location
+    app = create_app()
 
-    # Pre-process users to group them by department
-    for user in users_data:
-        for dept_id in user.get('department_ids', []):
-            if dept_id not in users_by_department:
-                users_by_department[dept_id] = []
-            users_by_department[dept_id].append(user)
+    with app.app_context():
+        # --- COMPANY PROCESSING ---
+        print("Processing companies...")
+        fs_dept_id_to_account_number = {}
+        for company_data in companies_data:
+            custom_fields = company_data.get('custom_fields', {})
+            account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
+            fs_id = company_data.get('id')
+            address = custom_fields.get('address')
+            main_phone = custom_fields.get('company_main_number')
 
-    # Process Companies
-    for company_data in companies_data:
-        custom_fields = company_data.get('custom_fields', {})
-        account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
-        fs_id = company_data.get('id')
-        address = custom_fields.get('address')
-        main_phone = custom_fields.get('company_main_number')
+            if not account_number:
+                print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
+                continue
 
-        if not account_number:
-            print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
-            continue
+            # Ensure account_number is a string for consistency
+            account_number_str = str(account_number)
+            fs_dept_id_to_account_number[fs_id] = account_number_str
 
-        fs_dept_id_to_account_number[fs_id] = str(account_number)
+            response = requests.get(f"{NEXUS_API_URL}/companies/{account_number_str}", headers=headers, verify=False)
+            company_payload = {
+                'name': company_data['name'], 'account_number': account_number_str, 'freshservice_id': fs_id,
+                'description': company_data.get('description'), 'plan_selected': custom_fields.get('plan_selected'),
+                'profit_or_non_profit': custom_fields.get('profit_or_non_profit'), 'company_main_number': main_phone,
+                'company_start_date': custom_fields.get('company_start_date'), 'head_name': company_data.get('head_name'),
+                'primary_contact_name': company_data.get('prime_user_name'), 'domains': json.dumps(company_data.get('domains', []))
+            }
 
-        response = requests.get(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, verify=False)
-        company_payload = {
-            'name': company_data['name'], 'account_number': str(account_number), 'freshservice_id': fs_id,
-            'description': company_data.get('description'), 'plan_selected': custom_fields.get('plan_selected'),
-            'profit_or_non_profit': custom_fields.get('profit_or_non_profit'), 'company_main_number': main_phone,
-            'company_start_date': custom_fields.get('company_start_date'), 'head_name': company_data.get('head_name'),
-            'primary_contact_name': company_data.get('prime_user_name'), 'domains': json.dumps(company_data.get('domains', []))
-        }
+            if response.status_code == 404:
+                print(f" -> Creating new company: {company_data['name']}")
+                requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False).raise_for_status()
+            else:
+                response.raise_for_status()
+                print(f" -> Updating existing company: {company_data['name']}")
+                requests.put(f"{NEXUS_API_URL}/companies/{account_number_str}", headers=headers, json=company_payload, verify=False).raise_for_status()
 
-        if response.status_code == 404:
-            print(f" -> Creating new company: {company_data['name']}")
-            requests.post(f"{NEXUS_API_URL}/companies", headers=headers, json=company_payload, verify=False).raise_for_status()
-        else:
-            response.raise_for_status()
-            print(f" -> Updating existing company: {company_data['name']}")
-            requests.put(f"{NEXUS_API_URL}/companies/{account_number}", headers=headers, json=company_payload, verify=False).raise_for_status()
-
-        if address:
-            from models import db, Location
-            from main import app
-            with app.app_context():
-                location = Location.query.filter_by(company_account_number=account_number, name="Main Office").first()
+            if address:
+                # --- THIS IS THE FIX for the type mismatch error ---
+                location = Location.query.filter_by(company_account_number=account_number_str, name="Main Office").first()
                 if not location:
-                    location = Location(name="Main Office", company_account_number=account_number)
+                    location = Location(name="Main Office", company_account_number=account_number_str)
                     db.session.add(location)
                 location.address = address
                 location.phone_number = main_phone
-                db.session.commit()
+                db.session.commit() # Commit after each location update
                 print(f"   -> Synced 'Main Office' location for {company_data['name']}")
 
-    print(" -> Finished processing companies.")
-    print("\nProcessing contacts...")
+        print(" -> Finished processing companies.")
+        print("\nProcessing contacts...")
 
-    # Process Users/Contacts
-    for user_data in users_data:
-        email = user_data.get('primary_email')
-        if not email:
-            continue
+        # --- CONTACT PROCESSING ---
+        for user_data in users_data:
+            email = user_data.get('primary_email')
+            if not email:
+                continue
 
-        contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': email}, verify=False)
-        contact_response.raise_for_status()
-        existing_contact_list = contact_response.json()
-        existing_contact = existing_contact_list[0] if existing_contact_list else None
+            contact_response = requests.get(f"{NEXUS_API_URL}/contacts", headers=headers, params={'email': email}, verify=False)
+            contact_response.raise_for_status()
+            existing_contact_list = contact_response.json()
+            existing_contact = existing_contact_list[0] if existing_contact_list else None
 
-        fs_company_account_numbers = {fs_dept_id_to_account_number.get(dept_id) for dept_id in user_data.get('department_ids', []) if fs_dept_id_to_account_number.get(dept_id)}
+            fs_company_account_numbers = {fs_dept_id_to_account_number.get(dept_id) for dept_id in user_data.get('department_ids', []) if fs_dept_id_to_account_number.get(dept_id)}
 
-        contact_payload = {
-            'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
-            'email': email, 'title': user_data.get('job_title'), 'active': user_data.get('active'),
-            'mobile_phone_number': user_data.get('mobile_phone_number'), 'work_phone_number': user_data.get('work_phone_number'),
-            'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
-        }
+            contact_payload = {
+                'name': f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+                'email': email, 'title': user_data.get('job_title'), 'active': user_data.get('active'),
+                'mobile_phone_number': user_data.get('mobile_phone_number'), 'work_phone_number': user_data.get('work_phone_number'),
+                'secondary_emails': json.dumps(user_data.get('secondary_emails', []))
+            }
 
-        if not existing_contact:
-            contact_payload['company_account_numbers'] = list(fs_company_account_numbers)
-            requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False).raise_for_status()
-        else:
-            contact_id = existing_contact['id']
-            detailed_contact_res = requests.get(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, verify=False)
-            detailed_contact_res.raise_for_status()
-            nexus_company_account_numbers = set(detailed_contact_res.json().get('company_account_numbers', []))
+            if not existing_contact:
+                contact_payload['company_account_numbers'] = list(fs_company_account_numbers)
+                requests.post(f"{NEXUS_API_URL}/contacts", headers=headers, json=contact_payload, verify=False).raise_for_status()
+            else:
+                contact_id = existing_contact['id']
+                detailed_contact_res = requests.get(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, verify=False)
+                detailed_contact_res.raise_for_status()
+                nexus_company_account_numbers = set(detailed_contact_res.json().get('company_account_numbers', []))
 
-            all_account_numbers = nexus_company_account_numbers.union(fs_company_account_numbers)
-            contact_payload['company_account_numbers'] = list(all_account_numbers)
+                all_account_numbers = nexus_company_account_numbers.union(fs_company_account_numbers)
+                contact_payload['company_account_numbers'] = list(all_account_numbers)
 
-            requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False).raise_for_status()
+                requests.put(f"{NEXUS_API_URL}/contacts/{contact_id}", headers=headers, json=contact_payload, verify=False).raise_for_status()
+            
+            # This is not strictly necessary but good practice to release db resources periodically
+            db.session.commit()
 
     print(" -> Finished processing contacts.")
 
@@ -226,4 +224,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
-

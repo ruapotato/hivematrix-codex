@@ -1,8 +1,9 @@
 Flask
 Flask-SQLAlchemy
 Flask-Login
-Werkzeug
 requests
 apscheduler
 PyJWT
 cryptography
+psycopg2-binary
+waitress

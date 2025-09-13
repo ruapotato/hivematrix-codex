@@ -127,7 +127,7 @@ def process_datto_data(sites, access_token, api_endpoint, nexus_token):
         return
 
     headers = {'Authorization': f'Bearer {nexus_token}', 'Content-Type': 'application/json'}
-    from main import app
+    from main import create_app
     from models import db, Company, DattoSiteLink
 
     # Group sites by account number
@@ -143,6 +143,7 @@ def process_datto_data(sites, access_token, api_endpoint, nexus_token):
             print(f" -> WARNING: No AccountNumber for site '{site['name']}'. Skipping.")
 
     print("Processing companies and their assets...")
+    app = create_app()
     with app.app_context():
         for account_number, site_list in sites_by_account.items():
             company = db.session.get(Company, account_number)
@@ -260,4 +261,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
-
