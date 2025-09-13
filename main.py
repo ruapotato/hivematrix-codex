@@ -6,6 +6,7 @@ import jwt
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.orm import joinedload
 
 from extensions import db, scheduler
 from models import User, Company, Asset, Contact, SchedulerJob, Location
@@ -95,6 +96,51 @@ def get_token():
         return jsonify({'token': token})
 
     return jsonify({"error": "Invalid credentials"}), 401
+
+
+@app.route('/api/billing_summary', methods=['GET'])
+@token_required(permission_level=['admin', 'technician', 'billing'])
+def api_billing_summary(current_user):
+    """
+    Provides a comprehensive data dump for the Treasury service to calculate billing.
+    This single endpoint replaces hundreds of individual API calls.
+    """
+    try:
+        # Eagerly load related assets and users to avoid N+1 query problems.
+        # This is the core of the optimization.
+        companies_query = db.session.query(Company).options(
+            joinedload(Company.assets),
+            joinedload(Company.users)
+        ).all()
+
+        companies_data = []
+        for c in companies_query:
+            company_dict = {
+                'account_number': c.account_number,
+                'name': c.name,
+                'plan_selected': c.plan_selected,
+                'company_main_number': c.company_main_number,
+                'domains': c.domains,
+                # Add any other company fields Treasury needs
+                'assets': [{
+                    'hostname': a.hostname,
+                    'hardware_type': a.hardware_type,
+                    'operating_system': a.operating_system
+                    # Add any other asset fields Treasury needs
+                } for a in c.assets],
+                'users': [{
+                    'username': u.username,
+                    'email': u.email
+                    # Add any other user fields Treasury needs
+                } for u in c.users]
+            }
+            companies_data.append(company_dict)
+
+        return jsonify(companies_data)
+
+    except Exception as e:
+        print(f"Error in /api/billing_summary: {e}", file=sys.stderr)
+        return jsonify({"error": "An internal error occurred"}), 500
 
 
 @app.route('/api/companies', methods=['GET', 'POST'])
