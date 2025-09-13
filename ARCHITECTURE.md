@@ -287,3 +287,42 @@ if __name__ == '__main__':
 -   **Stateless Authentication.** The JWT approach is stateless. Services validate tokens without needing to check back with a central session store, which enhances scalability.
     
 -   **Standalone Initialization.** Every module must have its own `init_db.py` that can be run from the command line to prepare its database schema and initial configuration.
+
+
+## 7. HiveMatrix Module Ecosystem
+
+This section outlines the planned modules for the HiveMatrix PSA and their standard internal port assignments. This structure allows for clear separation of concerns and independent development.
+
+### How Multiple Services Work on One Port (443)
+
+You might wonder how all these services running on different internal ports can be accessed securely through the standard HTTPS port (443). This is the primary job of the **Caddy reverse proxy**.
+
+When a user visits `https://nexus.your-client-domain.com`, Caddy receives the request on port 443, handles the HTTPS encryption, and intelligently forwards (proxies) the request to the Nexus module running internally on port 5000. When they visit `https://treasury.your-client-domain.com`, Caddy does the same, but forwards it to the Treasury module on port 5001.
+
+This setup provides a single, secure entry point for all applications, while allowing each service to run independently inside the server. The Caddy configuration in section 4.4 is the "map" that tells the proxy where to send the traffic.
+
+### Standard Module Ports
+
+-   **HiveMatrix Nexus (Port 5000)**
+    
+    -   _Description:_ A unified client database aggregating companies, assets, and contacts from RMM and ticketing APIs. The central hub for identity and directory services.
+        
+-   **HiveMatrix Treasury (Port 5001)**
+    
+    -   _Description:_ An internal billing engine for MSPs to manage service plans and generate client bill estimates.
+        
+-   **HiveMatrix Resolve (Port 5002)**
+    
+    -   _Description:_ An AI-first ticketing system that leverages context from the entire HiveMatrix for faster resolutions.
+        
+-   **HiveMatrix Archive (Port 5003)**
+    
+    -   _Description:_ A centralized internal knowledge base for MSP processes and client-specific documentation.
+        
+-   **HiveMatrix Dispatch (Port 5004)**
+    
+    -   _Description:_ An internal procurement tool for end-to-end tracking of the hardware and software order lifecycle.
+        
+-   **HiveMatrix Architect (Port 5005)**
+    
+    -   _Description:_ An internal project management framework for planning, tracking, and executing client-facing initiatives.
