@@ -3,30 +3,30 @@
 
 **Author:** David Hamner & Gemini **Last Updated:** September 12, 2025
 
-## 1. Introduction
+## 1. Introduction & Core Philosophy
 
-Welcome to the HiveMatrix ecosystem. This document outlines the microservice architecture for the HiveMatrix suite of tools, which will be developed under an open-core model for Professional Services Automation (PSA). The goal of this architecture is to create a suite of specialized, maintainable, and scalable applications that work together seamlessly.
+Welcome to the HiveMatrix ecosystem. This document outlines the official microservice architecture for the HiveMatrix PSA, a powerful, multi-tenant Professional Services Automation platform designed for commercial service providers.
 
-The core of this ecosystem is **Nexus**, which acts as the central hub for user identity and authentication. All other applications, referred to as **Modules** (e.g., Treasury, Wiki), are standalone services that connect to Nexus to authenticate users and then perform their specialized functions, managing their own data and logic.
+**Nexus is the foundational, required component of the entire ecosystem.** It serves as the central "address book" and identity provider. All other applications, referred to as **Modules** (e.g., Treasury, Wiki), are standalone services that connect to Nexus for authentication and basic directory information before executing their specialized functions.
 
-This guide serves as the foundational blueprint for developing any new module within the HiveMatrix ecosystem.
+This guide is the blueprint for developing any new module. Adherence to this architecture ensures that the HiveMatrix platform remains scalable, secure, and maintainable as it grows. Because Nexus is the core, this guide and other primary setup documentation will be maintained within the Nexus repository.
 
-## 2. Core Concepts
+## 2. Component Responsibilities
 
-### 2.1. Nexus: The Central User & Authentication Hub
+### 2.1. Nexus: The Central User & Directory Hub
 
 Nexus is the **identity and directory service** for the entire HiveMatrix ecosystem. It is not a monolithic data repository. Its primary responsibilities are narrowly focused:
 
--   **User Directory:** To be the master database for user accounts, permissions, and basic profile information. **A user in Nexus is a user in all modules.**
+-   **User Directory:** The master database for user accounts, permissions, and basic profile information. **A user in Nexus is a user in all modules.**
     
--   **Central Address Book:** To provide a simple, referenceable directory of core entities like Companies and Contacts. It holds just enough information for other modules to identify these entities.
+-   **Central Address Book:** Provides a simple, referenceable directory of core entities like Companies and Contacts. It holds just enough information for other modules to identify these entities.
     
--   **Authentication Service:** To manage user credentials and issue JSON Web Tokens (JWTs) for secure, stateless authentication across the entire suite of applications.
+-   **Authentication Service:** Manages user credentials and issues JSON Web Tokens (JWTs) for secure, stateless authentication across the entire suite of applications.
     
--   **Core Directory API:** To expose the user, company, and contact directories through a secure REST API.
+-   **Core Directory API:** Exposes the user, company, and contact directories through a secure REST API.
     
 
-Nexus **does not** store module-specific data (e.g., billing configurations, wiki articles, ticket histories). Its purpose is to answer the questions: "Who is this user?" and "What basic entities exist in our MSP?".
+Nexus **does not** store module-specific data (e.g., billing configurations, wiki articles, ticket histories). Its purpose is to answer the questions: "Who is this user?" and "What basic entities exist in our PSA?".
 
 ### 2.2. Modules: The Specialized Services
 
@@ -38,74 +38,102 @@ A Module is a standalone Flask application that performs a specific business fun
     
 -   **Nexus-Authenticated:** It uses Nexus _only_ for user login and retrieving basic directory information. It does not rely on Nexus for its own business logic.
     
--   **Owns Its Data:** Each module **must have its own database** (e.g., `treasury.db`, `wiki.db`). This database stores all data and configuration specific to that module's domain. For example, Treasury's database contains billing plans, while the Wiki's database will contain context articles.
+-   **Owns Its Data:** Each module **must have its own database** (e.g., `treasury_db`, `wiki_db` in PostgreSQL). This database stores all data and configuration specific to that module's domain.
     
--   **Exposes Its Own API:** A module can, and should, expose its own API endpoints for other modules to consume. This allows for powerful inter-service communication. For example, the Wiki module will expose an API for a future Ticketing module to retrieve AI context automatically.
-    
-
-## 3. The Architecture Diagram
-
-The relationship is not a simple hub-and-spoke. While Nexus is central to authentication, modules are peers that can communicate with Nexus and with each other.
-
-
-## 4. The Authentication Flow
-
-Authentication remains centralized through Nexus to provide a single sign-on (SSO) experience.
-
-1.  **Login Request:** A user enters their credentials into a Module's login form (e.g., Wiki's login page).
-    
-2.  **Token Generation:** The Module sends these credentials to the Nexus `/api/token` endpoint.
-    
-3.  **Validation:** Nexus validates the credentials against its user database.
-    
-4.  **Token Issuance:** If valid, Nexus generates a signed JWT containing the user's ID and permission level and sends it back to the Module.
-    
-5.  **Session Storage:** The Module receives the JWT and stores it securely in the user's server-side session.
-    
-6.  **Authenticated API Calls:** For every subsequent request that requires data from Nexus (or another module), the Module attaches the JWT to the `Authorization: Bearer <token>` header of its API call. The receiving service validates this token to authorize the request.
+-   **Exposes Its Own API:** A module can, and should, expose its own API endpoints for other modules to consume. This allows for powerful inter-service communication.
     
 
-## 5. Building a New Module: A Step-by-Step Guide
+## 3. The Authentication Flow
 
-This section provides the boilerplate and steps to create a new module, using the **Wiki** service as an example.
+Authentication is centralized through Nexus to provide a single sign-on (SSO) experience.
+
+1.  **Login Request:** A user enters credentials into a Module's login form.
+    
+2.  **Token Generation:** The Module sends the credentials to the Nexus `/api/token` endpoint.
+    
+3.  **Validation & Issuance:** Nexus validates the credentials and, if successful, generates and returns a signed JWT.
+    
+4.  **Session Storage:** The Module receives the JWT and stores it in the user's server-side session.
+    
+5.  **Authenticated API Calls:** For every subsequent API call to Nexus or another module, the calling module attaches the JWT to the `Authorization: Bearer <token>` header.
+    
+
+## 4. Production Deployment & Scalability
+
+To transition from the Flask development server (`app.run()`) to a commercial-grade platform capable of supporting 50+ concurrent technicians, the following production stack is required for each client's VPS.
+
+### 4.1. The Production Stack
+
+-   **Database: PostgreSQL**
+    
+    -   **Why:** SQLite is not suitable for concurrent multi-user write operations. PostgreSQL is a robust, open-source database that handles high concurrency with ease and is the industry standard for scalable web applications.
+        
+    -   **Action:** Each module that requires a database (including Nexus) should connect to its own PostgreSQL database instance.
+        
+-   **WSGI Server: Gunicorn**
+    
+    -   **Why:** The Flask development server is single-threaded. Gunicorn is a production-ready WSGI server that runs multiple Python processes ("workers") to handle simultaneous user requests efficiently.
+        
+    -   **Action:** Launch each Flask application using a Gunicorn command, e.g., `gunicorn --workers 4 --bind 127.0.0.1:5000 main:app`.
+        
+-   **Reverse Proxy: Nginx**
+    
+    -   **Why:** Exposing Gunicorn directly to the internet is inefficient and insecure. Nginx sits in front of all Gunicorn processes, handling incoming web traffic, managing SSL encryption, serving static files directly, and proxying application requests to the appropriate Gunicorn worker.
+        
+    -   **Action:** Configure Nginx with `server` blocks for Nexus and each module, proxying requests to their respective Gunicorn instances running on different local ports.
+        
+
+### 4.2. Deployment on a VPS
+
+A typical deployment script for a new client on a fresh VPS (e.g., Ubuntu) would perform these steps:
+
+1.  Install system packages (Nginx, PostgreSQL, Python, etc.).
+    
+2.  Create PostgreSQL databases and users for Nexus and each module.
+    
+3.  Clone the Git repositories for Nexus and all required modules.
+    
+4.  Set up Python virtual environments and install dependencies (`pip install -r requirements.txt`).
+    
+5.  Run the `init_db.py` script for each service to create schemas and default data.
+    
+6.  Configure Nginx to act as a reverse proxy for all services.
+    
+7.  Create and enable `systemd` service files to run each Gunicorn process as a background service and ensure they start on boot.
+    
+
+## 5. Building a New Module: Code Template
+
+This section provides the boilerplate code to create a new module, using the **Wiki** service as an example.
 
 ### Step 1: Project Structure
 
-Create a new directory for your module and set up a basic Flask project structure.
-
 ```
 /hivematrix-wiki/
-├── main.py                 # Main Flask application file
-├── init_db.py              # For creating the local wiki.db
-├── models.py               # (Optional) SQLAlchemy models for wiki.db
+├── main.py
+├── init_db.py
+├── models.py
 ├── requirements.txt
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py             # Handles login/logout against Nexus
-│   └── wiki.py             # Your module's specific routes
-└── templates/
-    ├── layout.html
-    ├── login.html
-    └── wiki_dashboard.html
+└── routes/
+    ├── __init__.py
+    ├── auth.py
+    └── wiki.py
 
 ```
 
 ### Step 2: Dependencies (`requirements.txt`)
-
-Your new module will need a few key libraries.
 
 ```
 Flask
 requests
 PyJWT
 cryptography
-# Add any other libraries your module needs, e.g., Flask-SQLAlchemy
+psycopg2-binary  # For PostgreSQL
+gunicorn         # For production deployment
 
 ```
 
-### Step 3: Authentication (`routes/auth.py`)
-
-This is the standard authentication blueprint that every module should use. It handles communication with the Nexus `/api/token` endpoint.
+### Step 3: Authentication Blueprint (`routes/auth.py`)
 
 ```
 # /hivematrix-wiki/routes/auth.py
@@ -117,7 +145,7 @@ import warnings
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 warnings.simplefilter('ignore', InsecureRequestWarning)
 
-# IMPORTANT: Point this to your running Nexus instance
+# This URL should point to the Nexus instance on the same VPS
 NEXUS_API_URL = '[https://127.0.0.1:5000/api](https://127.0.0.1:5000/api)'
 
 auth_bp = Blueprint('auth', __name__)
@@ -132,6 +160,7 @@ def login():
         password = request.form['password']
         
         try:
+            # Call Nexus to get a JWT with the user's credentials
             response = requests.post(
                 f"{NEXUS_API_URL}/token", 
                 json={'username': username, 'password': password}, 
@@ -139,9 +168,11 @@ def login():
                 verify=False # Set to True in production with a real SSL cert
             )
             
+            # If authentication with Nexus is successful, create a local session
             if response.status_code == 200:
                 session['nexus_token'] = response.json().get('token')
                 session['username'] = username
+                
                 flash('Login successful!', 'success')
                 return redirect(url_for('wiki.dashboard')) # Redirect to your module's main page
             else:
@@ -160,53 +191,126 @@ def logout():
 
 ```
 
-### Step 4: Making Authenticated API Calls
+### Step 4: Authenticated API Calls
 
-Create a helper function to easily make authenticated requests to the Nexus API from anywhere in your module.
+A robust helper function is the best way to manage API calls to Nexus or other modules. This centralizes error handling and authentication logic.
+
+Here is a complete example for a `routes/wiki.py` file demonstrating this pattern.
 
 ```
-# Example within /hivematrix-wiki/routes/wiki.py
-from flask import Blueprint, render_template, session, abort
+# /hivematrix-wiki/routes/wiki.py
+from flask import Blueprint, render_template, session, abort, flash, request, redirect, url_for
 import requests
+import sys
 
+# Assume models.py defines a 'WikiArticle' model for this module's database
+# from .. import db
+# from ..models import WikiArticle
+
+# This URL should point to the Nexus instance on the same VPS
 NEXUS_API_URL = '[https://127.0.0.1:5000/api](https://127.0.0.1:5000/api)'
-wiki_bp = Blueprint('wiki', __name__)
+wiki_bp = Blueprint('wiki', __name__, url_prefix='/wiki')
 
-def get_nexus_data(endpoint):
-    """Helper to fetch data from Nexus using the stored token."""
+def nexus_api_request(method, endpoint, json_data=None):
+    """
+    A centralized helper function for making authenticated API calls to Nexus.
+    
+    :param method: HTTP method (GET, POST, PUT, DELETE)
+    :param endpoint: The API endpoint path (e.g., 'companies')
+    :param json_data: A dictionary for the JSON payload for POST/PUT requests
+    :return: The JSON response as a dictionary, or None if an error occurs.
+    """
     token = session.get('nexus_token')
     if not token:
-        abort(401) # Unauthorized
+        # If the token is missing, force the user to log in again.
+        flash("Your session has expired. Please log in again.", "danger")
+        abort(redirect(url_for('auth.login')))
 
     headers = {'Authorization': f'Bearer {token}'}
     try:
-        response = requests.get(f"{NEXUS_API_URL}/{endpoint}", headers=headers, verify=False, timeout=30)
-        response.raise_for_status()
+        response = requests.request(
+            method,
+            f"{NEXUS_API_URL}/{endpoint}",
+            headers=headers,
+            json=json_data,
+            verify=False,  # Set to True in production with a real SSL cert
+            timeout=30
+        )
+        response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+        
+        # Handle cases where the response might be empty (e.g., a 204 No Content)
+        if response.status_code == 204:
+            return None
+        
         return response.json()
+
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401: # Unauthorized
+            session.clear()
+            flash("Your session token is invalid or has expired. Please log in again.", "danger")
+            abort(redirect(url_for('auth.login')))
+        else:
+            print(f"HTTP Error calling Nexus endpoint '{endpoint}': {e}", file=sys.stderr)
+            flash(f"An error occurred while communicating with Nexus ({e.response.status_code}).", "danger")
+            return None
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching from Nexus endpoint '{endpoint}': {e}")
+        print(f"Error calling Nexus endpoint '{endpoint}': {e}", file=sys.stderr)
+        flash("A critical error occurred: Could not connect to the Nexus service.", "danger")
         return None
 
 @wiki_bp.route('/dashboard')
 def dashboard():
-    # Use the helper to get data
-    companies = get_nexus_data('companies')
+    """Example of a GET request to fetch a list of all companies."""
+    companies = nexus_api_request('GET', 'companies')
     if companies is None:
-        companies = [] # Handle API error gracefully
+        # The helper function flashes an error, so we just need to handle the None case.
+        companies = []
+    
+    # You would also fetch articles from the Wiki's own database here.
+    # recent_articles = WikiArticle.query.order_by(WikiArticle.updated_at.desc()).limit(10).all()
     
     return render_template('wiki_dashboard.html', companies=companies)
+
+@wiki_bp.route('/company/<account_number>')
+def company_wiki(account_number):
+    """Example of a GET request for a specific item, combined with local data."""
+    company = nexus_api_request('GET', f'companies/{account_number}')
+    if company is None:
+        return redirect(url_for('wiki.dashboard'))
+
+    # Fetch articles from this module's database that are linked to the company
+    # company_articles = WikiArticle.query.filter_by(company_account_number=account_number).all()
+
+    return render_template('company_wiki.html', company=company)
+
+@wiki_bp.route('/article/new', methods=['POST'])
+def create_article():
+    """Example of a POST request to send data (hypothetically)."""
+    form_data = request.form
+    company_account_number = form_data.get('company_account_number')
+
+    # First, verify the company exists in Nexus before saving to our local DB
+    company = nexus_api_request('GET', f'companies/{company_account_number}')
+    if company:
+        # Logic to save the new wiki article to the Wiki's PostgreSQL database
+        # new_article = WikiArticle(title=form_data.get('title'), content=form_data.get('content'), company_account_number=company_account_number)
+        # db.session.add(new_article)
+        # db.session.commit()
+        flash("Article created successfully!", "success")
+    else:
+        # The helper function will have already flashed an error if the API call failed
+        flash("Could not create article because the selected company was not found.", "warning")
+
+    return redirect(url_for('wiki.company_wiki', account_number=company_account_number))
 
 ```
 
 ### Step 5: Main Application File (`main.py`)
 
-Tie everything together in your module's `main.py`.
-
 ```
 # /hivematrix-wiki/main.py
 import os
 from flask import Flask, session, redirect, url_for, request
-
 from routes.auth import auth_bp
 from routes.wiki import wiki_bp
 
@@ -214,12 +318,14 @@ def create_app():
     app = Flask(__name__)
     app.secret_key = os.urandom(24)
 
+    # In production, this would point to your PostgreSQL database
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user:password@localhost/wiki_db'
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(wiki_bp)
 
     @app.before_request
     def check_auth():
-        # Protect all routes except for the login page and static files
         if 'nexus_token' not in session and request.endpoint not in ['auth.login', 'static']:
             return redirect(url_for('auth.login'))
 
@@ -229,9 +335,11 @@ def create_app():
 
     return app
 
+# The main entry point for Gunicorn
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
-    # Run on a different port than Nexus!
+    # This block is for development only
     app.run(host='0.0.0.0', port=5003, debug=True)
 
 ```
