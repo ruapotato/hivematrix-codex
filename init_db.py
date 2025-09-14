@@ -145,6 +145,28 @@ def init_db():
              service_account.regenerate_api_key()
              db.session.commit()
 
+        # --- Import users from nexus.conf ---
+        if config.has_section('user_import'):
+            print("Importing users from nexus.conf...")
+            for key, value in config.items('user_import'):
+                try:
+                    username, email, password, permission_level = [item.strip() for item in value.split(',')]
+                    if User.query.filter((User.username == username) | (User.email == email)).first():
+                        print(f"  - Skipping user '{username}' (already exists).")
+                    else:
+                        new_user = User(
+                            username=username,
+                            email=email,
+                            permission_level=permission_level
+                        )
+                        new_user.set_password(password)
+                        db.session.add(new_user)
+                        print(f"  - Creating user '{username}'.")
+                except ValueError:
+                    print(f"  - Skipping invalid user entry: {key}")
+            db.session.commit()
+            print("User import complete.")
+
         service_api_key = service_account.api_key
         print("\n" + "="*50)
         print("IMPORTANT: Service Account API Key")
@@ -176,4 +198,3 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-
