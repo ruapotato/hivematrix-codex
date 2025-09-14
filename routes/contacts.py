@@ -4,6 +4,7 @@ from decorators import admin_required
 from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.orm import joinedload
 import json
+from urllib.parse import urlencode
 
 contacts_bp = Blueprint('contacts', __name__, url_prefix='/contacts')
 
@@ -65,12 +66,35 @@ def list_contacts():
 
     return render_template('contacts.html', contacts=contacts, pagination=pagination, sort_by=sort_by, order=order, per_page=per_page, companies=all_companies, search_query=search_query, show_inactive=show_inactive)
 
+# --- THIS IS THE FIX ---
+@contacts_bp.route('/add_from_resolve')
+def add_from_resolve():
+    """
+    Renders the contacts page with the "Add Contact" modal open,
+    pre-filled with data from the Resolve ticketing system.
+    """
+    email = request.args.get('email', '')
+    ticket_id = request.args.get('ticket_id', '')
+    
+    # We pass these as query parameters to the template,
+    # which will then use JavaScript to open the modal and pre-fill the fields.
+    return redirect(url_for('contacts.list_contacts', 
+                            action='add', 
+                            email=email, 
+                            ticket_id=ticket_id))
+# --- END OF FIX ---
+
 @contacts_bp.route('/add', methods=['POST'])
 def add_contact():
     """Adds a new contact."""
     name = request.form.get('name')
     email = request.form.get('email')
     company_account_numbers = request.form.getlist('company_account_numbers')
+    
+    # --- THIS IS THE FIX ---
+    # Check for a ticket_id from a hidden input in the form
+    ticket_id = request.form.get('ticket_id')
+    # --- END OF FIX ---
 
     if not all([name, email, company_account_numbers]):
         flash('Name, email, and at least one company are required fields.', 'danger')
@@ -97,7 +121,19 @@ def add_contact():
     db.session.add(new_contact)
     db.session.commit()
     flash(f"Contact '{name}' created successfully.", 'success')
+
+    # --- THIS IS THE FIX ---
+    # If a ticket_id was passed, redirect back to Resolve to update the ticket
+    if ticket_id:
+        # This assumes your Resolve instance is running on port 5002
+        # In a real production environment, this URL should come from a config file
+        resolve_url = 'http://127.0.0.1:5002'
+        params = urlencode({'ticket_id': ticket_id, 'contact_id': new_contact.id})
+        return redirect(f"{resolve_url}/tickets/update_from_nexus?{params}")
+    # --- END OF FIX ---
+
     return redirect(url_for('contacts.list_contacts'))
+
 
 @contacts_bp.route('/<int:contact_id>', methods=['GET', 'POST'])
 def contact_details(contact_id):
@@ -182,4 +218,3 @@ def delete_contact(contact_id):
         flash('Contact not found.', 'danger')
 
     return redirect(url_for('contacts.list_contacts'))
-
