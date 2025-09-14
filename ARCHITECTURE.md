@@ -7,104 +7,90 @@
 
 Welcome to the HiveMatrix ecosystem. This document outlines the official microservice architecture for the HiveMatrix PSA, a powerful, multi-tenant Professional Services Automation platform designed for commercial service providers.
 
-**Nexus is the foundational, required component of the entire ecosystem.** It serves as the central "address book" and identity provider. All other applications, referred to as **Modules** (e.g., Treasury, Archive), are standalone services that connect to Nexus for authentication and basic directory information before executing their specialized functions.
+**Nexus is the foundational, required component of the entire ecosystem.** It serves as the central "address book" and identity provider. All other applications, referred to as **Modules** (e.g., Resolve, Archive), are standalone services that connect to Nexus for authentication and basic directory information before executing their specialized functions.
 
-This guide is the blueprint for developing any new module. Adherence to this architecture ensures that the HiveMatrix platform remains scalable, secure, and maintainable as it grows. Because Nexus is the core, this guide and other primary setup documentation will be maintained within the Nexus repository.
+This guide is the blueprint for developing any new module. Adherence to this architecture ensures that the HiveMatrix platform remains scalable, secure, and maintainable as it grows.
 
 ## 2. Component Responsibilities
 
 ### 2.1. Nexus: The Central User & Directory Hub
 
-Nexus is the **identity and directory service** for the entire HiveMatrix ecosystem. It is not a monolithic data repository. Its primary responsibilities are narrowly focused:
+Nexus is the **identity and directory service** for the entire HiveMatrix ecosystem. Its primary responsibilities are narrowly focused:
 
--   **User Directory:** The master database for user accounts, permissions, and basic profile information. **A user in Nexus is a user in all modules.**
+-   **User Directory:** The master database for user accounts, permissions, and basic profile information. **A user in Nexus is a user in all modules.** This includes both human users who log into the web interfaces and non-human "service accounts" used for server-to-server communication.
     
--   **Central Address Book:** Provides a simple, referenceable directory of core entities like Companies and Contacts.
+-   **Central Address Book:** Provides a simple, referenceable directory of core entities like Companies, Contacts, and Assets.
     
--   **Authentication Service:** Manages user credentials and issues JSON Web Tokens (JWTs) for secure, stateless authentication.
+-   **Authentication Service:** Manages user credentials (passwords for humans, API keys for services) and issues JSON Web Tokens (JWTs) for secure, stateless authentication for web sessions.
     
--   **Core Directory API:** Exposes the user, company, and contact directories through a secure REST API.
+-   **Core Directory API:** Exposes the user, company, and contact directories through a secure REST API that accepts both JWTs and service account API keys.
     
 
-Nexus **does not** store module-specific data (e.g., billing configurations, wiki articles, ticket histories). Its purpose is to answer the questions: "Who is this user?" and "What basic entities exist in our PSA?".
+Nexus **does not** store module-specific data (e.g., ticket histories, wiki articles). Its purpose is to answer the questions: "Who is this user/service?" and "What basic entities exist in our PSA?".
 
 ### 2.2. Modules: The Specialized Services
 
-A Module is a standalone Flask application that performs a specific business function. Each module is an expert in its own domain.
+A Module is a standalone Flask application that performs a specific business function.
 
-**Key Principles of a Module:**
-
--   **Standalone:** It runs as its own process, typically on a different port than Nexus and other modules.
+-   **Standalone:** It runs as its own process on a different port.
     
--   **Nexus-Authenticated:** It uses Nexus for user login and retrieving basic directory information. It does not rely on Nexus for its own business logic.
+-   **Nexus-Authenticated:** It uses Nexus for all authentication and directory lookups.
     
--   **Owns Its Data:** Each module **must have its own PostgreSQL database** (e.g., `treasury_db`, `archive_db`). This database stores all data specific to that module's domain.
+-   **Owns Its Data:** Each module has its own PostgreSQL database (e.g., `resolve_db`).
     
--   **Standalone Initialization:** Each module must have a standalone `init_db.py` script that handles interactive setup of its database connection and initializes the schema. This script **must not** depend on the Flask app object.
+-   **Standalone Initialization:** Each module must have an `init_db.py` script for interactive setup of its database connection and schema.
     
 
 ## 3. The Authentication Flow
 
-Authentication is centralized through Nexus to provide a single sign-on (SSO) experience.
+Authentication is centralized through Nexus to provide a single source of truth for identity. There are two primary authentication flows.
 
-1.  **Login Request:** A user enters credentials into a Module's login form.
+### 3.1. User Authentication (Web UI)
+
+This flow is used when a human user logs into any module's web interface.
+
+1.  **Login Request:** A user enters their username and password into a Module's login form.
     
-2.  **Token Generation:** The Module sends the credentials to the Nexus `/api/token` endpoint.
+2.  **Token Generation:** The Module sends these credentials to the Nexus `/api/token` endpoint.
     
-3.  **Validation & Issuance:** Nexus validates the credentials and, if successful, generates and returns a signed JWT.
+3.  **Validation & Issuance:** Nexus validates the credentials against its user database and, if successful, generates and returns a signed, short-lived JWT.
     
-4.  **Session Storage:** The Module receives the JWT and stores it in the user's server-side session. The module decodes the token to read the user's permission level and caches it in the session for local permission checks.
+4.  **Session Storage:** The Module receives the JWT and stores it in the user's server-side session. It decodes the token to cache the user's role for local permission checks.
     
-5.  **Authenticated API Calls:** For every subsequent API call to Nexus or another module, the calling module attaches the JWT to the `Authorization: Bearer <token>` header.
+5.  **Subsequent Requests:** For the duration of the web session, the Module uses the stored user information. If it needs to make an API call to another module on the user's behalf, it would pass the JWT in the `Authorization` header.
     
+
+### 3.2. Service-to-Service Authentication (Background Tasks)
+
+This flow is used when a background process (like an email watcher) needs to communicate with an API securely without a human user present.
+
+1.  **Service Account:** A special user account (e.g., `service_account`) is created in Nexus. This account has a long-lived, randomly generated **API Key** instead of a password.
+    
+2.  **Secure Configuration:** A Module (e.g., Resolve) stores this API key in its local `instance/resolve.conf` file.
+    
+3.  **API Request:** When the Module's background task needs to access Nexus data (e.g., to look up a contact by email), it makes a request to the Nexus API.
+    
+4.  **API Key Authentication:** Instead of a JWT, the Module includes the API key in a custom request header: `X-API-Key: <your_nexus_service_api_key>`.
+    
+5.  **Validation:** The Nexus API decorator first checks for this `X-API-Key` header. If present and valid, it grants the request the permissions of the associated service account. This method is prioritized over JWTs for API calls.
+    
+
+This model is more secure and robust because it eliminates the need to store passwords in configuration files and decouples background services from user login sessions.
 
 ## 4. Deployment Architecture
 
-This architecture is designed for simplicity and robustness, using a consistent set of tools for both production and development.
+This architecture uses a consistent, simple, and robust set of tools.
 
-### 4.1. The Technology Stack
-
--   **Database: PostgreSQL**
+-   **Database:** PostgreSQL
     
-    -   **Why:** A powerful, open-source database that handles high-concurrency reads and writes, essential for a multi-user PSA.
-        
--   **WSGI Server: Waitress**
+-   **WSGI Server:** Waitress (Pure-Python, cross-platform)
     
-    -   **Why:** A production-quality, pure-Python WSGI server. Its key advantage is simplicity and cross-platform compatibility, running identically on both Windows and Linux without requiring compilers or complex dependencies.
-        
--   **Reverse Proxy: Caddy**
-    
-    -   **Why:** A modern, secure web server that is significantly easier to configure than alternatives. Its primary benefit is **automatic HTTPS**, meaning it will automatically obtain and renew SSL certificates.
-        
-
-### 4.2. Deployment Steps on a VPS
-
-A typical deployment script for a new client on a fresh Linux VPS would perform these steps:
-
-1.  Install system packages (Caddy, PostgreSQL, Python, etc.).
-    
-2.  **Create empty PostgreSQL databases and users** for Nexus and each required module.
-    
-3.  Clone the Git repositories for Nexus and all required modules.
-    
-4.  Set up Python virtual environments and install dependencies for each module (`pip install -r requirements.txt`).
-    
-5.  **Run each module's `init_db.py` script.** This is an interactive process that will:
-    
-    -   Prompt for the module's PostgreSQL database credentials.
-        
-    -   Create a local `instance/<module>.conf` file.
-        
-    -   Connect to the database and create the necessary **tables and schema**.
-        
-6.  Create a simple `Caddyfile` to configure the reverse proxy.
-    
-7.  Create and enable `systemd` service files to run each module's `main.py` with **Waitress** as a background service.
+-   **Reverse Proxy:** Caddy (Modern, simple, with automatic HTTPS)
     
 
-### 4.3. Example Caddy Configuration
+### 4.1. Example Caddy Configuration
 
-This `Caddyfile` showcases the simplicity of managing multiple services. Caddy automatically handles acquiring and renewing SSL certificates for each domain.
+This `Caddyfile` demonstrates how Caddy can manage multiple services on a single server, routing traffic based on the domain name and handling all SSL certificate management automatically.
 
 ```
 # /etc/caddy/Caddyfile
@@ -114,9 +100,9 @@ nexus.your-client-domain.com {
     reverse_proxy 127.0.0.1:5000
 }
 
-# Treasury Module
-treasury.your-client-domain.com {
-    reverse_proxy 127.0.0.1:5001
+# Resolve Module (Ticketing)
+resolve.your-client-domain.com {
+    reverse_proxy 127.0.0.1:5002
 }
 
 # Archive Module (Wiki)
@@ -152,6 +138,7 @@ This section provides the boilerplate code for a new module, `hivematrix-archive
     ├── login.html
     └── dashboard.html
 
+
 ```
 
 ### Step 2: Dependencies (`requirements.txt`)
@@ -164,6 +151,7 @@ PyJWT
 cryptography
 psycopg2-binary
 waitress
+
 
 ```
 
@@ -189,9 +177,11 @@ from extensions import db
 
 def get_db_credentials(config):
     # ... (omitted for brevity - same as Treasury's init_db.py) ...
+    pass
 
 def test_db_connection(creds):
     # ... (omitted for brevity - same as Treasury's init_db.py) ...
+    pass
 
 def init_db():
     instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
@@ -206,6 +196,7 @@ def init_db():
 
     # --- Get and save DB credentials ---
     # ... (omitted for brevity - same as Treasury's init_db.py) ...
+    conn_string = "" # Placeholder for the actual connection string logic
 
     # --- Connect directly to the database to create tables ---
     engine = create_engine(conn_string)
@@ -228,6 +219,7 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
+
 
 ```
 
@@ -274,55 +266,21 @@ if __name__ == '__main__':
         print("Starting Waitress production server for Archive...")
         serve(app, host='0.0.0.0', port=5003)
 
+
 ```
 
-## 6. Architecture Best Practices
+## 6. HiveMatrix Module Ecosystem
 
--   **Nexus is the Source of Truth for Identity.** Use Nexus to manage users, permissions, and basic company/contact info. Do not duplicate this data.
-    
--   **Modules Own Their Domain Data.** All specialized data and configuration must live in the module's own PostgreSQL database.
-    
--   **Communicate via APIs.** Modules should communicate with Nexus and with each other exclusively through REST APIs. Never allow one module to directly access another's database.
-    
--   **Stateless Authentication.** The JWT approach is stateless. Services validate tokens without needing to check back with a central session store, which enhances scalability.
-    
--   **Standalone Initialization.** Every module must have its own `init_db.py` that can be run from the command line to prepare its database schema and initial configuration.
+This section outlines the planned modules for the HiveMatrix PSA and their standard internal port assignments.
 
-
-## 7. HiveMatrix Module Ecosystem
-
-This section outlines the planned modules for the HiveMatrix PSA and their standard internal port assignments. This structure allows for clear separation of concerns and independent development.
-
-### How Multiple Services Work on One Port (443)
-
-You might wonder how all these services running on different internal ports can be accessed securely through the standard HTTPS port (443). This is the primary job of the **Caddy reverse proxy**.
-
-When a user visits `https://nexus.your-client-domain.com`, Caddy receives the request on port 443, handles the HTTPS encryption, and intelligently forwards (proxies) the request to the Nexus module running internally on port 5000. When they visit `https://treasury.your-client-domain.com`, Caddy does the same, but forwards it to the Treasury module on port 5001.
-
-This setup provides a single, secure entry point for all applications, while allowing each service to run independently inside the server. The Caddy configuration in section 4.4 is the "map" that tells the proxy where to send the traffic.
-
-### Standard Module Ports
-
--   **HiveMatrix Nexus (Port 5000)**
+-   **HiveMatrix Nexus (Port 5000):** Central identity and directory service.
     
-    -   _Description:_ A unified client database aggregating companies, assets, and contacts from RMM and ticketing APIs. The central hub for identity and directory services.
-        
--   **HiveMatrix Treasury (Port 5001)**
+-   **HiveMatrix Treasury (Port 5001):** Internal billing engine.
     
-    -   _Description:_ An internal billing engine for MSPs to manage service plans and generate client bill estimates.
-        
--   **HiveMatrix Resolve (Port 5002)**
+-   **HiveMatrix Resolve (Port 5002):** AI-first ticketing system.
     
-    -   _Description:_ An AI-first ticketing system that leverages context from the entire HiveMatrix for faster resolutions.
-        
--   **HiveMatrix Archive (Port 5003)**
+-   **HiveMatrix Archive (Port 5003):** Centralized internal knowledge base.
     
-    -   _Description:_ A centralized internal knowledge base for MSP processes and client-specific documentation.
-        
--   **HiveMatrix Dispatch (Port 5004)**
+-   **HiveMatrix Dispatch (Port 5004):** Internal procurement and order tracking.
     
-    -   _Description:_ An internal procurement tool for end-to-end tracking of the hardware and software order lifecycle.
-        
--   **HiveMatrix Architect (Port 5005)**
-    
-    -   _Description:_ An internal project management framework for planning, tracking, and executing client-facing initiatives.
+-   **HiveMatrix Architect (Port 5005):** Internal project management framework.

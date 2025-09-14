@@ -5,7 +5,7 @@ from getpass import getpass
 from main import create_app
 from models import User
 from extensions import db
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect as sqlalchemy_inspect
 from sqlalchemy.exc import OperationalError
 
 def get_db_credentials(config):
@@ -20,7 +20,6 @@ def get_db_credentials(config):
         'dbname': 'nexus_db'
     }
     
-    # Pre-fill with existing config values if they exist
     if config.has_section('database_credentials'):
         for key, default_val in db_details.items():
             db_details[key] = config.get('database_credentials', f'db_{key}', fallback=default_val)
@@ -53,7 +52,6 @@ def test_db_connection(creds):
 
 def init_db():
     """Interactively configures and initializes the database."""
-    # Create a temporary app to get the instance path
     temp_app = create_app()
     instance_path = temp_app.instance_path
     config_path = os.path.join(instance_path, 'nexus.conf')
@@ -62,7 +60,6 @@ def init_db():
     if os.path.exists(config_path):
         config.read(config_path)
 
-    # Loop until a successful database connection is made
     while True:
         creds = get_db_credentials(config)
         conn_string, success = test_db_connection(creds)
@@ -71,7 +68,6 @@ def init_db():
                 config.add_section('database')
             config.set('database', 'connection_string', conn_string)
             
-            # Save credentials for future prompts, but not the password
             if not config.has_section('database_credentials'):
                 config.add_section('database_credentials')
             config.set('database_credentials', 'db_host', creds['host'])
@@ -87,16 +83,37 @@ def init_db():
             if retry != 'y':
                 sys.exit("Database configuration aborted.")
 
-    # Now, create the full app with the verified config
     app = create_app()
     with app.app_context():
-        print("Initializing the database schema...")
-        db.create_all()
-        print("Database schema initialized.")
+        engine = db.engine
+        inspector = sqlalchemy_inspect(engine)
+        model_table_names = set(db.metadata.tables.keys())
+        existing_table_names = set(inspector.get_table_names())
+        
+        tables_exist = model_table_names.intersection(existing_table_names)
+        
+        should_create_schema = True
+        if tables_exist:
+            print("\n[!] Existing HiveMatrix Nexus tables found in the database.")
+            print(f"    Found tables: {', '.join(sorted(list(tables_exist)))}")
+            reset = input("    Do you want to drop all tables and re-initialize? (THIS WILL DELETE ALL DATA) (y/n): ").lower()
+            if reset == 'y':
+                print("    -> Dropping all tables...")
+                db.drop_all()
+                print("    -> Re-initializing schema...")
+                db.create_all()
+                print("    Database schema re-initialized.")
+            else:
+                should_create_schema = False
+                print("    -> Skipping schema modification. Preserving existing data.")
+        
+        if should_create_schema and not tables_exist:
+            print("Initializing the database schema...")
+            db.create_all()
+            print("Database schema initialized.")
 
-        admin_user = User.query.filter_by(username='admin').first()
-
-        if not admin_user:
+        # --- Create Admin User ---
+        if not User.query.filter_by(username='admin').first():
             admin_user = User(
                 username='admin',
                 email='admin@nexus.local',
@@ -109,23 +126,36 @@ def init_db():
         else:
             print("Admin user already exists.")
 
-        # Ensure the admin user has an API key
-        if not admin_user.api_key:
-             admin_user.regenerate_api_key()
+        # --- Create Service Account ---
+        service_account = User.query.filter_by(username='service_account').first()
+        if not service_account:
+            service_account = User(
+                username='service_account',
+                email='service@nexus.local',
+                permission_level='admin'
+            )
+            service_account.set_password(os.urandom(24).hex())
+            db.session.add(service_account)
+            db.session.commit()
+            print("Created default service_account user.")
+        else:
+            print("Service account already exists.")
+
+        if not service_account.api_key:
+             service_account.regenerate_api_key()
              db.session.commit()
 
-        admin_api_key = admin_user.api_key
-        print(f"\nAdmin API Key: {admin_api_key}\n")
+        service_api_key = service_account.api_key
+        print("\n" + "="*50)
+        print("IMPORTANT: Service Account API Key")
+        print(f"Copy this key to your other HiveMatrix module config files:\n")
+        print(f"{service_api_key}")
+        print("="*50 + "\n")
 
         # Update the rest of the configuration file
-        if not config.has_section('nexus'):
-            config.add_section('nexus')
-        config.set('nexus', 'api_key', admin_api_key)
-
-        if not config.has_section('nexus_auth'):
-            config.add_section('nexus_auth')
-            config.set('nexus_auth', 'username', 'admin')
-            config.set('nexus_auth', 'password', 'admin')
+        if not config.has_section('nexus_service'):
+            config.add_section('nexus_service')
+        config.set('nexus_service', 'api_key', service_api_key)
 
         if not config.has_section('freshservice'):
             config.add_section('freshservice')
@@ -146,3 +176,4 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
+
