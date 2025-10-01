@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Settings - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Admin Settings</h1>
+        </div>
+        <div class="card__body">
+            <p>Welcome, <strong>{{ user.name }}</strong> ({{ user.permission_level }})</p>
+            <a href="{{ url_for('index') }}">
+                <button class="btn">
+                    <span class="btn__label">← Back to Dashboard</span>
+                </button>
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Database Statistics</h2>
+        </div>
+        <div class="card__body">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Entity</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Companies</td>
+                        <td><strong>{{ stats.companies }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Contacts</td>
+                        <td><strong>{{ stats.contacts }}</strong> ({{ stats.active_contacts }} active)</td>
+                    </tr>
+                    <tr>
+                        <td>Assets</td>
+                        <td><strong>{{ stats.assets }}</strong> ({{ stats.online_assets }} online)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Database Configuration</h2>
+        </div>
+        <div class="card__body">
+            <table>
+                <tbody>
+                    <tr>
+                        <td><strong>Host:</strong></td>
+                        <td>{{ db_config.host }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Port:</strong></td>
+                        <td>{{ db_config.port }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Database:</strong></td>
+                        <td>{{ db_config.dbname }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>User:</strong></td>
+                        <td>{{ db_config.user }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><em>To modify database settings, edit instance/codex.conf and restart the service.</em></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Freshservice Integration</h2>
+        </div>
+        <div class="card__body">
+            <table>
+                <tbody>
+                    <tr>
+                        <td><strong>Domain:</strong></td>
+                        <td>{{ fs_config.domain }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>API Key:</strong></td>
+                        <td>
+                            {% if fs_config.api_key_set %}
+                                <span style="color: green;">✓ Configured</span>
+                            {% else %}
+                                <span style="color: red;">✗ Not configured</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Update Freshservice Configuration</h3>
+            <form method="POST" action="{{ url_for('admin.update_freshservice') }}">
+                <div style="margin-bottom: 1em;">
+                    <label for="fs_domain">Domain:</label><br>
+                    <input type="text" id="fs_domain" name="fs_domain"
+                           value="{{ fs_config.domain }}"
+                           placeholder="your-domain.freshservice.com"
+                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                </div>
+                <div style="margin-bottom: 1em;">
+                    <label for="fs_api_key">API Key:</label><br>
+                    <input type="password" id="fs_api_key" name="fs_api_key"
+                           placeholder="Enter new API key (leave blank to keep current)"
+                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                </div>
+                <button type="submit" class="btn btn--primary">
+                    <span class="btn__label">Save Freshservice Settings</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Datto RMM Integration</h2>
+        </div>
+        <div class="card__body">
+            <table>
+                <tbody>
+                    <tr>
+                        <td><strong>API Endpoint:</strong></td>
+                        <td>{{ datto_config.api_endpoint }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Public Key:</strong></td>
+                        <td>
+                            {% if datto_config.public_key_set %}
+                                <span style="color: green;">✓ Configured</span>
+                            {% else %}
+                                <span style="color: red;">✗ Not configured</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Secret Key:</strong></td>
+                        <td>
+                            {% if datto_config.secret_key_set %}
+                                <span style="color: green;">✓ Configured</span>
+                            {% else %}
+                                <span style="color: red;">✗ Not configured</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Update Datto RMM Configuration</h3>
+            <form method="POST" action="{{ url_for('admin.update_datto') }}">
+                <div style="margin-bottom: 1em;">
+                    <label for="datto_endpoint">API Endpoint:</label><br>
+                    <select id="datto_endpoint" name="datto_endpoint"
+                            style="width: 100%; max-width: 400px; padding: 0.5em;">
+                        <option value="https://zinfandel-api.centrastage.net"
+                                {% if datto_config.api_endpoint == 'https://zinfandel-api.centrastage.net' %}selected{% endif %}>
+                            US - https://zinfandel-api.centrastage.net
+                        </option>
+                        <option value="https://concord-api.centrastage.net"
+                                {% if datto_config.api_endpoint == 'https://concord-api.centrastage.net' %}selected{% endif %}>
+                            EU - https://concord-api.centrastage.net
+                        </option>
+                        <option value="https://pinotgrigio-api.centrastage.net"
+                                {% if datto_config.api_endpoint == 'https://pinotgrigio-api.centrastage.net' %}selected{% endif %}>
+                            AU - https://pinotgrigio-api.centrastage.net
+                        </option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 1em;">
+                    <label for="datto_public_key">Public Key:</label><br>
+                    <input type="text" id="datto_public_key" name="datto_public_key"
+                           placeholder="Enter new public key (leave blank to keep current)"
+                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                </div>
+                <div style="margin-bottom: 1em;">
+                    <label for="datto_secret_key">Secret Key:</label><br>
+                    <input type="password" id="datto_secret_key" name="datto_secret_key"
+                           placeholder="Enter new secret key (leave blank to keep current)"
+                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                </div>
+                <button type="submit" class="btn btn--primary">
+                    <span class="btn__label">Save Datto Settings</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Data Management</h2>
+        </div>
+        <div class="card__body">
+            <p><strong>⚠️ Warning:</strong> These operations are destructive and cannot be undone!</p>
+
+            <h3>Clear Database Records</h3>
+            <form method="POST" action="{{ url_for('admin.clear_data') }}"
+                  onsubmit="return confirm('Are you sure you want to delete this data? This action cannot be undone!');">
+                <div style="margin-bottom: 1em;">
+                    <label for="data_type">Select data type to clear:</label><br>
+                    <select id="data_type" name="data_type" required
+                            style="width: 100%; max-width: 400px; padding: 0.5em;">
+                        <option value="">-- Select Type --</option>
+                        <option value="assets">Assets Only ({{ stats.assets }} records)</option>
+                        <option value="contacts">Contacts Only ({{ stats.contacts }} records)</option>
+                        <option value="companies">Companies Only ({{ stats.companies }} records)</option>
+                        <option value="all">⚠️ ALL DATA (Everything)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn--danger">
+                    <span class="btn__label">⚠️ Delete Selected Data</span>
+                </button>
+            </form>
+
+            <h3 style="margin-top: 2em;">Re-sync from External Systems</h3>
+            <p>After clearing data, you can re-sync from Freshservice and Datto RMM:</p>
+            <div style="margin-top: 1em;">
+                <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
+                    <span class="btn__label">Sync Freshservice</span>
+                </button>
+                <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn" style="margin-left: 0.5em;">
+                    <span class="btn__label">Sync Datto RMM</span>
+                </button>
+            </div>
+            <p id="sync-status" style="margin-top: 1em;"></p>
+        </div>
+    </div>
+
+    <script>
+        function syncFreshservice() {
+            const btn = document.getElementById('sync-fs-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Syncing...';
+            status.textContent = 'Starting Freshservice sync...';
+            status.style.color = 'black';
+
+            fetch('{{ url_for("sync_freshservice") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = '✓ Freshservice sync complete!';
+                    status.style.color = 'green';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                    status.style.color = 'red';
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+                status.style.color = 'red';
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
+            });
+        }
+
+        function syncDatto() {
+            const btn = document.getElementById('sync-datto-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Syncing...';
+            status.textContent = 'Starting Datto RMM sync...';
+            status.style.color = 'black';
+
+            fetch('{{ url_for("sync_datto") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = '✓ Datto RMM sync complete!';
+                    status.style.color = 'green';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                    status.style.color = 'red';
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+                status.style.color = 'red';
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
+            });
+        }
+    </script>
+</body>
+</html>
