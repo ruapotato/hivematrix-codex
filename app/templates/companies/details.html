@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ company.name }} - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">{{ company.name }}</h1>
+        </div>
+        <div class="card__body">
+            <p><strong>Account Number:</strong> {{ company.account_number }}</p>
+            <p><strong>Plan:</strong> {{ company.plan_selected or 'N/A' }}</p>
+            <p><strong>Phone:</strong> {{ company.company_main_number or 'N/A' }}</p>
+            <p><strong>Description:</strong> {{ company.description or 'N/A' }}</p>
+            
+            <h3>Contacts ({{ company.contacts|length }})</h3>
+            <ul>
+                {% for contact in company.contacts %}
+                <li>
+                    <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                        {{ contact.name }}
+                    </a> - {{ contact.email }}
+                </li>
+                {% else %}
+                <li>No contacts found</li>
+                {% endfor %}
+            </ul>
+            
+            <h3>Assets ({{ company.assets|length }})</h3>
+            <ul>
+                {% for asset in company.assets %}
+                <li>
+                    <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                        {{ asset.hostname }}
+                    </a> - {{ asset.operating_system or 'Unknown OS' }}
+                </li>
+                {% else %}
+                <li>No assets found</li>
+                {% endfor %}
+            </ul>
+            
+            <a href="{{ url_for('companies.list_companies') }}">
+                <button class="btn">
+                    <span class="btn__label">Back to Companies</span>
+                </button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

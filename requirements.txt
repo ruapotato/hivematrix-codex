@@ -1,9 +1,9 @@
-Flask
+Flask==2.3.3
 Flask-SQLAlchemy
-Flask-Login
-requests
-apscheduler
-PyJWT
-cryptography
+python-dotenv==1.0.0
+PyJWT==2.8.0
+cryptography>=3.4.7
+requests==2.31.0
 psycopg2-binary
 waitress
+beautifulsoup4==4.12.2

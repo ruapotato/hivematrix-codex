@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Assets - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Assets</h1>
+        </div>
+        <div class="card__body">
+            <p>Total: <strong>{{ pagination.total }}</strong> assets</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Company</th>
+                        <th>Type</th>
+                        <th>OS</th>
+                        <th>Online</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td>{{ asset.hostname }}</td>
+                        <td>
+                            {% if asset.company %}
+                                <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
+                                    {{ asset.company.name }}
+                                </a>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ asset.hardware_type or 'N/A' }}</td>
+                        <td>{{ asset.operating_system or 'N/A' }}</td>
+                        <td>{{ '✓ Online' if asset.online else '✗ Offline' }}</td>
+                        <td>
+                            <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                                <button class="btn btn--primary">
+                                    <span class="btn__label">View</span>
+                                </button>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">No assets found. Run pull_datto.py to sync data.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <a href="{{ url_for('index') }}">
+                <button class="btn">
+                    <span class="btn__label">Back to Dashboard</span>
+                </button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

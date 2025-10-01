@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codex Dashboard</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Welcome to Codex, {{ user.name }}!</h1>
+        </div>
+        <div class="card__body">
+            <p>Username: <strong>{{ user.preferred_username }}</strong></p>
+            <p>Role: <strong>{{ user.permission_level }}</strong></p>
+            
+            {% if user.permission_level == 'admin' %}
+            <p>
+                <a href="{{ url_for('admin.settings') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">⚙️ Admin Settings</span>
+                    </button>
+                </a>
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">CRM Overview</h2>
+        </div>
+        <div class="card__body">
+            <div style="margin-bottom: 1em;">
+                <h3>Companies</h3>
+                <p><strong>{{ company_count }}</strong> companies in database</p>
+                <a href="{{ url_for('companies.list_companies') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">View Companies</span>
+                    </button>
+                </a>
+            </div>
+            
+            <div style="margin-bottom: 1em;">
+                <h3>Contacts</h3>
+                <p><strong>{{ contact_count }}</strong> contacts in database</p>
+                <a href="{{ url_for('contacts.list_contacts') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">View Contacts</span>
+                    </button>
+                </a>
+            </div>
+            
+            <div style="margin-bottom: 1em;">
+                <h3>Assets</h3>
+                <p><strong>{{ asset_count }}</strong> assets in database</p>
+                <a href="{{ url_for('assets.list_assets') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">View Assets</span>
+                    </button>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if user.permission_level == 'admin' %}
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Quick Actions</h2>
+        </div>
+        <div class="card__body">
+            <p>Sync data from external systems:</p>
+            <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
+                <span class="btn__label">Sync Freshservice</span>
+            </button>
+            <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn">
+                <span class="btn__label">Sync Datto RMM</span>
+            </button>
+            <p id="sync-status"></p>
+        </div>
+    </div>
+
+    <script>
+        function syncFreshservice() {
+            const btn = document.getElementById('sync-fs-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Syncing...';
+            status.textContent = 'Starting Freshservice sync...';
+            
+            fetch('{{ url_for("sync_freshservice") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = '✓ Freshservice sync complete!';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
+            });
+        }
+
+        function syncDatto() {
+            const btn = document.getElementById('sync-datto-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Syncing...';
+            status.textContent = 'Starting Datto RMM sync...';
+            
+            fetch('{{ url_for("sync_datto") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = '✓ Datto RMM sync complete!';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
+            });
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

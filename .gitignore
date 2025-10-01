@@ -1,3 +1,4 @@
+.flaskenv
 *.db
 pyenv
 nexus.conf

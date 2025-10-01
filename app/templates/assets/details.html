@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ asset.hostname }} - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">{{ asset.hostname }}</h1>
+        </div>
+        <div class="card__body">
+            <p><strong>Company:</strong> 
+                {% if asset.company %}
+                    <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
+                        {{ asset.company.name }}
+                    </a>
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+            <p><strong>Hardware Type:</strong> {{ asset.hardware_type or 'N/A' }}</p>
+            <p><strong>Operating System:</strong> {{ asset.operating_system or 'N/A' }}</p>
+            <p><strong>Status:</strong> {{ '✓ Online' if asset.online else '✗ Offline' }}</p>
+            <p><strong>Internal IP:</strong> {{ asset.int_ip_address or 'N/A' }}</p>
+            <p><strong>External IP:</strong> {{ asset.ext_ip_address or 'N/A' }}</p>
+            <p><strong>Domain:</strong> {{ asset.domain or 'N/A' }}</p>
+            <p><strong>Last Seen:</strong> {{ asset.last_seen or 'N/A' }}</p>
+            <p><strong>Last Logged In User:</strong> {{ asset.last_logged_in_user or 'N/A' }}</p>
+            
+            {% if asset.web_remote_url %}
+            <p>
+                <a href="{{ asset.web_remote_url }}" target="_blank">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">Remote Access</span>
+                    </button>
+                </a>
+            </p>
+            {% endif %}
+            
+            <h3>Associated Contacts ({{ asset.contacts|length }})</h3>
+            <ul>
+                {% for contact in asset.contacts %}
+                <li>
+                    <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                        {{ contact.name }}
+                    </a> - {{ contact.email }}
+                </li>
+                {% else %}
+                <li>No contacts associated</li>
+                {% endfor %}
+            </ul>
+            
+            <a href="{{ url_for('assets.list_assets') }}">
+                <button class="btn">
+                    <span class="btn__label">Back to Assets</span>
+                </button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

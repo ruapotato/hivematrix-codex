@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Companies - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Companies</h1>
+        </div>
+        <div class="card__body">
+            <p>Total: <strong>{{ pagination.total }}</strong> companies</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account Number</th>
+                        <th>Name</th>
+                        <th>Plan</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in companies %}
+                    <tr>
+                        <td>{{ company.account_number }}</td>
+                        <td>{{ company.name }}</td>
+                        <td>{{ company.plan_selected or 'N/A' }}</td>
+                        <td>
+                            <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                                <button class="btn btn--primary">
+                                    <span class="btn__label">View</span>
+                                </button>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">No companies found. Run pull_freshservice.py to sync data.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <a href="{{ url_for('index') }}">
+                <button class="btn">
+                    <span class="btn__label">Back to Dashboard</span>
+                </button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

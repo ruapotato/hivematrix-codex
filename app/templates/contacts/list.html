@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contacts - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Contacts</h1>
+        </div>
+        <div class="card__body">
+            <p>Total: <strong>{{ pagination.total }}</strong> contacts</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Company</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in contacts %}
+                    <tr>
+                        <td>{{ contact.name }}</td>
+                        <td>{{ contact.email }}</td>
+                        <td>
+                            {% if contact.companies %}
+                                {% for company in contact.companies %}
+                                    <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                                        {{ company.name }}
+                                    </a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ 'Yes' if contact.active else 'No' }}</td>
+                        <td>
+                            <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                                <button class="btn btn--primary">
+                                    <span class="btn__label">View</span>
+                                </button>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">No contacts found. Run pull_freshservice.py to sync data.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <a href="{{ url_for('index') }}">
+                <button class="btn">
+                    <span class="btn__label">Back to Dashboard</span>
+                </button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
