@@ -66,17 +66,39 @@
     {% if user.permission_level == 'admin' %}
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Quick Actions</h2>
+            <h2 class="card__title">Data Sync Center</h2>
         </div>
         <div class="card__body">
-            <p>Sync data from external systems:</p>
-            <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
-                <span class="btn__label">Sync Freshservice</span>
-            </button>
-            <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn">
-                <span class="btn__label">Sync Datto RMM</span>
-            </button>
-            <p id="sync-status"></p>
+            <p><strong>Sync data from external systems:</strong></p>
+            <p style="margin: 10px 0; color: #666; font-size: 0.9em;">
+                Codex is the central data hub. All other services pull data from Codex via API.
+            </p>
+
+            <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;">
+                <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
+                    <span class="btn__label">📋 Sync Freshservice (Companies & Contacts)</span>
+                </button>
+                <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn">
+                    <span class="btn__label">💻 Sync Datto RMM (Assets & Backup)</span>
+                </button>
+                <button class="btn btn--primary" onclick="syncTickets()" id="sync-tickets-btn">
+                    <span class="btn__label">🎫 Sync Tickets (Full Context)</span>
+                </button>
+            </div>
+
+            <div style="margin-top: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 4px;">
+                <p id="sync-status" style="margin: 0; min-height: 20px;"></p>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 0.85em; color: #666;">
+                <p><strong>Recommended sync order:</strong></p>
+                <ol style="margin: 5px 0;">
+                    <li>Freshservice (companies & contacts)</li>
+                    <li>Datto RMM (assets & backup data)</li>
+                    <li>Tickets (billing hours)</li>
+                </ol>
+                <p style="margin-top: 10px;"><em>Note: Ticket sync may take several hours for initial full sync.</em></p>
+            </div>
         </div>
     </div>
 
@@ -108,7 +130,7 @@
             })
             .finally(() => {
                 btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
+                btn.querySelector('.btn__label').textContent = '📋 Sync Freshservice (Companies & Contacts)';
             });
         }
 
@@ -118,7 +140,7 @@
             btn.disabled = true;
             btn.querySelector('.btn__label').textContent = 'Syncing...';
             status.textContent = 'Starting Datto RMM sync...';
-            
+
             fetch('{{ url_for("sync_datto") }}', {
                 method: 'POST',
                 headers: {
@@ -139,7 +161,38 @@
             })
             .finally(() => {
                 btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
+                btn.querySelector('.btn__label').textContent = '💻 Sync Datto RMM (Assets & Backup)';
+            });
+        }
+
+        function syncTickets() {
+            const btn = document.getElementById('sync-tickets-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Syncing...';
+            status.textContent = 'Starting Freshservice ticket sync... This may take several hours for full sync.';
+
+            fetch('{{ url_for("sync_tickets") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = '✓ Ticket sync complete! Output: ' + (data.output || 'Success');
+                    setTimeout(() => location.reload(), 3000);
+                } else {
+                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = '🎫 Sync Tickets (Full Context)';
             });
         }
     </script>

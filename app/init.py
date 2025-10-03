@@ -18,14 +18,14 @@ try:
 except OSError:
     pass
 
-config_path = os.path.join(app.instance_path, 'nexus.conf')
+config_path = os.path.join(app.instance_path, 'codex.conf')
 config = configparser.ConfigParser()
 config.read(config_path)
-app.config['NEXUS_CONFIG'] = config
+app.config['CODEX_CONFIG'] = config
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = config.get('database', 'connection_string',
-    fallback=f"sqlite:///{os.path.join(app.instance_path, 'nexus.db')}")
+    fallback=f"sqlite:///{os.path.join(app.instance_path, 'codex.db')}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Load services configuration for service-to-service calls

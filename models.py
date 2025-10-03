@@ -105,3 +105,24 @@ class DattoSiteLink(db.Model):
     datto_site_uid = db.Column(db.String(100), unique=True, nullable=False)
 
     company = db.relationship('Company', back_populates='datto_site_links')
+
+class TicketDetail(db.Model):
+    __tablename__ = 'ticket_details'
+    ticket_id = db.Column(BigInteger, primary_key=True)
+    company_account_number = db.Column(db.String(50), db.ForeignKey('companies.account_number'), nullable=False)
+    ticket_number = db.Column(db.String(50))
+    subject = db.Column(db.Text)
+    description = db.Column(db.Text)  # Initial ticket description
+    description_text = db.Column(db.Text)  # Plain text version
+    status = db.Column(db.String(50))
+    priority = db.Column(db.String(50))
+    requester_email = db.Column(db.String(150))
+    requester_name = db.Column(db.String(150))
+    created_at = db.Column(db.String(50))
+    last_updated_at = db.Column(db.String(50))
+    closed_at = db.Column(db.String(50))
+    total_hours_spent = db.Column(db.Float, default=0.0)
+
+    # Conversation history stored as JSON
+    conversations = db.Column(db.Text)  # JSON array of conversation entries
+    notes = db.Column(db.Text)  # JSON array of internal notes

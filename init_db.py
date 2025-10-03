@@ -69,17 +69,19 @@ def test_db_connection(creds):
 def get_freshservice_config(config):
     """Prompts the user for Freshservice API configuration."""
     print("\n--- Freshservice Configuration ---")
-    
+    print("Codex is the ONLY service that connects to Freshservice.")
+    print("All other services (Ledger, KnowledgeTree) pull data from Codex.")
+
     defaults = {
         'domain': 'your-domain.freshservice.com',
         'api_key': ''
     }
-    
+
     if config.has_section('freshservice'):
         defaults['domain'] = config.get('freshservice', 'domain', fallback=defaults['domain'])
         defaults['api_key'] = config.get('freshservice', 'api_key', fallback=defaults['api_key'])
-    
-    print("Press Enter to keep current values or skip if not using Freshservice.")
+
+    print("\nPress Enter to keep current values or skip if not using Freshservice.")
     domain = input(f"Freshservice Domain [{defaults['domain']}]: ") or defaults['domain']
     
     if defaults['api_key'] and defaults['api_key'] not in ['', 'YOUR_FRESHSERVICE_API_KEY']:
@@ -98,19 +100,21 @@ def get_freshservice_config(config):
 def get_datto_config(config):
     """Prompts the user for Datto RMM API configuration."""
     print("\n--- Datto RMM Configuration ---")
-    
+    print("Codex is the ONLY service that connects to Datto RMM.")
+    print("All other services (Ledger, KnowledgeTree) pull asset data from Codex.")
+
     defaults = {
         'api_endpoint': 'https://zinfandel-api.centrastage.net',
         'public_key': '',
         'secret_key': ''
     }
-    
+
     if config.has_section('datto'):
         defaults['api_endpoint'] = config.get('datto', 'api_endpoint', fallback=defaults['api_endpoint'])
         defaults['public_key'] = config.get('datto', 'public_key', fallback=defaults['public_key'])
         defaults['secret_key'] = config.get('datto', 'secret_key', fallback=defaults['secret_key'])
-    
-    print("Press Enter to keep current values or skip if not using Datto RMM.")
+
+    print("\nPress Enter to keep current values or skip if not using Datto RMM.")
     print("\nCommon Datto API endpoints:")
     print("  - US: https://zinfandel-api.centrastage.net")
     print("  - EU: https://concord-api.centrastage.net")
@@ -209,11 +213,17 @@ def init_db():
     print("\n" + "="*70)
     print(" 🎉 Codex Initialization Complete!")
     print("="*70)
+    print("\nIMPORTANT: Codex is the central data hub for HiveMatrix")
+    print("  - Codex syncs from Freshservice & Datto")
+    print("  - Ledger pulls billing data from Codex")
+    print("  - KnowledgeTree pulls support context from Codex")
+    print("="*70)
     print("\nNext steps:")
     print("  1. (Optional) Review configuration: instance/codex.conf")
-    print("  2. Sync data from external systems:")
-    print("     → python pull_freshservice.py  # Sync companies & contacts")
-    print("     → python pull_datto.py          # Sync assets")
+    print("  2. Sync data from external systems (via Codex dashboard or CLI):")
+    print("     → python pull_freshservice.py          # Companies & contacts")
+    print("     → python pull_datto.py                 # Assets & backup data")
+    print("     → python sync_tickets_from_freshservice.py  # Ticket history")
     print("  3. Start the Codex service:")
     print("     → flask run --port=5010         # Development")
     print("     → python run.py                 # Production (Waitress)")
