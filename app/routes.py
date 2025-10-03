@@ -1,7 +1,7 @@
-from flask import render_template, g, jsonify
+from flask import render_template, g, jsonify, request
 from app import app
 from .auth import token_required, admin_required
-from models import Company, Contact, Asset
+from models import Company, Contact, Asset, Location
 import subprocess
 import os
 
@@ -64,7 +64,7 @@ def sync_datto():
             text=True,
             timeout=300  # 5 minute timeout
         )
-        
+
         return jsonify({
             'success': result.returncode == 0,
             'output': result.stdout,
@@ -80,3 +80,169 @@ def sync_datto():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# --- API Endpoints for Service-to-Service Communication ---
+
+@app.route('/api/companies')
+@token_required
+def api_get_all_companies():
+    """Get all companies - used by Ledger service."""
+    companies = Company.query.all()
+    return jsonify([{
+        'account_number': c.account_number,
+        'name': c.name,
+        'description': c.description,
+        'billing_plan': c.plan_selected,
+        'profit_or_non_profit': c.profit_or_non_profit,
+        'company_main_number': c.company_main_number,
+        'company_start_date': c.company_start_date,
+        'domains': c.domains,
+        'phone_system': c.phone_system,
+        'email_system': c.email_system
+    } for c in companies])
+
+
+@app.route('/api/companies/bulk')
+@token_required
+def api_get_all_companies_bulk():
+    """Get all companies with their assets, contacts, and locations in one call - optimized for Ledger."""
+    companies = Company.query.all()
+    result = []
+
+    for company in companies:
+        assets = Asset.query.filter_by(company_account_number=company.account_number).all()
+
+        result.append({
+            'company': {
+                'account_number': company.account_number,
+                'name': company.name,
+                'description': company.description,
+                'billing_plan': company.plan_selected,
+                'profit_or_non_profit': company.profit_or_non_profit,
+                'company_main_number': company.company_main_number,
+                'company_start_date': company.company_start_date,
+                'domains': company.domains,
+                'phone_system': company.phone_system,
+                'email_system': company.email_system
+            },
+            'assets': [{
+                'id': a.id,
+                'hostname': a.hostname,
+                'hardware_type': a.hardware_type,
+                'operating_system': a.operating_system,
+                'device_type': a.device_type,
+                'last_logged_in_user': a.last_logged_in_user,
+                'antivirus_product': a.antivirus_product,
+                'ext_ip_address': a.ext_ip_address,
+                'int_ip_address': a.int_ip_address,
+                'domain': a.domain,
+                'online': a.online,
+                'last_seen': a.last_seen,
+                'backup_usage_tb': a.backup_usage_tb
+            } for a in assets],
+            'contacts': [{
+                'id': c.id,
+                'name': c.name,
+                'email': c.email,
+                'title': c.title,
+                'employment_type': c.employment_type,
+                'active': c.active,
+                'mobile_phone_number': c.mobile_phone_number,
+                'work_phone_number': c.work_phone_number,
+                'secondary_emails': c.secondary_emails
+            } for c in company.contacts],
+            'locations': [{
+                'id': l.id,
+                'name': l.name,
+                'address': l.address,
+                'phone_number': l.phone_number
+            } for l in company.locations]
+        })
+
+    return jsonify(result)
+
+
+@app.route('/api/companies/<account_number>')
+@token_required
+def api_get_company(account_number):
+    """Get single company by account number - used by Ledger service."""
+    company = Company.query.get(account_number)
+    if not company:
+        return {'error': 'Company not found'}, 404
+
+    return jsonify({
+        'account_number': company.account_number,
+        'name': company.name,
+        'description': company.description,
+        'billing_plan': company.plan_selected,
+        'profit_or_non_profit': company.profit_or_non_profit,
+        'company_main_number': company.company_main_number,
+        'company_start_date': company.company_start_date,
+        'domains': company.domains,
+        'phone_system': company.phone_system,
+        'email_system': company.email_system
+    })
+
+
+@app.route('/api/companies/<account_number>/assets')
+@token_required
+def api_get_company_assets(account_number):
+    """Get all assets for a company - used by Ledger service."""
+    company = Company.query.get(account_number)
+    if not company:
+        return {'error': 'Company not found'}, 404
+
+    assets = Asset.query.filter_by(company_account_number=account_number).all()
+    return jsonify([{
+        'id': a.id,
+        'hostname': a.hostname,
+        'hardware_type': a.hardware_type,
+        'operating_system': a.operating_system,
+        'device_type': a.device_type,
+        'last_logged_in_user': a.last_logged_in_user,
+        'antivirus_product': a.antivirus_product,
+        'ext_ip_address': a.ext_ip_address,
+        'int_ip_address': a.int_ip_address,
+        'domain': a.domain,
+        'online': a.online,
+        'last_seen': a.last_seen,
+        'backup_usage_tb': a.backup_usage_tb
+    } for a in assets])
+
+
+@app.route('/api/companies/<account_number>/contacts')
+@token_required
+def api_get_company_contacts(account_number):
+    """Get all contacts for a company - used by Ledger service."""
+    company = Company.query.get(account_number)
+    if not company:
+        return {'error': 'Company not found'}, 404
+
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'email': c.email,
+        'title': c.title,
+        'employment_type': c.employment_type,
+        'active': c.active,
+        'mobile_phone_number': c.mobile_phone_number,
+        'work_phone_number': c.work_phone_number,
+        'secondary_emails': c.secondary_emails
+    } for c in company.contacts])
+
+
+@app.route('/api/companies/<account_number>/locations')
+@token_required
+def api_get_company_locations(account_number):
+    """Get all locations for a company - used by Ledger service."""
+    company = Company.query.get(account_number)
+    if not company:
+        return {'error': 'Company not found'}, 404
+
+    return jsonify([{
+        'id': l.id,
+        'name': l.name,
+        'address': l.address,
+        'phone_number': l.phone_number
+    } for l in company.locations])
