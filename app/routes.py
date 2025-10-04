@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import render_template, g, jsonify, request
 from app import app
 from .auth import token_required, admin_required
@@ -352,3 +353,11 @@ def sync_tickets():
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat()
+    }
