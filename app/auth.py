@@ -35,7 +35,7 @@ def token_required(f):
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
-                issuer="hivematrix.core",
+                issuer="hivematrix-core",
                 options={"verify_exp": True}
             )
             
