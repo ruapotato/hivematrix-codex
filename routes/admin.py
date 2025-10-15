@@ -107,20 +107,31 @@ def update_datto():
 def clear_data():
     """Clear all CRM data (dangerous operation)."""
     data_type = request.form.get('data_type')
-    
+
+    deleted_count = 0
     if data_type == 'companies':
+        deleted_count = Company.query.count()
         Company.query.delete()
         db.session.commit()
+        flash(f'✓ Deleted {deleted_count} companies', 'success')
     elif data_type == 'contacts':
+        deleted_count = Contact.query.count()
         Contact.query.delete()
         db.session.commit()
+        flash(f'✓ Deleted {deleted_count} contacts', 'success')
     elif data_type == 'assets':
+        deleted_count = Asset.query.count()
         Asset.query.delete()
         db.session.commit()
+        flash(f'✓ Deleted {deleted_count} assets', 'success')
     elif data_type == 'all':
+        asset_count = Asset.query.count()
+        contact_count = Contact.query.count()
+        company_count = Company.query.count()
         Asset.query.delete()
         Contact.query.delete()
         Company.query.delete()
         db.session.commit()
-    
+        flash(f'✓ Deleted ALL data: {company_count} companies, {contact_count} contacts, {asset_count} assets', 'success')
+
     return redirect(url_for('admin.settings'))

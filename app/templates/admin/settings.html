@@ -10,6 +10,15 @@
             <h1 class="card__title">Admin Settings</h1>
         </div>
         <div class="card__body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div style="padding: 1em; margin-bottom: 1em; background-color: {% if category == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; border: 1px solid {% if category == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %}; border-radius: 4px; color: {% if category == 'success' %}#155724{% else %}#721c24{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             <p>Welcome, <strong>{{ user.name }}</strong> ({{ user.permission_level }})</p>
             <a href="{{ url_for('index') }}">
                 <button class="btn">
@@ -238,12 +247,47 @@
     </div>
 
     <script>
+        function pollJobStatus(jobId, btn, label, successMsg) {
+            const status = document.getElementById('sync-status');
+
+            const poll = setInterval(() => {
+                fetch('/sync/status/' + jobId)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'completed') {
+                            clearInterval(poll);
+                            status.textContent = '✓ ' + successMsg + ' complete!';
+                            status.style.color = 'green';
+                            btn.disabled = false;
+                            btn.querySelector('.btn__label').textContent = label;
+                            setTimeout(() => location.reload(), 2000);
+                        } else if (data.status === 'failed') {
+                            clearInterval(poll);
+                            status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                            status.style.color = 'red';
+                            btn.disabled = false;
+                            btn.querySelector('.btn__label').textContent = label;
+                        } else if (data.status === 'running') {
+                            status.textContent = '⏳ Sync in progress... (this may take several minutes)';
+                            status.style.color = 'blue';
+                        }
+                    })
+                    .catch(error => {
+                        clearInterval(poll);
+                        status.textContent = '✗ Error checking status: ' + error.message;
+                        status.style.color = 'red';
+                        btn.disabled = false;
+                        btn.querySelector('.btn__label').textContent = label;
+                    });
+            }, 2000); // Poll every 2 seconds
+        }
+
         function syncFreshservice() {
             const btn = document.getElementById('sync-fs-btn');
             const status = document.getElementById('sync-status');
             btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Syncing...';
-            status.textContent = 'Starting Freshservice sync...';
+            btn.querySelector('.btn__label').textContent = 'Starting...';
+            status.textContent = 'Starting Freshservice sync in background...';
             status.style.color = 'black';
 
             fetch('{{ url_for("sync_freshservice") }}', {
@@ -254,20 +298,20 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    status.textContent = '✓ Freshservice sync complete!';
+                if (data.success && data.job_id) {
+                    status.textContent = '✓ Freshservice sync started! Monitoring progress...';
                     status.style.color = 'green';
-                    setTimeout(() => location.reload(), 2000);
+                    pollJobStatus(data.job_id, btn, 'Sync Freshservice', 'Freshservice sync');
                 } else {
-                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
                     status.style.color = 'red';
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
                 }
             })
             .catch(error => {
                 status.textContent = '✗ Error: ' + error.message;
                 status.style.color = 'red';
-            })
-            .finally(() => {
                 btn.disabled = false;
                 btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
             });
@@ -277,8 +321,8 @@
             const btn = document.getElementById('sync-datto-btn');
             const status = document.getElementById('sync-status');
             btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Syncing...';
-            status.textContent = 'Starting Datto RMM sync...';
+            btn.querySelector('.btn__label').textContent = 'Starting...';
+            status.textContent = 'Starting Datto RMM sync in background...';
             status.style.color = 'black';
 
             fetch('{{ url_for("sync_datto") }}', {
@@ -289,20 +333,20 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    status.textContent = '✓ Datto RMM sync complete!';
+                if (data.success && data.job_id) {
+                    status.textContent = '✓ Datto RMM sync started! Monitoring progress...';
                     status.style.color = 'green';
-                    setTimeout(() => location.reload(), 2000);
+                    pollJobStatus(data.job_id, btn, 'Sync Datto RMM', 'Datto RMM sync');
                 } else {
-                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
                     status.style.color = 'red';
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
                 }
             })
             .catch(error => {
                 status.textContent = '✗ Error: ' + error.message;
                 status.style.color = 'red';
-            })
-            .finally(() => {
                 btn.disabled = false;
                 btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
             });

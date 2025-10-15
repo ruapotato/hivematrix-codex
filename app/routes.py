@@ -5,6 +5,11 @@ from .auth import token_required, admin_required
 from models import Company, Contact, Asset, Location, TicketDetail
 import subprocess
 import os
+import uuid
+import threading
+
+# Simple in-memory job tracker for background sync operations
+sync_jobs = {}
 
 @app.route('/')
 @token_required
@@ -24,29 +29,59 @@ def index():
                          contact_count=contact_count,
                          asset_count=asset_count)
 
-@app.route('/sync/freshservice', methods=['POST'])
-@admin_required
-def sync_freshservice():
-    """Trigger Freshservice sync script."""
+def run_sync_script(job_id, script_path):
+    """Run sync script in background and update job status."""
     try:
-        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pull_freshservice.py')
         result = subprocess.run(
             ['python', script_path],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=600  # 10 minute timeout
         )
-        
-        return jsonify({
+        sync_jobs[job_id].update({
+            'status': 'completed' if result.returncode == 0 else 'failed',
             'success': result.returncode == 0,
-            'output': result.stdout,
-            'error': result.stderr
+            'output': result.stdout[-1000:],  # Last 1000 chars
+            'error': result.stderr[-1000:] if result.stderr else None
         })
     except subprocess.TimeoutExpired:
-        return jsonify({
+        sync_jobs[job_id].update({
+            'status': 'failed',
             'success': False,
-            'error': 'Script timed out after 5 minutes'
-        }), 500
+            'error': 'Script timed out after 10 minutes'
+        })
+    except Exception as e:
+        sync_jobs[job_id].update({
+            'status': 'failed',
+            'success': False,
+            'error': str(e)
+        })
+
+@app.route('/sync/freshservice', methods=['POST'])
+@admin_required
+def sync_freshservice():
+    """Trigger Freshservice sync script in background."""
+    try:
+        job_id = str(uuid.uuid4())
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pull_freshservice.py')
+
+        # Create job entry
+        sync_jobs[job_id] = {
+            'status': 'running',
+            'script': 'freshservice',
+            'started_at': datetime.now().isoformat()
+        }
+
+        # Start background thread
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': 'Freshservice sync started in background'
+        })
     except Exception as e:
         return jsonify({
             'success': False,
@@ -56,31 +91,42 @@ def sync_freshservice():
 @app.route('/sync/datto', methods=['POST'])
 @admin_required
 def sync_datto():
-    """Trigger Datto RMM sync script."""
+    """Trigger Datto RMM sync script in background."""
     try:
+        job_id = str(uuid.uuid4())
         script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pull_datto.py')
-        result = subprocess.run(
-            ['python', script_path],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minute timeout
-        )
+
+        # Create job entry
+        sync_jobs[job_id] = {
+            'status': 'running',
+            'script': 'datto',
+            'started_at': datetime.now().isoformat()
+        }
+
+        # Start background thread
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        thread.daemon = True
+        thread.start()
 
         return jsonify({
-            'success': result.returncode == 0,
-            'output': result.stdout,
-            'error': result.stderr
+            'success': True,
+            'job_id': job_id,
+            'message': 'Datto RMM sync started in background'
         })
-    except subprocess.TimeoutExpired:
-        return jsonify({
-            'success': False,
-            'error': 'Script timed out after 5 minutes'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/sync/status/<job_id>', methods=['GET'])
+@admin_required
+def sync_status(job_id):
+    """Check status of a background sync job."""
+    job = sync_jobs.get(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+    return jsonify(job)
 
 
 # --- API Endpoints for Service-to-Service Communication ---
