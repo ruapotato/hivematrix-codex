@@ -5,11 +5,9 @@ import os
 app = Flask(__name__, instance_relative_config=True)
 
 # --- Explicitly load all required configuration from environment variables ---
-app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL')
+# Provide sensible defaults for init_db.py, will be overridden by Helm's .flaskenv
+app.config['CORE_SERVICE_URL'] = os.environ.get('CORE_SERVICE_URL', 'http://localhost:5000')
 app.config['SERVICE_NAME'] = os.environ.get('SERVICE_NAME', 'codex')
-
-if not app.config['CORE_SERVICE_URL']:
-    raise ValueError("CORE_SERVICE_URL must be set in the .flaskenv file.")
 
 # Load database connection from config file
 import configparser
