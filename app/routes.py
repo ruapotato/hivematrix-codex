@@ -270,6 +270,13 @@ def api_get_company_contacts(account_number):
     } for c in company.contacts])
 
 
+@app.route('/api/companies/<account_number>/users')
+@token_required
+def api_get_company_users(account_number):
+    """Alias for api_get_company_contacts - 'users' is more intuitive for KnowledgeTree."""
+    return api_get_company_contacts(account_number)
+
+
 @app.route('/api/companies/<account_number>/locations')
 @token_required
 def api_get_company_locations(account_number):

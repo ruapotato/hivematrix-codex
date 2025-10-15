@@ -42,9 +42,9 @@ def company_details(account_number):
     """View details for a specific company."""
     if g.is_service_call:
         return {'error': 'This endpoint is for users only'}, 403
-    
+
     company = Company.query.get_or_404(account_number)
-    
+
     return render_template('companies/details.html',
                          user=g.user,
                          company=company)
