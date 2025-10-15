@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for, flash, current_app
 from app.auth import admin_required
-from models import db, Company, Contact, Asset, Location, DattoSiteLink, CompanyFeatureOverride, contact_company_link, asset_contact_link
+from models import db, Company, Contact, Asset, Location, DattoSiteLink, CompanyFeatureOverride, TicketDetail, contact_company_link, asset_contact_link
 import configparser
 import os
 
@@ -114,6 +114,7 @@ def clear_data():
             # Clear association tables first
             db.session.execute(contact_company_link.delete())
             # Delete related tables in order (foreign keys)
+            TicketDetail.query.delete()
             DattoSiteLink.query.delete()
             Location.query.delete()
             CompanyFeatureOverride.query.delete()
@@ -152,6 +153,7 @@ def clear_data():
             db.session.execute(contact_company_link.delete())
 
             # Delete in proper order (respecting all foreign keys)
+            TicketDetail.query.delete()
             DattoSiteLink.query.delete()
             Location.query.delete()
             CompanyFeatureOverride.query.delete()
