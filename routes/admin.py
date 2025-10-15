@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for, flash, current_app
 from app.auth import admin_required
-from models import db, Company, Contact, Asset, contact_company_link, asset_contact_link
+from models import db, Company, Contact, Asset, Location, DattoSiteLink, CompanyFeatureOverride, contact_company_link, asset_contact_link
 import configparser
 import os
 
@@ -113,7 +113,12 @@ def clear_data():
             deleted_count = Company.query.count()
             # Clear association tables first
             db.session.execute(contact_company_link.delete())
-            # Delete companies (will cascade to assets, locations, etc.)
+            # Delete related tables in order (foreign keys)
+            DattoSiteLink.query.delete()
+            Location.query.delete()
+            CompanyFeatureOverride.query.delete()
+            Asset.query.delete()
+            # Now delete companies
             Company.query.delete()
             db.session.commit()
             flash(f'✓ Deleted {deleted_count} companies and all related data', 'success')
@@ -146,7 +151,10 @@ def clear_data():
             db.session.execute(asset_contact_link.delete())
             db.session.execute(contact_company_link.delete())
 
-            # Delete in proper order (respecting foreign keys)
+            # Delete in proper order (respecting all foreign keys)
+            DattoSiteLink.query.delete()
+            Location.query.delete()
+            CompanyFeatureOverride.query.delete()
             Asset.query.delete()
             Contact.query.delete()
             Company.query.delete()
