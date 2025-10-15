@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for, flash, current_app
 from app.auth import admin_required
-from models import db, Company, Contact, Asset
+from models import db, Company, Contact, Asset, contact_company_link, asset_contact_link
 import configparser
 import os
 
@@ -108,30 +108,54 @@ def clear_data():
     """Clear all CRM data (dangerous operation)."""
     data_type = request.form.get('data_type')
 
-    deleted_count = 0
-    if data_type == 'companies':
-        deleted_count = Company.query.count()
-        Company.query.delete()
-        db.session.commit()
-        flash(f'✓ Deleted {deleted_count} companies', 'success')
-    elif data_type == 'contacts':
-        deleted_count = Contact.query.count()
-        Contact.query.delete()
-        db.session.commit()
-        flash(f'✓ Deleted {deleted_count} contacts', 'success')
-    elif data_type == 'assets':
-        deleted_count = Asset.query.count()
-        Asset.query.delete()
-        db.session.commit()
-        flash(f'✓ Deleted {deleted_count} assets', 'success')
-    elif data_type == 'all':
-        asset_count = Asset.query.count()
-        contact_count = Contact.query.count()
-        company_count = Company.query.count()
-        Asset.query.delete()
-        Contact.query.delete()
-        Company.query.delete()
-        db.session.commit()
-        flash(f'✓ Deleted ALL data: {company_count} companies, {contact_count} contacts, {asset_count} assets', 'success')
+    try:
+        if data_type == 'companies':
+            deleted_count = Company.query.count()
+            # Clear association tables first
+            db.session.execute(contact_company_link.delete())
+            # Delete companies (will cascade to assets, locations, etc.)
+            Company.query.delete()
+            db.session.commit()
+            flash(f'✓ Deleted {deleted_count} companies and all related data', 'success')
+
+        elif data_type == 'contacts':
+            deleted_count = Contact.query.count()
+            # Clear association tables first
+            db.session.execute(contact_company_link.delete())
+            db.session.execute(asset_contact_link.delete())
+            # Now safe to delete contacts
+            Contact.query.delete()
+            db.session.commit()
+            flash(f'✓ Deleted {deleted_count} contacts', 'success')
+
+        elif data_type == 'assets':
+            deleted_count = Asset.query.count()
+            # Clear association tables first
+            db.session.execute(asset_contact_link.delete())
+            # Now safe to delete assets
+            Asset.query.delete()
+            db.session.commit()
+            flash(f'✓ Deleted {deleted_count} assets', 'success')
+
+        elif data_type == 'all':
+            asset_count = Asset.query.count()
+            contact_count = Contact.query.count()
+            company_count = Company.query.count()
+
+            # Delete association tables first
+            db.session.execute(asset_contact_link.delete())
+            db.session.execute(contact_company_link.delete())
+
+            # Delete in proper order (respecting foreign keys)
+            Asset.query.delete()
+            Contact.query.delete()
+            Company.query.delete()
+
+            db.session.commit()
+            flash(f'✓ Deleted ALL data: {company_count} companies, {contact_count} contacts, {asset_count} assets', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'✗ Error deleting data: {str(e)}', 'error')
 
     return redirect(url_for('admin.settings'))
