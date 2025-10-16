@@ -53,6 +53,10 @@
                         <td>Assets</td>
                         <td><strong>{{ stats.assets }}</strong> ({{ stats.online_assets }} online)</td>
                     </tr>
+                    <tr>
+                        <td>Tickets</td>
+                        <td><strong>{{ stats.tickets }}</strong></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -241,13 +245,16 @@
                 <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn" style="margin-left: 0.5em;">
                     <span class="btn__label">Sync Datto RMM</span>
                 </button>
+                <button class="btn btn--primary" onclick="syncTickets()" id="sync-tickets-btn" style="margin-left: 0.5em;">
+                    <span class="btn__label">Sync Tickets</span>
+                </button>
             </div>
             <p id="sync-status" style="margin-top: 1em;"></p>
         </div>
     </div>
 
     <script>
-        function pollJobStatus(jobId, btn, label, successMsg) {
+        function pollJobStatus(jobId, btn, label, successMsg, isTicketSync = false) {
             const status = document.getElementById('sync-status');
 
             const poll = setInterval(() => {
@@ -268,7 +275,11 @@
                             btn.disabled = false;
                             btn.querySelector('.btn__label').textContent = label;
                         } else if (data.status === 'running') {
-                            status.textContent = '⏳ Sync in progress... (this may take several minutes)';
+                            if (isTicketSync && data.current_tickets !== undefined) {
+                                status.textContent = '⏳ Syncing tickets... (' + data.current_tickets.toLocaleString() + ' tickets synced so far)';
+                            } else {
+                                status.textContent = '⏳ Sync in progress... (this may take several minutes)';
+                            }
                             status.style.color = 'blue';
                         }
                     })
@@ -349,6 +360,41 @@
                 status.style.color = 'red';
                 btn.disabled = false;
                 btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
+            });
+        }
+
+        function syncTickets() {
+            const btn = document.getElementById('sync-tickets-btn');
+            const status = document.getElementById('sync-status');
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Starting...';
+            status.textContent = 'Starting ticket sync in background...';
+            status.style.color = 'black';
+
+            fetch('{{ url_for("sync_tickets") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.job_id) {
+                    status.textContent = '✓ Ticket sync started! Monitoring progress... (this may take up to 2 hours)';
+                    status.style.color = 'green';
+                    pollJobStatus(data.job_id, btn, 'Sync Tickets', 'Ticket sync', true);
+                } else {
+                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
+                    status.style.color = 'red';
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = 'Sync Tickets';
+                }
+            })
+            .catch(error => {
+                status.textContent = '✗ Error: ' + error.message;
+                status.style.color = 'red';
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = 'Sync Tickets';
             });
         }
     </script>

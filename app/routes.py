@@ -32,11 +32,14 @@ def index():
 def run_sync_script(job_id, script_path):
     """Run sync script in background and update job status."""
     try:
+        # Increase timeout for ticket sync (can take 2+ hours)
+        timeout = 7200 if 'ticket' in script_path else 600  # 2 hours for tickets, 10 min for others
+
         result = subprocess.run(
             ['python', script_path],
             capture_output=True,
             text=True,
-            timeout=600  # 10 minute timeout
+            timeout=timeout
         )
         sync_jobs[job_id].update({
             'status': 'completed' if result.returncode == 0 else 'failed',
@@ -48,7 +51,7 @@ def run_sync_script(job_id, script_path):
         sync_jobs[job_id].update({
             'status': 'failed',
             'success': False,
-            'error': 'Script timed out after 10 minutes'
+            'error': f'Script timed out after {timeout//60} minutes'
         })
     except Exception as e:
         sync_jobs[job_id].update({
@@ -122,10 +125,16 @@ def sync_datto():
 @app.route('/sync/status/<job_id>', methods=['GET'])
 @admin_required
 def sync_status(job_id):
-    """Check status of a background sync job."""
+    """Check status of a background sync job with live progress."""
     job = sync_jobs.get(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
+
+    # Add current ticket count for ticket syncs to show progress
+    if job.get('script') == 'tickets' and job.get('status') == 'running':
+        from models import TicketDetail
+        job['current_tickets'] = TicketDetail.query.count()
+
     return jsonify(job)
 
 
@@ -381,26 +390,29 @@ def api_get_company_tickets(account_number):
 @app.route('/sync/tickets', methods=['POST'])
 @admin_required
 def sync_tickets():
-    """Trigger Freshservice ticket sync script."""
+    """Trigger Freshservice ticket sync script in background."""
     try:
+        job_id = str(uuid.uuid4())
         script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sync_tickets_from_freshservice.py')
-        result = subprocess.run(
-            ['python', script_path],
-            capture_output=True,
-            text=True,
-            timeout=600  # 10 minute timeout for ticket sync
-        )
+
+        # Create job entry
+        sync_jobs[job_id] = {
+            'status': 'running',
+            'script': 'tickets',
+            'started_at': datetime.now().isoformat(),
+            'progress': 'Starting ticket sync...'
+        }
+
+        # Start background thread
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        thread.daemon = True
+        thread.start()
 
         return jsonify({
-            'success': result.returncode == 0,
-            'output': result.stdout,
-            'error': result.stderr
+            'success': True,
+            'job_id': job_id,
+            'message': 'Ticket sync started in background'
         })
-    except subprocess.TimeoutExpired:
-        return jsonify({
-            'success': False,
-            'error': 'Script timed out after 10 minutes'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,

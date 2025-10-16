@@ -18,6 +18,7 @@ def settings():
         'companies': Company.query.count(),
         'contacts': Contact.query.count(),
         'assets': Asset.query.count(),
+        'tickets': TicketDetail.query.count(),
         'active_contacts': Contact.query.filter_by(active=True).count(),
         'online_assets': Asset.query.filter_by(online=True).count(),
     }
