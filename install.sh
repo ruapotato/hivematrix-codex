@@ -88,7 +88,7 @@ fi
 
 # Symlink services.json from Helm (if Helm is installed)
 if [ -d "$HELM_DIR" ] && [ -f "$HELM_DIR/services.json" ]; then
-    ln -sf "$HELM_DIR/services.json" services.json
+    ln -sf ../hivematrix-helm/services.json services.json
 fi
 
 echo "=========================================="
