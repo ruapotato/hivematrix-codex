@@ -419,6 +419,282 @@ def sync_tickets():
             'error': str(e)
         }), 500
 
+@app.route('/api/tickets', methods=['GET'])
+@token_required
+def api_list_tickets():
+    """
+    List all tickets with optional filtering.
+
+    Query parameters:
+        company_id: Filter by company account number
+        status: Filter by status
+        priority: Filter by priority
+        limit: Maximum number of tickets to return (default 50)
+        offset: Number of tickets to skip (for pagination)
+    """
+    import json
+
+    # Get query parameters
+    company_id = request.args.get('company_id')
+    status = request.args.get('status')
+    priority = request.args.get('priority')
+    limit = request.args.get('limit', type=int, default=50)
+    offset = request.args.get('offset', type=int, default=0)
+
+    # Build query
+    query = TicketDetail.query
+
+    if company_id:
+        query = query.filter_by(company_account_number=company_id)
+    if status:
+        query = query.filter_by(status=status)
+    if priority:
+        query = query.filter_by(priority=priority)
+
+    # Order by last updated (most recent first)
+    query = query.order_by(TicketDetail.last_updated_at.desc())
+
+    # Get total count
+    total_count = query.count()
+
+    # Apply pagination
+    tickets = query.offset(offset).limit(limit).all()
+
+    return jsonify({
+        'tickets': [{
+            'id': t.ticket_id,
+            'ticket_number': t.ticket_number,
+            'subject': t.subject,
+            'description_text': t.description_text,
+            'status': t.status,
+            'priority': t.priority,
+            'company_id': t.company_account_number,
+            'requester_email': t.requester_email,
+            'requester_name': t.requester_name,
+            'created_at': t.created_at,
+            'last_updated_at': t.last_updated_at,
+            'closed_at': t.closed_at,
+            'total_hours_spent': float(t.total_hours_spent or 0)
+        } for t in tickets],
+        'count': len(tickets),
+        'total': total_count,
+        'offset': offset,
+        'limit': limit
+    })
+
+
+@app.route('/api/ticket/<int:ticket_id>', methods=['GET'])
+@token_required
+def api_get_ticket(ticket_id):
+    """
+    Get detailed information about a specific ticket.
+
+    Includes conversations and notes.
+    If ticket is not in local database, fetches from FreshService API.
+    """
+    import json
+    from .freshservice_client import fetch_ticket_from_freshservice
+
+    # First, try to get from local database
+    ticket = TicketDetail.query.get(ticket_id)
+    if ticket:
+        # Get company info
+        company = Company.query.get(ticket.company_account_number)
+
+        return jsonify({
+            'id': ticket.ticket_id,
+            'ticket_number': ticket.ticket_number,
+            'subject': ticket.subject,
+            'description': ticket.description,
+            'description_text': ticket.description_text,
+            'status': ticket.status,
+            'priority': ticket.priority,
+            'company_id': ticket.company_account_number,
+            'company_name': company.name if company else None,
+            'requester_email': ticket.requester_email,
+            'requester_name': ticket.requester_name,
+            'created_at': ticket.created_at,
+            'last_updated_at': ticket.last_updated_at,
+            'closed_at': ticket.closed_at,
+            'total_hours_spent': float(ticket.total_hours_spent or 0),
+            'conversations': json.loads(ticket.conversations) if ticket.conversations else [],
+            'notes': json.loads(ticket.notes) if ticket.notes else []
+        })
+
+    # Ticket not in local database - try FreshService
+    app.logger.info(f"Ticket {ticket_id} not found locally, fetching from FreshService...")
+    freshservice_ticket = fetch_ticket_from_freshservice(ticket_id)
+
+    if not freshservice_ticket:
+        return {'error': 'Ticket not found'}, 404
+
+    # Return FreshService data directly
+    return jsonify(freshservice_ticket)
+
+
+@app.route('/api/ticket/<int:ticket_id>/update', methods=['POST'])
+@token_required
+def api_update_ticket(ticket_id):
+    """
+    Update a ticket.
+
+    Request body:
+        status: New status (optional)
+        notes: Note to add (optional)
+        assigned_to: Assign to user (optional) - Note: Not stored in current schema
+    """
+    import json
+
+    ticket = TicketDetail.query.get(ticket_id)
+    if not ticket:
+        return {'error': 'Ticket not found'}, 404
+
+    data = request.get_json() or {}
+
+    # Update status if provided
+    if 'status' in data:
+        ticket.status = data['status']
+        ticket.last_updated_at = datetime.now().isoformat()
+
+    # Add note if provided
+    if 'notes' in data and data['notes']:
+        current_notes = json.loads(ticket.notes) if ticket.notes else []
+        new_note = {
+            'created_at': datetime.now().isoformat(),
+            'text': data['notes'],
+            'user': g.user.get('preferred_username', 'unknown') if hasattr(g, 'user') and g.user else 'system'
+        }
+        current_notes.append(new_note)
+        ticket.notes = json.dumps(current_notes)
+        ticket.last_updated_at = datetime.now().isoformat()
+
+    # Commit changes
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'ticket_id': ticket_id,
+            'message': 'Ticket updated successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/datto/devices', methods=['GET'])
+@token_required
+def api_list_devices():
+    """
+    List all devices from Datto RMM (currently uses Asset data).
+
+    Query parameters:
+        company_id: Filter by company account number
+        status: Filter by status ('online', 'offline')
+        limit: Maximum number of devices to return (default 100)
+    """
+    # Get query parameters
+    company_id = request.args.get('company_id')
+    status = request.args.get('status')
+    limit = request.args.get('limit', type=int, default=100)
+
+    # Build query
+    query = Asset.query
+
+    if company_id:
+        query = query.filter_by(company_account_number=company_id)
+
+    if status:
+        if status.lower() == 'online':
+            query = query.filter_by(online=True)
+        elif status.lower() == 'offline':
+            query = query.filter_by(online=False)
+
+    # Get devices
+    assets = query.limit(limit).all()
+
+    return jsonify({
+        'devices': [{
+            'id': f"device-{a.id}",
+            'name': a.hostname,
+            'company_id': a.company_account_number,
+            'company_name': a.company.name if a.company else None,
+            'status': 'online' if a.online else 'offline',
+            'os': a.operating_system,
+            'device_type': a.device_type or a.hardware_type,
+            'ip_address': a.ext_ip_address or a.int_ip_address,
+            'last_seen': a.last_seen,
+            'last_logged_in_user': a.last_logged_in_user
+        } for a in assets],
+        'count': len(assets)
+    })
+
+
+@app.route('/api/datto/device/<device_id>', methods=['GET'])
+@token_required
+def api_get_device(device_id):
+    """
+    Get detailed information about a specific device.
+
+    Device ID format: "device-{asset_id}"
+    """
+    # Extract asset ID from device ID
+    if not device_id.startswith('device-'):
+        return {'error': 'Invalid device ID format'}, 400
+
+    try:
+        asset_id = int(device_id.replace('device-', ''))
+    except ValueError:
+        return {'error': 'Invalid device ID'}, 400
+
+    asset = Asset.query.get(asset_id)
+    if not asset:
+        return {'error': 'Device not found'}, 404
+
+    # Get company info
+    company = asset.company
+
+    # Simulate health metrics (will be replaced with real Datto data)
+    import random
+    random.seed(asset_id)  # Consistent values for same device
+
+    return jsonify({
+        'id': device_id,
+        'name': asset.hostname,
+        'company_id': asset.company_account_number,
+        'company_name': company.name if company else None,
+        'status': 'online' if asset.online else 'offline',
+        'os': asset.operating_system,
+        'os_version': '10.0.19045' if asset.operating_system and 'Windows' in asset.operating_system else 'Unknown',
+        'device_type': asset.device_type or asset.hardware_type,
+        'ip_address': asset.ext_ip_address or asset.int_ip_address,
+        'mac_address': 'XX:XX:XX:XX:XX:XX',  # Masked for PHI
+        'last_seen': asset.last_seen,
+        'last_logged_in_user': asset.last_logged_in_user,
+        'domain': asset.domain,
+        'antivirus': asset.antivirus_product,
+        'patch_status': asset.patch_status,
+        'last_reboot': asset.last_reboot,
+        'installed_software': [
+            # Simulated - will be replaced with real data
+            {'name': 'Microsoft Office', 'version': '16.0'},
+            {'name': 'Google Chrome', 'version': '120.0'}
+        ],
+        'hardware': {
+            'cpu': 'Intel Core i7' if asset.device_type != 'Server' else 'Intel Xeon',
+            'ram_gb': random.choice([8, 16, 32, 64]),
+            'disk_gb': random.choice([256, 512, 1024, 2048])
+        },
+        'health': {
+            'cpu_usage': random.randint(10, 90) if asset.online else 0,
+            'ram_usage': random.randint(30, 85) if asset.online else 0,
+            'disk_usage': random.randint(40, 95) if asset.online else 0
+        }
+    })
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for monitoring"""
