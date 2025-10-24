@@ -214,3 +214,51 @@ def delete_feature_option(option_id):
         flash(f'✗ Error deleting feature: {str(e)}', 'error')
 
     return redirect(url_for('billing_plans.list_plans'))
+
+
+@billing_plans_bp.route('/api/bulk-plans', methods=['GET'])
+@token_required
+def bulk_plans_api():
+    """
+    Bulk export API: Returns all unique billing plan configurations.
+    Returns plan_name+term_length -> features mapping for all plans.
+    This allows Ledger to fetch all plan data in ONE call.
+    """
+    from models import Company
+
+    # Get all unique plan+term combinations from companies
+    companies = Company.query.all()
+    unique_plans = {}
+
+    for company in companies:
+        plan_name = company.billing_plan
+        term = company.contract_term_length or 'Month to Month'
+
+        if not plan_name:
+            continue
+
+        cache_key = f"{plan_name}|{term}"
+
+        if cache_key not in unique_plans:
+            # Fetch plan details from database
+            plan = BillingPlan.query.filter_by(
+                plan_name=plan_name,
+                term_length=term
+            ).first()
+
+            if plan:
+                unique_plans[cache_key] = {
+                    'plan_name': plan.plan_name,
+                    'term_length': plan.term_length,
+                    'support_level': plan.support_level,
+                    'antivirus': plan.antivirus or 'Not Included',
+                    'soc': plan.soc or 'Not Included',
+                    'password_manager': plan.password_manager or 'Not Included',
+                    'sat': plan.sat or 'Not Included',
+                    'email_security': plan.email_security or 'Not Included',
+                    'network_management': plan.network_management or 'Not Included',
+                }
+
+    return jsonify({
+        'plans': unique_plans
+    })
