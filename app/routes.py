@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import render_template, g, jsonify, request
 from app import app
 from .auth import token_required, admin_required
-from models import Company, Contact, Asset, Location, TicketDetail, SyncJob
+from models import Company, Contact, Asset, Location, TicketDetail, SyncJob, BillingPlan, FeatureOption
 from extensions import db
 import subprocess
 import os
@@ -841,3 +841,99 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat()
     }
+
+
+# ===== BILLING PLAN ENDPOINTS =====
+
+@app.route('/api/billing-plans', methods=['GET'])
+@token_required
+def get_billing_plans():
+    """Get all billing plans"""
+    plan_name = request.args.get('plan_name')
+    term_length = request.args.get('term_length')
+
+    query = BillingPlan.query
+
+    if plan_name:
+        query = query.filter_by(plan_name=plan_name)
+    if term_length:
+        query = query.filter_by(term_length=term_length)
+
+    plans = query.all()
+
+    return jsonify([{
+        'id': p.id,
+        'plan_name': p.plan_name,
+        'term_length': p.term_length,
+        'per_user_cost': float(p.per_user_cost),
+        'per_workstation_cost': float(p.per_workstation_cost),
+        'per_server_cost': float(p.per_server_cost),
+        'per_vm_cost': float(p.per_vm_cost),
+        'per_switch_cost': float(p.per_switch_cost),
+        'per_firewall_cost': float(p.per_firewall_cost),
+        'per_hour_ticket_cost': float(p.per_hour_ticket_cost),
+        'backup_base_fee_workstation': float(p.backup_base_fee_workstation),
+        'backup_base_fee_server': float(p.backup_base_fee_server),
+        'backup_cost_per_gb_workstation': float(p.backup_cost_per_gb_workstation),
+        'backup_cost_per_gb_server': float(p.backup_cost_per_gb_server),
+        'support_level': p.support_level,
+        'antivirus': p.antivirus,
+        'soc': p.soc,
+        'password_manager': p.password_manager,
+        'sat': p.sat,
+        'email_security': p.email_security,
+        'network_management': p.network_management
+    } for p in plans])
+
+
+@app.route('/api/billing-plans/<int:plan_id>', methods=['GET'])
+@token_required
+def get_billing_plan(plan_id):
+    """Get specific billing plan"""
+    plan = BillingPlan.query.get(plan_id)
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+
+    return jsonify({
+        'id': plan.id,
+        'plan_name': plan.plan_name,
+        'term_length': plan.term_length,
+        'per_user_cost': float(plan.per_user_cost),
+        'per_workstation_cost': float(plan.per_workstation_cost),
+        'per_server_cost': float(plan.per_server_cost),
+        'per_vm_cost': float(plan.per_vm_cost),
+        'per_switch_cost': float(plan.per_switch_cost),
+        'per_firewall_cost': float(plan.per_firewall_cost),
+        'per_hour_ticket_cost': float(plan.per_hour_ticket_cost),
+        'backup_base_fee_workstation': float(plan.backup_base_fee_workstation),
+        'backup_base_fee_server': float(plan.backup_base_fee_server),
+        'backup_cost_per_gb_workstation': float(plan.backup_cost_per_gb_workstation),
+        'backup_cost_per_gb_server': float(plan.backup_cost_per_gb_server),
+        'support_level': plan.support_level,
+        'antivirus': plan.antivirus,
+        'soc': plan.soc,
+        'password_manager': plan.password_manager,
+        'sat': plan.sat,
+        'email_security': plan.email_security,
+        'network_management': plan.network_management
+    })
+
+
+@app.route('/api/feature-options', methods=['GET'])
+@token_required
+def get_feature_options():
+    """Get all feature options"""
+    category = request.args.get('category')
+
+    query = FeatureOption.query
+
+    if category:
+        query = query.filter_by(feature_category=category)
+
+    features = query.all()
+
+    return jsonify([{
+        'id': f.id,
+        'feature_category': f.feature_category,
+        'option_value': f.option_value
+    } for f in features])

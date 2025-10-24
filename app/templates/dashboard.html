@@ -21,6 +21,11 @@
                         <span class="btn__label">⚙️ Admin Settings</span>
                     </button>
                 </a>
+                <a href="{{ url_for('billing_plans.list_plans') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">💰 Billing Plans</span>
+                    </button>
+                </a>
             </p>
             {% endif %}
         </div>

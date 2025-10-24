@@ -61,11 +61,13 @@ from routes.companies import companies_bp
 from routes.contacts import contacts_bp
 from routes.assets import assets_bp
 from routes.admin import admin_bp
+from routes.billing_plans import billing_plans_bp
 
 app.register_blueprint(companies_bp)
 app.register_blueprint(contacts_bp)
 app.register_blueprint(assets_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(billing_plans_bp)
 
 # Initialize Helm logger for centralized logging
 app.config["SERVICE_NAME"] = os.environ.get("SERVICE_NAME", "codex")
