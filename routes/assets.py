@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, g, request
+from flask import Blueprint, render_template, g, request, redirect, url_for, flash, jsonify
 from app.auth import token_required
-from models import Asset
+from models import Asset, Company, Contact, db
 from sqlalchemy import asc, desc
 
 assets_bp = Blueprint('assets', __name__, url_prefix='/assets')
@@ -8,33 +8,47 @@ assets_bp = Blueprint('assets', __name__, url_prefix='/assets')
 @assets_bp.route('/')
 @token_required
 def list_assets():
-    """List all assets with sorting and pagination."""
+    """List all assets with sorting, searching, and pagination."""
     if g.is_service_call:
         return {'error': 'This endpoint is for users only'}, 403
-    
+
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     sort_by = request.args.get('sort_by', 'hostname')
     order = request.args.get('order', 'asc')
-    
-    query = Asset.query
-    
+    search_query = request.args.get('search', '').strip()
+
+    query = Asset.query.join(Company, Asset.company_account_number == Company.account_number, isouter=True)
+
+    # Apply search filter
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        query = query.filter(
+            db.or_(
+                Asset.hostname.ilike(search_pattern),
+                Asset.description.ilike(search_pattern),
+                Asset.datto_site_name.ilike(search_pattern),
+                Company.name.ilike(search_pattern)
+            )
+        )
+
     # Apply sorting
     if sort_by in ['hostname', 'hardware_type', 'operating_system', 'online']:
         column = getattr(Asset, sort_by)
         query = query.order_by(desc(column) if order == 'desc' else asc(column))
-    
+
     # Paginate
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     assets = pagination.items
-    
+
     return render_template('assets/list.html',
                          user=g.user,
                          assets=assets,
                          pagination=pagination,
                          sort_by=sort_by,
                          order=order,
-                         per_page=per_page)
+                         per_page=per_page,
+                         search_query=search_query)
 
 @assets_bp.route('/<int:asset_id>')
 @token_required
@@ -42,9 +56,62 @@ def asset_details(asset_id):
     """View details for a specific asset."""
     if g.is_service_call:
         return {'error': 'This endpoint is for users only'}, 403
-    
+
     asset = Asset.query.get_or_404(asset_id)
-    
+
+    # Get available contacts from the same company
+    available_contacts = []
+    if asset.company:
+        available_contacts = Contact.query.filter(
+            Contact.companies.any(account_number=asset.company_account_number)
+        ).order_by(Contact.name).all()
+
     return render_template('assets/details.html',
                          user=g.user,
-                         asset=asset)
+                         asset=asset,
+                         available_contacts=available_contacts)
+
+@assets_bp.route('/<int:asset_id>/assign-user', methods=['POST'])
+@token_required
+def assign_user(asset_id):
+    """Assign a contact (user) to an asset (device)."""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    asset = Asset.query.get_or_404(asset_id)
+    contact_id = request.form.get('contact_id', type=int)
+
+    if not contact_id:
+        flash('Please select a user to assign.', 'error')
+        return redirect(url_for('assets.asset_details', asset_id=asset_id))
+
+    contact = Contact.query.get_or_404(contact_id)
+
+    # Check if already assigned
+    if contact in asset.contacts:
+        flash(f'{contact.name} is already assigned to this device.', 'warning')
+    else:
+        asset.contacts.append(contact)
+        db.session.commit()
+        flash(f'Successfully assigned {contact.name} to {asset.hostname}.', 'success')
+
+    return redirect(url_for('assets.asset_details', asset_id=asset_id))
+
+@assets_bp.route('/<int:asset_id>/unassign-user/<int:contact_id>', methods=['POST'])
+@token_required
+def unassign_user(asset_id, contact_id):
+    """Unassign a contact (user) from an asset (device)."""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    asset = Asset.query.get_or_404(asset_id)
+    contact = Contact.query.get_or_404(contact_id)
+
+    if contact in asset.contacts:
+        asset.contacts.remove(contact)
+        db.session.commit()
+        flash(f'Successfully unassigned {contact.name} from {asset.hostname}.', 'success')
+    else:
+        flash(f'{contact.name} is not assigned to this device.', 'warning')
+
+    return redirect(url_for('assets.asset_details', asset_id=asset_id))

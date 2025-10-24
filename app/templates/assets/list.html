@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assets - Codex</title>
 </head>
 <body>
@@ -10,57 +11,175 @@
             <h1 class="card__title">Assets</h1>
         </div>
         <div class="card__body">
-            <p>Total: <strong>{{ pagination.total }}</strong> assets</p>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>Hostname</th>
-                        <th>Company</th>
-                        <th>Type</th>
-                        <th>OS</th>
-                        <th>Online</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for asset in assets %}
-                    <tr>
-                        <td>{{ asset.hostname }}</td>
-                        <td>
-                            {% if asset.company %}
-                                <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
-                                    {{ asset.company.name }}
-                                </a>
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>{{ asset.hardware_type or 'N/A' }}</td>
-                        <td>{{ asset.operating_system or 'N/A' }}</td>
-                        <td>{{ '✓ Online' if asset.online else '✗ Offline' }}</td>
-                        <td>
-                            <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
-                                <button class="btn btn--primary">
-                                    <span class="btn__label">View</span>
-                                </button>
-                            </a>
-                        </td>
-                    </tr>
+            <!-- Search Box -->
+            <form method="GET" action="{{ url_for('assets.list_assets') }}" class="search-form">
+                <div class="search-form__controls">
+                    <input
+                        type="text"
+                        name="search"
+                        placeholder="Search by hostname, description, or company..."
+                        value="{{ search_query or '' }}"
+                        class="search-form__input"
+                    >
+                    <button type="submit" class="btn btn--primary">
+                        <span class="btn__label">🔍 Search</span>
+                    </button>
+                    {% if search_query %}
+                    <a href="{{ url_for('assets.list_assets') }}">
+                        <button type="button" class="btn">
+                            <span class="btn__label">Clear</span>
+                        </button>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Results Info -->
+            <div class="results-header">
+                <p class="results-header__count">
+                    {% if search_query %}
+                        Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
-                    <tr>
-                        <td colspan="6">No assets found. Run pull_datto.py to sync data.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <a href="{{ url_for('index') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Dashboard</span>
-                </button>
-            </a>
+                        Total: <strong>{{ pagination.total }}</strong> assets
+                    {% endif %}
+                </p>
+                <div class="results-header__controls">
+                    <label for="per_page">Per page:</label>
+                    <select id="per_page" onchange="changePerPage(this.value)">
+                        <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
+                        <option value="50" {{ 'selected' if per_page == 50 else '' }}>50</option>
+                        <option value="100" {{ 'selected' if per_page == 100 else '' }}>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Assets Table -->
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable-header">
+                                <a href="{{ url_for('assets.list_assets', sort_by='hostname', order='desc' if sort_by == 'hostname' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Hostname {{ '↓' if sort_by == 'hostname' and order == 'desc' else '↑' if sort_by == 'hostname' else '' }}
+                                </a>
+                            </th>
+                            <th>Company</th>
+                            <th class="sortable-header">
+                                <a href="{{ url_for('assets.list_assets', sort_by='hardware_type', order='desc' if sort_by == 'hardware_type' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Type {{ '↓' if sort_by == 'hardware_type' and order == 'desc' else '↑' if sort_by == 'hardware_type' else '' }}
+                                </a>
+                            </th>
+                            <th class="sortable-header">
+                                <a href="{{ url_for('assets.list_assets', sort_by='operating_system', order='desc' if sort_by == 'operating_system' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    OS {{ '↓' if sort_by == 'operating_system' and order == 'desc' else '↑' if sort_by == 'operating_system' else '' }}
+                                </a>
+                            </th>
+                            <th>Last User</th>
+                            <th class="sortable-header text-center">
+                                <a href="{{ url_for('assets.list_assets', sort_by='online', order='desc' if sort_by == 'online' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Status {{ '↓' if sort_by == 'online' and order == 'desc' else '↑' if sort_by == 'online' else '' }}
+                                </a>
+                            </th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in assets %}
+                        <tr>
+                            <td><strong>{{ asset.hostname }}</strong></td>
+                            <td>
+                                {% if asset.company %}
+                                    <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
+                                        {{ asset.company.name }}
+                                    </a>
+                                {% else %}
+                                    <span>Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ asset.hardware_type or 'N/A' }}</td>
+                            <td>{{ asset.operating_system or 'N/A' }}</td>
+                            <td>
+                                {{ asset.last_logged_in_user or '-' }}
+                            </td>
+                            <td class="text-center">
+                                {% if asset.online %}
+                                    <span class="badge badge--success">
+                                        ✓ Online
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge--danger">
+                                        ✗ Offline
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                                    <button class="btn btn--primary btn--small">
+                                        <span class="btn__label">View</span>
+                                    </button>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                {% if search_query %}
+                                    No assets found matching "{{ search_query }}". Try a different search term.
+                                {% else %}
+                                    No assets found. Run Datto RMM sync to import data.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('assets.list_assets', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">⏮ First</span></button>
+                    </a>
+                    <a href="{{ url_for('assets.list_assets', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">◀ Previous</span></button>
+                    </a>
+                {% endif %}
+
+                <span class="pagination__info">
+                    Page {{ pagination.page }} of {{ pagination.pages }}
+                </span>
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('assets.list_assets', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Next ▶</span></button>
+                    </a>
+                    <a href="{{ url_for('assets.list_assets', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Last ⏭</span></button>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="action-footer">
+                <a href="{{ url_for('index') }}">
+                    <button class="btn">
+                        <span class="btn__label">← Back to Dashboard</span>
+                    </button>
+                </a>
+            </div>
         </div>
     </div>
+
+    <script>
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1'); // Reset to first page
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>

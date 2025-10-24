@@ -27,9 +27,18 @@ config.read(config_path)
 app.config['CODEX_CONFIG'] = config
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = config.get('database', 'connection_string', 
+app.config['SQLALCHEMY_DATABASE_URI'] = config.get('database', 'connection_string',
     fallback=f"sqlite:///{os.path.join(app.instance_path, 'codex.db')}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Scheduler configuration
+app.config['SYNC_FRESHSERVICE_ENABLED'] = config.getboolean('scheduler', 'sync_freshservice_enabled', fallback=True)
+app.config['SYNC_DATTO_ENABLED'] = config.getboolean('scheduler', 'sync_datto_enabled', fallback=True)
+app.config['SYNC_TICKETS_ENABLED'] = config.getboolean('scheduler', 'sync_tickets_enabled', fallback=False)
+app.config['SYNC_FRESHSERVICE_SCHEDULE'] = config.get('scheduler', 'sync_freshservice_schedule', fallback='daily')
+app.config['SYNC_DATTO_SCHEDULE'] = config.get('scheduler', 'sync_datto_schedule', fallback='daily')
+app.config['SYNC_TICKETS_SCHEDULE'] = config.get('scheduler', 'sync_tickets_schedule', fallback='hourly')
+app.config['SYNC_RUN_ON_STARTUP'] = config.getboolean('scheduler', 'sync_run_on_startup', fallback=False)
 
 # Load services configuration for service-to-service calls
 try:
@@ -69,6 +78,16 @@ helm_logger = init_helm_logger(
 )
 
 from app import routes
+
+# Initialize background scheduler for auto-sync (optional)
+try:
+    from app.scheduler import init_scheduler
+    init_scheduler(app)
+    helm_logger.info("Background sync scheduler initialized")
+except ImportError as e:
+    helm_logger.warning(f"Scheduler not available (APScheduler not installed): {e}")
+except Exception as e:
+    helm_logger.error(f"Failed to initialize scheduler: {e}")
 
 # Log service startup
 helm_logger.info(f"{app.config["SERVICE_NAME"]} service started")

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Companies - Codex</title>
 </head>
 <body>
@@ -10,45 +11,145 @@
             <h1 class="card__title">Companies</h1>
         </div>
         <div class="card__body">
-            <p>Total: <strong>{{ pagination.total }}</strong> companies</p>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>Account Number</th>
-                        <th>Name</th>
-                        <th>Plan</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for company in companies %}
-                    <tr>
-                        <td>{{ company.account_number }}</td>
-                        <td>{{ company.name }}</td>
-                        <td>{{ company.plan_selected or 'N/A' }}</td>
-                        <td>
-                            <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
-                                <button class="btn btn--primary">
-                                    <span class="btn__label">View</span>
-                                </button>
-                            </a>
-                        </td>
-                    </tr>
+            <!-- Search Box -->
+            <form method="GET" action="{{ url_for('companies.list_companies') }}" class="search-form">
+                <div class="search-form__controls">
+                    <input
+                        type="text"
+                        name="search"
+                        placeholder="Search by name, account number, or description..."
+                        value="{{ search_query or '' }}"
+                        class="search-form__input"
+                    >
+                    <button type="submit" class="btn btn--primary">
+                        <span class="btn__label">🔍 Search</span>
+                    </button>
+                    {% if search_query %}
+                    <a href="{{ url_for('companies.list_companies') }}">
+                        <button type="button" class="btn">
+                            <span class="btn__label">Clear</span>
+                        </button>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Results Info -->
+            <div class="results-header">
+                <p class="results-header__count">
+                    {% if search_query %}
+                        Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
-                    <tr>
-                        <td colspan="4">No companies found. Run pull_freshservice.py to sync data.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <a href="{{ url_for('index') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Dashboard</span>
-                </button>
-            </a>
+                        Total: <strong>{{ pagination.total }}</strong> companies
+                    {% endif %}
+                </p>
+                <div class="results-header__controls">
+                    <label for="per_page">Per page:</label>
+                    <select id="per_page" onchange="changePerPage(this.value)">
+                        <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
+                        <option value="50" {{ 'selected' if per_page == 50 else '' }}>50</option>
+                        <option value="100" {{ 'selected' if per_page == 100 else '' }}>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Companies Table -->
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <a href="{{ url_for('companies.list_companies', sort_by='account_number', order='desc' if sort_by == 'account_number' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
+                                    Account # {{ '↓' if sort_by == 'account_number' and order == 'desc' else '↑' if sort_by == 'account_number' else '' }}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('companies.list_companies', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
+                                    Name {{ '↓' if sort_by == 'name' and order == 'desc' else '↑' if sort_by == 'name' else '' }}
+                                </a>
+                            </th>
+                            <th>Description</th>
+                            <th>
+                                <a href="{{ url_for('companies.list_companies', sort_by='plan_selected', order='desc' if sort_by == 'plan_selected' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
+                                    Plan {{ '↓' if sort_by == 'plan_selected' and order == 'desc' else '↑' if sort_by == 'plan_selected' else '' }}
+                                </a>
+                            </th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for company in companies %}
+                        <tr>
+                            <td>{{ company.account_number or 'N/A' }}</td>
+                            <td><strong>{{ company.name }}</strong></td>
+                            <td class="text-truncate">{{ company.description or '-' }}</td>
+                            <td><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
+                            <td class="text-center">
+                                <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                                    <button class="btn btn--primary btn--small">
+                                        <span class="btn__label">View</span>
+                                    </button>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                {% if search_query %}
+                                    No companies found matching "{{ search_query }}". Try a different search term.
+                                {% else %}
+                                    No companies found. Run Freshservice sync to import data.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('companies.list_companies', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">⏮ First</span></button>
+                    </a>
+                    <a href="{{ url_for('companies.list_companies', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">◀ Previous</span></button>
+                    </a>
+                {% endif %}
+
+                <span class="pagination__info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('companies.list_companies', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Next ▶</span></button>
+                    </a>
+                    <a href="{{ url_for('companies.list_companies', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Last ⏭</span></button>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="action-footer">
+                <a href="{{ url_for('index') }}">
+                    <button class="btn">
+                        <span class="btn__label">← Back to Dashboard</span>
+                    </button>
+                </a>
+            </div>
         </div>
     </div>
+
+    <script>
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1'); // Reset to first page
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>

@@ -12,7 +12,7 @@ def settings():
     """Admin settings page."""
     # Load current configuration
     config = current_app.config['CODEX_CONFIG']
-    
+
     # Get database stats
     stats = {
         'companies': Company.query.count(),
@@ -22,35 +22,60 @@ def settings():
         'active_contacts': Contact.query.filter_by(active=True).count(),
         'online_assets': Asset.query.filter_by(online=True).count(),
     }
-    
+
     # Get configuration values
     fs_config = {
         'domain': config.get('freshservice', 'domain', fallback='Not configured'),
-        'api_key_set': bool(config.get('freshservice', 'api_key', fallback='') and 
+        'api_key_set': bool(config.get('freshservice', 'api_key', fallback='') and
                            config.get('freshservice', 'api_key') not in ['', 'YOUR_FRESHSERVICE_API_KEY'])
     }
-    
+
     datto_config = {
         'api_endpoint': config.get('datto', 'api_endpoint', fallback='Not configured'),
-        'public_key_set': bool(config.get('datto', 'public_key', fallback='') and 
+        'public_key_set': bool(config.get('datto', 'public_key', fallback='') and
                               config.get('datto', 'public_key') not in ['', 'YOUR_DATTO_PUBLIC_KEY']),
-        'secret_key_set': bool(config.get('datto', 'secret_key', fallback='') and 
+        'secret_key_set': bool(config.get('datto', 'secret_key', fallback='') and
                               config.get('datto', 'secret_key') not in ['', 'YOUR_DATTO_SECRET_KEY'])
     }
-    
+
     db_config = {
         'host': config.get('database_credentials', 'db_host', fallback='Unknown'),
         'port': config.get('database_credentials', 'db_port', fallback='Unknown'),
         'dbname': config.get('database_credentials', 'db_dbname', fallback='Unknown'),
         'user': config.get('database_credentials', 'db_user', fallback='Unknown'),
     }
-    
+
+    # Get scheduler configuration
+    scheduler_config = {
+        'freshservice_enabled': current_app.config.get('SYNC_FRESHSERVICE_ENABLED', True),
+        'datto_enabled': current_app.config.get('SYNC_DATTO_ENABLED', True),
+        'tickets_enabled': current_app.config.get('SYNC_TICKETS_ENABLED', False),
+        'freshservice_schedule': current_app.config.get('SYNC_FRESHSERVICE_SCHEDULE', 'daily'),
+        'datto_schedule': current_app.config.get('SYNC_DATTO_SCHEDULE', 'daily'),
+        'tickets_schedule': current_app.config.get('SYNC_TICKETS_SCHEDULE', 'hourly'),
+        'run_on_startup': current_app.config.get('SYNC_RUN_ON_STARTUP', False),
+    }
+
+    # Get scheduler status
+    from app.scheduler import get_scheduler
+    scheduler = get_scheduler()
+    scheduler_jobs = []
+    if scheduler:
+        for job in scheduler.get_jobs():
+            scheduler_jobs.append({
+                'id': job.id,
+                'name': job.name,
+                'next_run': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else 'N/A'
+            })
+
     return render_template('admin/settings.html',
                          user=g.user,
                          stats=stats,
                          fs_config=fs_config,
                          datto_config=datto_config,
-                         db_config=db_config)
+                         db_config=db_config,
+                         scheduler_config=scheduler_config,
+                         scheduler_jobs=scheduler_jobs)
 
 @admin_bp.route('/update-freshservice', methods=['POST'])
 @admin_required

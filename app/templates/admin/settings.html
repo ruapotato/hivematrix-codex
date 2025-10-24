@@ -212,6 +212,93 @@
 
     <div class="card">
         <div class="card__header">
+            <h2 class="card__title">Automatic Sync Scheduler</h2>
+        </div>
+        <div class="card__body">
+            <p>Codex can automatically sync data on a schedule. Current configuration:</p>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-item__label">Freshservice Sync:</span>
+                    <span class="info-item__value">
+                        {% if scheduler_config.freshservice_enabled %}
+                            <span class="badge badge--success">Enabled</span> ({{ scheduler_config.freshservice_schedule }})
+                        {% else %}
+                            <span class="badge badge--danger">Disabled</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Datto RMM Sync:</span>
+                    <span class="info-item__value">
+                        {% if scheduler_config.datto_enabled %}
+                            <span class="badge badge--success">Enabled</span> ({{ scheduler_config.datto_schedule }})
+                        {% else %}
+                            <span class="badge badge--danger">Disabled</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Tickets Sync:</span>
+                    <span class="info-item__value">
+                        {% if scheduler_config.tickets_enabled %}
+                            <span class="badge badge--success">Enabled</span> ({{ scheduler_config.tickets_schedule }})
+                        {% else %}
+                            <span class="badge badge--danger">Disabled</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Run on Startup:</span>
+                    <span class="info-item__value">
+                        {% if scheduler_config.run_on_startup %}
+                            <span class="badge badge--success">Yes</span>
+                        {% else %}
+                            <span class="badge">No</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <h3>Scheduled Jobs</h3>
+            {% if scheduler_jobs %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Job Name</th>
+                            <th>Next Run</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in scheduler_jobs %}
+                        <tr>
+                            <td>{{ job.name }}</td>
+                            <td>{{ job.next_run }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="info-message">No jobs currently scheduled. Check your instance/codex.conf [scheduler] section.</p>
+            {% endif %}
+
+            <h3>Modify Scheduler Settings</h3>
+            <p>To change scheduler settings, edit <code>instance/codex.conf</code> and restart Codex:</p>
+            <pre><code>[scheduler]
+sync_freshservice_enabled = true
+sync_datto_enabled = true
+sync_tickets_enabled = false
+sync_freshservice_schedule = daily  # daily, hourly, or disabled
+sync_datto_schedule = daily
+sync_tickets_schedule = hourly
+sync_run_on_startup = false</code></pre>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
             <h2 class="card__title">Data Management</h2>
         </div>
         <div class="card__body">

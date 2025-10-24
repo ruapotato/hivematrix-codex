@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ asset.hostname }} - Codex</title>
 </head>
 <body>
@@ -10,52 +11,139 @@
             <h1 class="card__title">{{ asset.hostname }}</h1>
         </div>
         <div class="card__body">
-            <p><strong>Company:</strong> 
-                {% if asset.company %}
-                    <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
-                        {{ asset.company.name }}
-                    </a>
-                {% else %}
-                    N/A
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert--{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
                 {% endif %}
-            </p>
-            <p><strong>Hardware Type:</strong> {{ asset.hardware_type or 'N/A' }}</p>
-            <p><strong>Operating System:</strong> {{ asset.operating_system or 'N/A' }}</p>
-            <p><strong>Status:</strong> {{ '✓ Online' if asset.online else '✗ Offline' }}</p>
-            <p><strong>Internal IP:</strong> {{ asset.int_ip_address or 'N/A' }}</p>
-            <p><strong>External IP:</strong> {{ asset.ext_ip_address or 'N/A' }}</p>
-            <p><strong>Domain:</strong> {{ asset.domain or 'N/A' }}</p>
-            <p><strong>Last Seen:</strong> {{ asset.last_seen or 'N/A' }}</p>
-            <p><strong>Last Logged In User:</strong> {{ asset.last_logged_in_user or 'N/A' }}</p>
-            
+            {% endwith %}
+
+            <h2>Device Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-item__label">Company:</span>
+                    <span class="info-item__value">
+                        {% if asset.company %}
+                            <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
+                                {{ asset.company.name }}
+                            </a>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Hardware Type:</span>
+                    <span class="info-item__value">{{ asset.hardware_type or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Operating System:</span>
+                    <span class="info-item__value">{{ asset.operating_system or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Status:</span>
+                    <span class="info-item__value">
+                        {% if asset.online %}
+                            <span class="badge badge--success">✓ Online</span>
+                        {% else %}
+                            <span class="badge badge--danger">✗ Offline</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Internal IP:</span>
+                    <span class="info-item__value">{{ asset.int_ip_address or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">External IP:</span>
+                    <span class="info-item__value">{{ asset.ext_ip_address or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Domain:</span>
+                    <span class="info-item__value">{{ asset.domain or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Last Seen:</span>
+                    <span class="info-item__value">{{ asset.last_seen or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-item__label">Last Logged In User:</span>
+                    <span class="info-item__value">{{ asset.last_logged_in_user or 'N/A' }}</span>
+                </div>
+            </div>
+
             {% if asset.web_remote_url %}
-            <p>
+            <div class="section-actions">
                 <a href="{{ asset.web_remote_url }}" target="_blank">
                     <button class="btn btn--primary">
-                        <span class="btn__label">Remote Access</span>
+                        <span class="btn__label">🖥️ Remote Access</span>
                     </button>
                 </a>
-            </p>
+            </div>
             {% endif %}
-            
-            <h3>Associated Contacts ({{ asset.contacts|length }})</h3>
-            <ul>
+
+            <!-- User Assignment Section -->
+            <div class="section-divider"></div>
+            <h2>Assigned Users ({{ asset.contacts|length }})</h2>
+
+            {% if asset.contacts %}
+            <div class="user-list">
                 {% for contact in asset.contacts %}
-                <li>
-                    <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
-                        {{ contact.name }}
-                    </a> - {{ contact.email }}
-                </li>
-                {% else %}
-                <li>No contacts associated</li>
+                <div class="user-item">
+                    <div class="user-item__info">
+                        <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="user-item__name">
+                            {{ contact.name }}
+                        </a>
+                        <span class="user-item__email">{{ contact.email }}</span>
+                    </div>
+                    <form method="POST" action="{{ url_for('assets.unassign_user', asset_id=asset.id, contact_id=contact.id) }}" class="user-item__action">
+                        <button type="submit" class="btn btn--danger btn--small" onclick="return confirm('Remove {{ contact.name }} from this device?')">
+                            <span class="btn__label">Remove</span>
+                        </button>
+                    </form>
+                </div>
                 {% endfor %}
-            </ul>
-            
-            <a href="{{ url_for('assets.list_assets') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Assets</span>
-                </button>
-            </a>
+            </div>
+            {% else %}
+            <p class="empty-state">No users assigned to this device.</p>
+            {% endif %}
+
+            <!-- Assign New User Form -->
+            {% if available_contacts %}
+            <div class="assign-user-form">
+                <h3>Assign New User</h3>
+                <form method="POST" action="{{ url_for('assets.assign_user', asset_id=asset.id) }}" class="form-inline">
+                    <div class="form-inline__controls">
+                        <select name="contact_id" class="form-inline__select" required>
+                            <option value="">Select a user...</option>
+                            {% for contact in available_contacts %}
+                                {% if contact not in asset.contacts %}
+                                <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.email }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn--primary">
+                            <span class="btn__label">Assign User</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% else %}
+            <p class="info-message">No additional users available from {{ asset.company.name if asset.company else 'this company' }}.</p>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="action-footer">
+                <a href="{{ url_for('assets.list_assets') }}">
+                    <button class="btn">
+                        <span class="btn__label">← Back to Assets</span>
+                    </button>
+                </a>
+            </div>
         </div>
     </div>
 </body>

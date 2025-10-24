@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contacts - Codex</title>
 </head>
 <body>
@@ -10,57 +11,173 @@
             <h1 class="card__title">Contacts</h1>
         </div>
         <div class="card__body">
-            <p>Total: <strong>{{ pagination.total }}</strong> contacts</p>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Company</th>
-                        <th>Active</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for contact in contacts %}
-                    <tr>
-                        <td>{{ contact.name }}</td>
-                        <td>{{ contact.email }}</td>
-                        <td>
-                            {% if contact.companies %}
-                                {% for company in contact.companies %}
-                                    <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
-                                        {{ company.name }}
-                                    </a>{% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>{{ 'Yes' if contact.active else 'No' }}</td>
-                        <td>
-                            <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
-                                <button class="btn btn--primary">
-                                    <span class="btn__label">View</span>
-                                </button>
-                            </a>
-                        </td>
-                    </tr>
+            <!-- Search Box -->
+            <form method="GET" action="{{ url_for('contacts.list_contacts') }}" class="search-form">
+                <div class="search-form__controls">
+                    <input
+                        type="text"
+                        name="search"
+                        placeholder="Search by name, email, or phone..."
+                        value="{{ search_query or '' }}"
+                        class="search-form__input"
+                    >
+                    <button type="submit" class="btn btn--primary">
+                        <span class="btn__label">🔍 Search</span>
+                    </button>
+                    {% if search_query %}
+                    <a href="{{ url_for('contacts.list_contacts') }}">
+                        <button type="button" class="btn">
+                            <span class="btn__label">Clear</span>
+                        </button>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Results Info -->
+            <div class="results-header">
+                <p class="results-header__count">
+                    {% if search_query %}
+                        Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
-                    <tr>
-                        <td colspan="5">No contacts found. Run pull_freshservice.py to sync data.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <a href="{{ url_for('index') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Dashboard</span>
-                </button>
-            </a>
+                        Total: <strong>{{ pagination.total }}</strong> contacts
+                    {% endif %}
+                </p>
+                <div class="results-header__controls">
+                    <label for="per_page">Per page:</label>
+                    <select id="per_page" onchange="changePerPage(this.value)">
+                        <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
+                        <option value="50" {{ 'selected' if per_page == 50 else '' }}>50</option>
+                        <option value="100" {{ 'selected' if per_page == 100 else '' }}>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Contacts Table -->
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable-header">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Name {{ '↓' if sort_by == 'name' and order == 'desc' else '↑' if sort_by == 'name' else '' }}
+                                </a>
+                            </th>
+                            <th class="sortable-header">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='email', order='desc' if sort_by == 'email' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Email {{ '↓' if sort_by == 'email' and order == 'desc' else '↑' if sort_by == 'email' else '' }}
+                                </a>
+                            </th>
+                            <th>Phone</th>
+                            <th>Company</th>
+                            <th class="sortable-header text-center">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='active', order='desc' if sort_by == 'active' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                    Active {{ '↓' if sort_by == 'active' and order == 'desc' else '↑' if sort_by == 'active' else '' }}
+                                </a>
+                            </th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in contacts %}
+                        <tr>
+                            <td><strong>{{ contact.name }}</strong></td>
+                            <td>
+                                <a href="mailto:{{ contact.email }}">
+                                    {{ contact.email }}
+                                </a>
+                            </td>
+                            <td>{{ contact.mobile_phone_number or contact.work_phone_number or '-' }}</td>
+                            <td>
+                                {% if contact.companies %}
+                                    {% for company in contact.companies %}
+                                        <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                                            {{ company.name }}
+                                        </a>{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <span>No company</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if contact.active %}
+                                    <span class="badge badge--success">
+                                        ✓ Active
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge--danger">
+                                        ✗ Inactive
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                                    <button class="btn btn--primary btn--small">
+                                        <span class="btn__label">View</span>
+                                    </button>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="empty-state">
+                                {% if search_query %}
+                                    No contacts found matching "{{ search_query }}". Try a different search term.
+                                {% else %}
+                                    No contacts found. Run Freshservice sync to import data.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('contacts.list_contacts', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">⏮ First</span></button>
+                    </a>
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">◀ Previous</span></button>
+                    </a>
+                {% endif %}
+
+                <span class="pagination__info">
+                    Page {{ pagination.page }} of {{ pagination.pages }}
+                </span>
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Next ▶</span></button>
+                    </a>
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
+                        <button class="btn"><span class="btn__label">Last ⏭</span></button>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="action-footer">
+                <a href="{{ url_for('index') }}">
+                    <button class="btn">
+                        <span class="btn__label">← Back to Dashboard</span>
+                    </button>
+                </a>
+            </div>
         </div>
     </div>
+
+    <script>
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1'); // Reset to first page
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>
