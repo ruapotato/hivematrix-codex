@@ -15,19 +15,48 @@ asset_contact_link = db.Table('asset_contact_link',
 
 class Company(db.Model):
     __tablename__ = 'companies'
+
+    # Primary key
     account_number = db.Column(db.String(50), primary_key=True)
+
+    # Core Freshservice fields (from top-level)
+    freshservice_id = db.Column(BigInteger, unique=True, nullable=False)
     name = db.Column(db.String(150), nullable=False)
-    freshservice_id = db.Column(BigInteger, unique=True)
     description = db.Column(db.Text)
+    created_at = db.Column(db.String(100))
+    updated_at = db.Column(db.String(100))
+
+    # Company head/prime user (from top-level)
+    head_user_id = db.Column(BigInteger)
+    head_name = db.Column(db.String(150))
+    prime_user_id = db.Column(BigInteger)
+    prime_user_name = db.Column(db.String(150))
+
+    # Domains (JSON array stored as string)
+    domains = db.Column(db.Text)  # JSON array like ["domain1.com", "domain2.com"]
+
+    # Workspace
+    workspace_id = db.Column(db.Integer)
+
+    # Custom fields from Freshservice
     plan_selected = db.Column(db.String(100))
+    managed_users = db.Column(db.String(100))
+    managed_devices = db.Column(db.String(100))
+    managed_network = db.Column(db.String(100))
+    contract_term = db.Column(db.String(50))  # Contract term length
+    contract_start_date = db.Column(db.String(100))
     profit_or_non_profit = db.Column(db.String(50))
     company_main_number = db.Column(db.String(50))
+    address = db.Column(db.Text)  # Full address
     company_start_date = db.Column(db.String(100))
-    head_name = db.Column(db.String(150))
-    primary_contact_name = db.Column(db.String(150))
-    domains = db.Column(db.String(255))
+
+    # Additional fields for compatibility
+    billing_plan = db.Column(db.String(100))  # Alias for plan_selected
+    contract_term_length = db.Column(db.String(50))  # Alias for contract_term
+    support_level = db.Column(db.String(100))  # Support tier
     phone_system = db.Column(db.String(100))
     email_system = db.Column(db.String(100))
+    datto_portal_url = db.Column(db.String(255))
 
     assets = db.relationship('Asset', back_populates='company', lazy=True, cascade="all, delete-orphan")
     contacts = db.relationship('Contact', secondary=contact_company_link, back_populates='companies')
@@ -65,16 +94,62 @@ class Asset(db.Model):
 
 class Contact(db.Model):
     __tablename__ = 'contacts'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    title = db.Column(db.String(150))
-    employment_type = db.Column(db.String(100), nullable=False, default='Full Time')
+
+    # Primary key
+    id = db.Column(db.Integer, primary_key=True)  # Freshservice requester ID
+
+    # Core Freshservice fields
+    freshservice_id = db.Column(BigInteger, unique=True, nullable=False)
+    first_name = db.Column(db.String(150))
+    last_name = db.Column(db.String(150))
+    name = db.Column(db.String(150), nullable=False)  # Computed: first_name + last_name
+    primary_email = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)  # Alias for primary_email
+
+    # Status fields
     active = db.Column(db.Boolean, default=True)
+    is_agent = db.Column(db.Boolean, default=False)
+    vip_user = db.Column(db.Boolean, default=False)
+    has_logged_in = db.Column(db.Boolean, default=False)
+
+    # Contact information
     mobile_phone_number = db.Column(db.String(50))
     work_phone_number = db.Column(db.String(50))
-    secondary_emails = db.Column(db.String(255))
+    address = db.Column(db.Text)
+    secondary_emails = db.Column(db.Text)  # JSON array
 
+    # Job/role information
+    job_title = db.Column(db.String(150))
+    title = db.Column(db.String(150))  # Alias for job_title
+    employment_type = db.Column(db.String(100), default='Full Time')  # Not from FS, local field
+    department_ids = db.Column(db.Text)  # JSON array of department IDs
+    department_names = db.Column(db.Text)  # Comma-separated department names
+
+    # Manager and location
+    reporting_manager_id = db.Column(BigInteger)
+    location_id = db.Column(BigInteger)
+    location_name = db.Column(db.String(150))
+
+    # Preferences
+    language = db.Column(db.String(10), default='en')
+    time_zone = db.Column(db.String(100))
+    time_format = db.Column(db.String(10))  # '12h' or '24h'
+
+    # Permissions
+    can_see_all_tickets_from_associated_departments = db.Column(db.Boolean, default=False)
+    can_see_all_changes_from_associated_departments = db.Column(db.Boolean, default=False)
+
+    # Metadata
+    created_at = db.Column(db.String(100))
+    updated_at = db.Column(db.String(100))
+    external_id = db.Column(db.String(100))
+    background_information = db.Column(db.Text)
+    work_schedule_id = db.Column(BigInteger)
+
+    # Custom fields
+    user_number = db.Column(db.String(50))
+
+    # Relationships
     companies = db.relationship('Company', secondary=contact_company_link, back_populates='contacts')
     assets = db.relationship('Asset', secondary=asset_contact_link, back_populates='contacts')
 
@@ -126,3 +201,14 @@ class TicketDetail(db.Model):
     # Conversation history stored as JSON
     conversations = db.Column(db.Text)  # JSON array of conversation entries
     notes = db.Column(db.Text)  # JSON array of internal notes
+
+class SyncJob(db.Model):
+    __tablename__ = 'sync_jobs'
+    id = db.Column(db.String(50), primary_key=True)  # UUID
+    script = db.Column(db.String(50), nullable=False)  # 'freshservice', 'datto', 'tickets'
+    status = db.Column(db.String(20), nullable=False)  # 'running', 'completed', 'failed'
+    started_at = db.Column(db.String(50), nullable=False)  # ISO timestamp
+    completed_at = db.Column(db.String(50))  # ISO timestamp
+    output = db.Column(db.Text)  # Last 1000 chars of stdout
+    error = db.Column(db.Text)  # Error message if failed
+    success = db.Column(db.Boolean)

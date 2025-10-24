@@ -1,33 +1,54 @@
+#!/usr/bin/env python3
+"""
+Codex Database Initialization and Migration Script
+
+This script handles both initial setup and schema migrations for production deployments.
+
+Features:
+- Interactive configuration setup (database, Freshservice, Datto)
+- Intelligent schema migrations (adds new columns without data loss)
+- Safe for production use - preserves existing data
+- Can be run multiple times safely (idempotent)
+
+Usage:
+    python init_db.py                    # Interactive setup
+    python init_db.py --migrate-only     # Skip config, just migrate schema
+    python init_db.py --force-rebuild    # Nuclear option: drop and recreate (DEV ONLY)
+"""
+
 import os
 import sys
+import argparse
 import configparser
 from getpass import getpass
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
-
-# Load environment variables from .flaskenv
 from dotenv import load_dotenv
-load_dotenv('.flaskenv')
 
+load_dotenv('.flaskenv')
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app
 from extensions import db
-# Import models so SQLAlchemy knows about them
-from models import Company, Contact, Asset, CompanyFeatureOverride, Location, DattoSiteLink
+# Import ALL models so SQLAlchemy knows about them
+from models import (
+    Company, Contact, Asset, CompanyFeatureOverride, Location,
+    DattoSiteLink, TicketDetail, SyncJob
+)
+
 
 def get_db_credentials(config):
     """Prompts the user for PostgreSQL connection details."""
     print("\n--- PostgreSQL Database Configuration ---")
-    
+
     db_details = {
         'host': 'localhost',
         'port': '5432',
         'user': 'codex_user',
         'dbname': 'codex_db'
     }
-    
+
     # Load existing values if config exists
     if config.has_section('database_credentials'):
         db_details['host'] = config.get('database_credentials', 'db_host', fallback=db_details['host'])
@@ -49,14 +70,15 @@ def get_db_credentials(config):
         'password': password
     }
 
+
 def test_db_connection(creds):
     """Tests the database connection."""
     from urllib.parse import quote_plus
-    
+
     # Properly escape the password in case it contains special characters
     escaped_password = quote_plus(creds['password'])
     conn_string = f"postgresql://{creds['user']}:{escaped_password}@{creds['host']}:{creds['port']}/{creds['dbname']}"
-    
+
     try:
         engine = create_engine(conn_string)
         with engine.connect() as connection:
@@ -65,6 +87,7 @@ def test_db_connection(creds):
     except OperationalError as e:
         print(f"\n✗ Connection failed: {e}", file=sys.stderr)
         return None, False
+
 
 def get_freshservice_config(config):
     """Prompts the user for Freshservice API configuration."""
@@ -83,19 +106,20 @@ def get_freshservice_config(config):
 
     print("\nPress Enter to keep current values or skip if not using Freshservice.")
     domain = input(f"Freshservice Domain [{defaults['domain']}]: ") or defaults['domain']
-    
+
     if defaults['api_key'] and defaults['api_key'] not in ['', 'YOUR_FRESHSERVICE_API_KEY']:
         api_key_prompt = f"Freshservice API Key [****{defaults['api_key'][-4:]}]: "
     else:
         api_key_prompt = "Freshservice API Key [none]: "
-    
+
     api_key_input = getpass(api_key_prompt)
     api_key = api_key_input if api_key_input else defaults['api_key']
-    
+
     return {
         'domain': domain,
         'api_key': api_key
     }
+
 
 def get_datto_config(config):
     """Prompts the user for Datto RMM API configuration."""
@@ -119,105 +143,251 @@ def get_datto_config(config):
     print("  - US: https://zinfandel-api.centrastage.net")
     print("  - EU: https://concord-api.centrastage.net")
     print("  - AU: https://pinotgrigio-api.centrastage.net")
-    
+
     api_endpoint = input(f"\nDatto API Endpoint [{defaults['api_endpoint']}]: ") or defaults['api_endpoint']
-    
+
     if defaults['public_key'] and defaults['public_key'] not in ['', 'YOUR_DATTO_PUBLIC_KEY']:
         public_key_prompt = f"Datto Public Key [****{defaults['public_key'][-4:]}]: "
     else:
         public_key_prompt = "Datto Public Key [none]: "
-    
+
     public_key_input = input(public_key_prompt)
     public_key = public_key_input if public_key_input else defaults['public_key']
-    
+
     if defaults['secret_key'] and defaults['secret_key'] not in ['', 'YOUR_DATTO_SECRET_KEY']:
         secret_key_prompt = f"Datto Secret Key [****{defaults['secret_key'][-4:]}]: "
     else:
         secret_key_prompt = "Datto Secret Key [none]: "
-    
+
     secret_key_input = getpass(secret_key_prompt)
     secret_key = secret_key_input if secret_key_input else defaults['secret_key']
-    
+
     return {
         'api_endpoint': api_endpoint,
         'public_key': public_key,
         'secret_key': secret_key
     }
 
-def init_db():
-    """Interactively configures and initializes the database."""
+
+def migrate_schema():
+    """
+    Intelligently migrates database schema without losing data.
+
+    This function:
+    1. Inspects existing tables and columns
+    2. Compares with models defined in models.py
+    3. Adds missing columns (with defaults)
+    4. Creates missing tables
+    5. Does NOT drop columns or tables (safe for production)
+    """
+    print("\n" + "="*80)
+    print("DATABASE SCHEMA MIGRATION")
+    print("="*80)
+
+    with app.app_context():
+        inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+
+        print(f"\nFound {len(existing_tables)} existing tables in database")
+
+        # Get all tables defined in models
+        model_tables = db.metadata.tables
+
+        # Track changes
+        tables_created = []
+        columns_added = []
+
+        for table_name, table in model_tables.items():
+            if table_name not in existing_tables:
+                # Table doesn't exist - create it
+                print(f"\n→ Creating new table: {table_name}")
+                table.create(db.engine)
+                tables_created.append(table_name)
+            else:
+                # Table exists - check for missing columns
+                existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+                model_columns = {col.name for col in table.columns}
+                missing_columns = model_columns - existing_columns
+
+                if missing_columns:
+                    print(f"\n→ Updating table '{table_name}' - adding {len(missing_columns)} columns:")
+                    for col_name in missing_columns:
+                        col = table.columns[col_name]
+                        col_type = col.type.compile(db.engine.dialect)
+
+                        # Build ALTER TABLE statement
+                        nullable = "NULL" if col.nullable else "NOT NULL"
+                        default = ""
+
+                        # Add default value if specified
+                        if col.default is not None:
+                            if hasattr(col.default, 'arg'):
+                                # Column default (e.g., default=True)
+                                default_val = col.default.arg
+                                if isinstance(default_val, str):
+                                    default = f"DEFAULT '{default_val}'"
+                                elif isinstance(default_val, bool):
+                                    default = f"DEFAULT {str(default_val).upper()}"
+                                else:
+                                    default = f"DEFAULT {default_val}"
+
+                        # For NOT NULL columns without default, make them nullable for migration
+                        if not col.nullable and not default:
+                            nullable = "NULL"
+                            print(f"   ⚠ Column '{col_name}' is NOT NULL but has no default - making nullable for safety")
+
+                        sql = f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type} {default} {nullable}"
+
+                        try:
+                            with db.engine.connect() as conn:
+                                conn.execute(text(sql))
+                                conn.commit()
+                            print(f"   ✓ Added column: {col_name} ({col_type})")
+                            columns_added.append(f"{table_name}.{col_name}")
+                        except Exception as e:
+                            print(f"   ✗ Failed to add column {col_name}: {e}")
+
+        # Summary
+        print("\n" + "="*80)
+        print("MIGRATION SUMMARY")
+        print("="*80)
+
+        if tables_created:
+            print(f"\n✓ Created {len(tables_created)} new table(s):")
+            for t in tables_created:
+                print(f"  - {t}")
+        else:
+            print("\n• No new tables created")
+
+        if columns_added:
+            print(f"\n✓ Added {len(columns_added)} new column(s):")
+            for c in columns_added:
+                print(f"  - {c}")
+        else:
+            print("\n• No new columns added")
+
+        if not tables_created and not columns_added:
+            print("\n✓ Schema is up to date - no changes needed")
+
+        print("\n" + "="*80)
+
+
+def force_rebuild():
+    """
+    DANGEROUS: Drops all tables and recreates from scratch.
+    Only use in development!
+    """
+    print("\n" + "!"*80)
+    print("⚠ WARNING: FORCE REBUILD MODE")
+    print("!"*80)
+    print("\nThis will DELETE ALL DATA in the database!")
+    print("This should ONLY be used in development environments.")
+    print("\nType 'DELETE ALL DATA' to confirm:")
+
+    confirmation = input("> ")
+    if confirmation != "DELETE ALL DATA":
+        print("\nAborted.")
+        sys.exit(0)
+
+    print("\n→ Dropping all tables...")
+    with app.app_context():
+        db.drop_all()
+        print("✓ All tables dropped")
+
+        print("\n→ Creating fresh schema...")
+        db.create_all()
+        print("✓ Schema recreated")
+
+    print("\n✓ Force rebuild complete")
+
+
+def init_db(migrate_only=False, force=False):
+    """Main initialization function."""
+    print("\n" + "="*80)
+    print("CODEX DATABASE INITIALIZATION")
+    print("="*80)
+
+    if force:
+        force_rebuild()
+        return
+
     instance_path = app.instance_path
     config_path = os.path.join(instance_path, 'codex.conf')
-    
+
     # Use RawConfigParser to avoid interpolation issues with special characters
     config = configparser.RawConfigParser()
 
-    config_exists = os.path.exists(config_path)
-    if config_exists:
-        config.read(config_path)
-        print(f"\n✓ Existing configuration found: {config_path}")
-        print("Press Enter to keep existing values, or type new values to update.")
-    else:
-        print(f"\n→ No existing configuration found. Creating new config: {config_path}")
-
-    # Database configuration
-    conn_string = None
-    while True:
-        creds = get_db_credentials(config)
-        conn_string, success = test_db_connection(creds)
-        if success:
-            if not config.has_section('database'):
-                config.add_section('database')
-            config.set('database', 'connection_string', conn_string)
-            
-            if not config.has_section('database_credentials'):
-                config.add_section('database_credentials')
-            for key, val in creds.items():
-                if key != 'password':  # Don't store password in plain text
-                    config.set('database_credentials', f'db_{key}', val)
-            break
+    if not migrate_only:
+        config_exists = os.path.exists(config_path)
+        if config_exists:
+            config.read(config_path)
+            print(f"\n✓ Existing configuration found: {config_path}")
+            print("Press Enter to keep existing values, or type new values to update.")
         else:
-            retry = input("\nWould you like to try again? (y/n): ").lower()
-            if retry != 'y':
-                sys.exit("Database configuration aborted.")
+            print(f"\n→ No existing configuration found. Creating new config: {config_path}")
 
-    # Freshservice configuration
-    fs_config = get_freshservice_config(config)
-    if not config.has_section('freshservice'):
-        config.add_section('freshservice')
-    config.set('freshservice', 'domain', fs_config['domain'])
-    config.set('freshservice', 'api_key', fs_config['api_key'])
+        # Database configuration
+        conn_string = None
+        while True:
+            creds = get_db_credentials(config)
+            conn_string, success = test_db_connection(creds)
+            if success:
+                if not config.has_section('database'):
+                    config.add_section('database')
+                config.set('database', 'connection_string', conn_string)
 
-    # Datto configuration
-    datto_config = get_datto_config(config)
-    if not config.has_section('datto'):
-        config.add_section('datto')
-    config.set('datto', 'api_endpoint', datto_config['api_endpoint'])
-    config.set('datto', 'public_key', datto_config['public_key'])
-    config.set('datto', 'secret_key', datto_config['secret_key'])
+                if not config.has_section('database_credentials'):
+                    config.add_section('database_credentials')
+                for key, val in creds.items():
+                    if key != 'password':  # Don't store password in plain text
+                        config.set('database_credentials', f'db_{key}', val)
+                break
+            else:
+                retry = input("\nWould you like to try again? (y/n): ").lower()
+                if retry != 'y':
+                    sys.exit("Database configuration aborted.")
 
-    # Save configuration
-    with open(config_path, 'w') as configfile:
-        config.write(configfile)
-    
-    print(f"\n✓ Configuration saved to: {config_path}")
+        # Freshservice configuration
+        fs_config = get_freshservice_config(config)
+        if not config.has_section('freshservice'):
+            config.add_section('freshservice')
+        config.set('freshservice', 'domain', fs_config['domain'])
+        config.set('freshservice', 'api_key', fs_config['api_key'])
 
-    # Initialize database schema
-    with app.app_context():
-        print("\nInitializing database schema...")
-        tables = list(db.metadata.tables.keys())
-        print(f"→ Creating {len(tables)} tables: {', '.join(tables)}")
-        db.create_all()
-        print("✓ Database schema initialized successfully!")
+        # Datto configuration
+        datto_config = get_datto_config(config)
+        if not config.has_section('datto'):
+            config.add_section('datto')
+        config.set('datto', 'api_endpoint', datto_config['api_endpoint'])
+        config.set('datto', 'public_key', datto_config['public_key'])
+        config.set('datto', 'secret_key', datto_config['secret_key'])
 
-    print("\n" + "="*70)
+        # Save configuration
+        with open(config_path, 'w') as configfile:
+            config.write(configfile)
+
+        print(f"\n✓ Configuration saved to: {config_path}")
+    else:
+        # Migrate-only mode: load existing config
+        if os.path.exists(config_path):
+            config.read(config_path)
+            print(f"\n✓ Using existing configuration: {config_path}")
+        else:
+            print(f"\n✗ No configuration found at {config_path}")
+            print("Run without --migrate-only to create configuration first")
+            sys.exit(1)
+
+    # Run schema migration
+    migrate_schema()
+
+    print("\n" + "="*80)
     print(" 🎉 Codex Initialization Complete!")
-    print("="*70)
+    print("="*80)
     print("\nIMPORTANT: Codex is the central data hub for HiveMatrix")
     print("  - Codex syncs from Freshservice & Datto")
     print("  - Ledger pulls billing data from Codex")
     print("  - KnowledgeTree pulls support context from Codex")
-    print("="*70)
+    print("="*80)
     print("\nNext steps:")
     print("  1. (Optional) Review configuration: instance/codex.conf")
     print("  2. Sync data from external systems (via Codex dashboard or CLI):")
@@ -229,7 +399,25 @@ def init_db():
     print("     → python run.py                 # Production (Waitress)")
     print("\n  Access at: http://localhost:5010")
     print("  (Login via Core/Nexus gateway)")
-    print("="*70)
+    print("="*80)
+
 
 if __name__ == '__main__':
-    init_db()
+    parser = argparse.ArgumentParser(
+        description='Initialize or migrate Codex database schema',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        '--migrate-only',
+        action='store_true',
+        help='Skip configuration, only run schema migration'
+    )
+    parser.add_argument(
+        '--force-rebuild',
+        action='store_true',
+        help='DANGEROUS: Drop all tables and rebuild (DEV ONLY)'
+    )
+
+    args = parser.parse_args()
+
+    init_db(migrate_only=args.migrate_only, force=args.force_rebuild)

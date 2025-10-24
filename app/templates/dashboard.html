@@ -86,6 +86,22 @@
                 </button>
             </div>
 
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <p style="margin-bottom: 10px;"><strong>Account Number Management:</strong></p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn--primary" onclick="createAccountNumbers()" id="create-acct-btn">
+                        <span class="btn__label">🔢 Create Account Numbers</span>
+                    </button>
+                    <button class="btn btn--primary" onclick="pushToDatto()" id="push-datto-btn">
+                        <span class="btn__label">📤 Push to Datto RMM</span>
+                    </button>
+                </div>
+                <p style="margin-top: 10px; font-size: 0.85em; color: #666;">
+                    Create Account Numbers: Assigns unique 6-digit IDs to companies in Freshservice<br>
+                    Push to Datto: Syncs account numbers to Datto RMM sites as variables
+                </p>
+            </div>
+
             <div id="sync-progress" style="margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; display: none;">
                 <h4 style="margin: 0 0 10px 0; font-size: 0.95em;">Sync Progress</h4>
                 <p id="sync-status" style="margin: 5px 0; font-weight: 500;"></p>
@@ -254,6 +270,24 @@
                 'sync-tickets-btn',
                 '🎫 Sync Tickets (Full Context)',
                 'Tickets'
+            );
+        }
+
+        function createAccountNumbers() {
+            startSync(
+                '{{ url_for("sync_create_account_numbers") }}',
+                'create-acct-btn',
+                '🔢 Create Account Numbers',
+                'Account Numbers'
+            );
+        }
+
+        function pushToDatto() {
+            startSync(
+                '{{ url_for("sync_push_to_datto") }}',
+                'push-datto-btn',
+                '📤 Push to Datto RMM',
+                'Push to Datto'
             );
         }
 

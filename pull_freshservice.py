@@ -105,8 +105,6 @@ def populate_database(companies_data, users_data):
             custom_fields = company_data.get('custom_fields', {})
             account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
             fs_id = company_data.get('id')
-            address = custom_fields.get('address')
-            main_phone = custom_fields.get('company_main_number')
 
             if not account_number:
                 print(f" -> Skipping company '{company_data['name']}' as it has no account number.")
@@ -120,27 +118,57 @@ def populate_database(companies_data, users_data):
 
             if not company:
                 print(f" -> Creating new company: {company_data['name']}")
-                company = Company(account_number=account_number_str)
+                company = Company(
+                    account_number=account_number_str,
+                    freshservice_id=fs_id
+                )
                 db.session.add(company)
             else:
                 print(f" -> Updating existing company: {company_data['name']}")
 
-            # Update company fields
-            company.name = company_data['name']
+            # Core Freshservice fields (from top-level)
             company.freshservice_id = fs_id
+            company.name = company_data.get('name')
             company.description = company_data.get('description')
-            company.plan_selected = custom_fields.get('plan_selected')
-            company.profit_or_non_profit = custom_fields.get('profit_or_non_profit')
-            company.company_main_number = main_phone
-            company.company_start_date = custom_fields.get('company_start_date')
+            company.created_at = company_data.get('created_at')
+            company.updated_at = company_data.get('updated_at')
+
+            # Company head/prime user
+            company.head_user_id = company_data.get('head_user_id')
             company.head_name = company_data.get('head_name')
-            company.primary_contact_name = company_data.get('prime_user_name')
+            company.prime_user_id = company_data.get('prime_user_id')
+            company.prime_user_name = company_data.get('prime_user_name')
+
+            # Domains
             company.domains = json.dumps(company_data.get('domains', []))
+
+            # Workspace
+            company.workspace_id = company_data.get('workspace_id')
+
+            # Custom fields from Freshservice
+            company.plan_selected = custom_fields.get('plan_selected')
+            company.managed_users = custom_fields.get('managed_users')
+            company.managed_devices = custom_fields.get('managed_devices')
+            company.managed_network = custom_fields.get('managed_network')
+            company.contract_term = custom_fields.get('contract_term')
+            company.contract_start_date = custom_fields.get('contract_start_date')
+            company.profit_or_non_profit = custom_fields.get('profit_or_non_profit')
+            company.company_main_number = custom_fields.get('company_main_number')
+            company.address = custom_fields.get('address')
+            company.company_start_date = custom_fields.get('company_start_date')
+
+            # Additional fields (aliases for compatibility)
+            company.billing_plan = custom_fields.get('plan_selected') or custom_fields.get('billing_plan')
+            company.contract_term_length = custom_fields.get('contract_term')
+            company.support_level = custom_fields.get('support_level')
+            company.phone_system = custom_fields.get('phone_system')
+            company.email_system = custom_fields.get('email_system')
+            company.datto_portal_url = custom_fields.get('datto_portal_url')
 
             db.session.commit()
 
-            # Handle location
-            if address:
+            # Handle location (from address custom field)
+            if custom_fields.get('address'):
                 location = Location.query.filter_by(
                     company_account_number=account_number_str,
                     name="Main Office"
@@ -153,8 +181,8 @@ def populate_database(companies_data, users_data):
                     )
                     db.session.add(location)
 
-                location.address = address
-                location.phone_number = main_phone
+                location.address = custom_fields.get('address')
+                location.phone_number = custom_fields.get('company_main_number')
                 db.session.commit()
                 print(f"   -> Synced 'Main Office' location for {company_data['name']}")
 
@@ -164,12 +192,14 @@ def populate_database(companies_data, users_data):
         # --- CONTACT PROCESSING ---
         for user_data in users_data:
             email = user_data.get('primary_email')
+            fs_user_id = user_data.get('id')
+
             if not email:
                 continue
 
             try:
-                # Check if contact exists by email
-                existing_contact = Contact.query.filter_by(email=email).first()
+                # Check if contact exists by Freshservice ID
+                existing_contact = Contact.query.filter_by(freshservice_id=fs_user_id).first()
 
                 # Get company account numbers from Freshservice department IDs
                 fs_company_account_numbers = {
@@ -178,16 +208,49 @@ def populate_database(companies_data, users_data):
                     if fs_dept_id_to_account_number.get(dept_id)
                 }
 
+                # Prepare full name
+                full_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
+                if not full_name:
+                    full_name = email.split('@')[0]  # Fallback to email username
+
+                # Prepare custom fields
+                custom_fields = user_data.get('custom_fields', {})
+
                 if not existing_contact:
                     # Create new contact
                     contact = Contact(
-                        name=f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+                        freshservice_id=fs_user_id,
+                        first_name=user_data.get('first_name'),
+                        last_name=user_data.get('last_name'),
+                        name=full_name,
+                        primary_email=email,
                         email=email,
-                        title=user_data.get('job_title'),
                         active=user_data.get('active', True),
+                        is_agent=user_data.get('is_agent', False),
+                        vip_user=user_data.get('vip_user', False),
+                        has_logged_in=user_data.get('has_logged_in', False),
                         mobile_phone_number=user_data.get('mobile_phone_number'),
                         work_phone_number=user_data.get('work_phone_number'),
-                        secondary_emails=json.dumps(user_data.get('secondary_emails', []))
+                        address=user_data.get('address'),
+                        secondary_emails=json.dumps(user_data.get('secondary_emails', [])),
+                        job_title=user_data.get('job_title'),
+                        title=user_data.get('job_title'),
+                        department_ids=json.dumps(user_data.get('department_ids', [])),
+                        department_names=user_data.get('department_names'),
+                        reporting_manager_id=user_data.get('reporting_manager_id'),
+                        location_id=user_data.get('location_id'),
+                        location_name=user_data.get('location_name'),
+                        language=user_data.get('language', 'en'),
+                        time_zone=user_data.get('time_zone'),
+                        time_format=user_data.get('time_format'),
+                        can_see_all_tickets_from_associated_departments=user_data.get('can_see_all_tickets_from_associated_departments', False),
+                        can_see_all_changes_from_associated_departments=user_data.get('can_see_all_changes_from_associated_departments', False),
+                        created_at=user_data.get('created_at'),
+                        updated_at=user_data.get('updated_at'),
+                        external_id=user_data.get('external_id'),
+                        background_information=user_data.get('background_information'),
+                        work_schedule_id=user_data.get('work_schedule_id'),
+                        user_number=custom_fields.get('user_number')
                     )
                     db.session.add(contact)
                     db.session.flush()  # Get the contact ID
@@ -201,12 +264,36 @@ def populate_database(companies_data, users_data):
                     print(f" -> Created contact: {contact.name} ({email})")
                 else:
                     # Update existing contact
-                    existing_contact.name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
-                    existing_contact.title = user_data.get('job_title')
+                    existing_contact.first_name = user_data.get('first_name')
+                    existing_contact.last_name = user_data.get('last_name')
+                    existing_contact.name = full_name
+                    existing_contact.primary_email = email
+                    existing_contact.email = email
                     existing_contact.active = user_data.get('active', True)
+                    existing_contact.is_agent = user_data.get('is_agent', False)
+                    existing_contact.vip_user = user_data.get('vip_user', False)
+                    existing_contact.has_logged_in = user_data.get('has_logged_in', False)
                     existing_contact.mobile_phone_number = user_data.get('mobile_phone_number')
                     existing_contact.work_phone_number = user_data.get('work_phone_number')
+                    existing_contact.address = user_data.get('address')
                     existing_contact.secondary_emails = json.dumps(user_data.get('secondary_emails', []))
+                    existing_contact.job_title = user_data.get('job_title')
+                    existing_contact.title = user_data.get('job_title')
+                    existing_contact.department_ids = json.dumps(user_data.get('department_ids', []))
+                    existing_contact.department_names = user_data.get('department_names')
+                    existing_contact.reporting_manager_id = user_data.get('reporting_manager_id')
+                    existing_contact.location_id = user_data.get('location_id')
+                    existing_contact.location_name = user_data.get('location_name')
+                    existing_contact.language = user_data.get('language', 'en')
+                    existing_contact.time_zone = user_data.get('time_zone')
+                    existing_contact.time_format = user_data.get('time_format')
+                    existing_contact.can_see_all_tickets_from_associated_departments = user_data.get('can_see_all_tickets_from_associated_departments', False)
+                    existing_contact.can_see_all_changes_from_associated_departments = user_data.get('can_see_all_changes_from_associated_departments', False)
+                    existing_contact.updated_at = user_data.get('updated_at')
+                    existing_contact.external_id = user_data.get('external_id')
+                    existing_contact.background_information = user_data.get('background_information')
+                    existing_contact.work_schedule_id = user_data.get('work_schedule_id')
+                    existing_contact.user_number = custom_fields.get('user_number')
 
                     # Merge company associations (keep existing, add new ones from FS)
                     existing_account_numbers = {c.account_number for c in existing_contact.companies}

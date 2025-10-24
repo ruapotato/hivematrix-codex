@@ -1,16 +1,135 @@
 """
 FreshService API Client Helper
 
-Provides on-demand ticket fetching from FreshService API.
+Provides on-demand ticket fetching and company management for FreshService API.
 """
 
 import requests
 import base64
 import os
+import time
 import configparser
 from flask import current_app
 
 
+class FreshserviceClient:
+    """Client for interacting with Freshservice API."""
+
+    def __init__(self):
+        """Initialize client with credentials from config."""
+        self.base_url = "https://integotecllc.freshservice.com"
+        self.api_key = self._get_credentials()
+        self.headers = self._build_headers()
+
+    def _get_credentials(self):
+        """Load Freshservice API credentials from config file."""
+        config_path = os.path.join(current_app.instance_path, 'codex.conf')
+        if not os.path.exists(config_path):
+            raise ValueError(f"Config file not found: {config_path}")
+
+        config = configparser.RawConfigParser()
+        config.read(config_path)
+
+        if not config.has_section('freshservice'):
+            raise ValueError("Freshservice configuration not found in codex.conf")
+
+        api_key = config.get('freshservice', 'api_key')
+        if not api_key:
+            raise ValueError("Freshservice API key not configured")
+
+        return api_key
+
+    def _build_headers(self):
+        """Build authorization headers for API requests."""
+        auth_str = f"{self.api_key}:X"
+        b64_auth = base64.b64encode(auth_str.encode()).decode()
+        return {
+            'Authorization': f'Basic {b64_auth}',
+            'Content-Type': 'application/json'
+        }
+
+    def get_all_companies(self):
+        """
+        Fetch all companies (departments) from Freshservice.
+
+        Returns:
+            list: List of company dictionaries, or None on error
+        """
+        all_companies = []
+        page = 1
+        per_page = 100
+
+        try:
+            while True:
+                response = requests.get(
+                    f"{self.base_url}/api/v2/departments",
+                    headers=self.headers,
+                    params={'page': page, 'per_page': per_page},
+                    timeout=30
+                )
+
+                # Handle rate limiting
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get('Retry-After', 5))
+                    current_app.logger.warning(f"Rate limited, waiting {retry_after}s")
+                    time.sleep(retry_after)
+                    continue
+
+                response.raise_for_status()
+                data = response.json()
+                companies = data.get('departments', [])
+
+                if not companies:
+                    break
+
+                all_companies.extend(companies)
+
+                if len(companies) < per_page:
+                    break
+
+                page += 1
+
+            return all_companies
+
+        except Exception as e:
+            current_app.logger.error(f"Error fetching companies: {e}")
+            return None
+
+    def update_company_custom_field(self, company_id, field_name, field_value):
+        """
+        Update a custom field for a company.
+
+        Args:
+            company_id: Freshservice company/department ID
+            field_name: Custom field name (e.g., 'account_number')
+            field_value: Value to set
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            payload = {
+                "custom_fields": {
+                    field_name: field_value
+                }
+            }
+
+            response = requests.put(
+                f"{self.base_url}/api/v2/departments/{company_id}",
+                headers=self.headers,
+                json=payload,
+                timeout=30
+            )
+
+            response.raise_for_status()
+            return True
+
+        except Exception as e:
+            current_app.logger.error(f"Error updating company {company_id}: {e}")
+            return False
+
+
+# Legacy function for backward compatibility
 def get_freshservice_credentials():
     """Load Freshservice API credentials from config file."""
     config_path = os.path.join(current_app.instance_path, 'codex.conf')

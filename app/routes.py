@@ -2,14 +2,12 @@ from datetime import datetime
 from flask import render_template, g, jsonify, request
 from app import app
 from .auth import token_required, admin_required
-from models import Company, Contact, Asset, Location, TicketDetail
+from models import Company, Contact, Asset, Location, TicketDetail, SyncJob
+from extensions import db
 import subprocess
 import os
 import uuid
 import threading
-
-# Simple in-memory job tracker for background sync operations
-sync_jobs = {}
 
 @app.route('/')
 @token_required
@@ -29,8 +27,8 @@ def index():
                          contact_count=contact_count,
                          asset_count=asset_count)
 
-def run_sync_script(job_id, script_path):
-    """Run sync script in background and update job status."""
+def run_sync_script(job_id, script_path, follow_up_script=None):
+    """Run sync script in background and update job status in database."""
     try:
         # Increase timeout for ticket sync (can take 2+ hours)
         timeout = 7200 if 'ticket' in script_path else 600  # 2 hours for tickets, 10 min for others
@@ -41,24 +39,53 @@ def run_sync_script(job_id, script_path):
             text=True,
             timeout=timeout
         )
-        sync_jobs[job_id].update({
-            'status': 'completed' if result.returncode == 0 else 'failed',
-            'success': result.returncode == 0,
-            'output': result.stdout[-1000:],  # Last 1000 chars
-            'error': result.stderr[-1000:] if result.stderr else None
-        })
+
+        # Update job in database
+        with app.app_context():
+            job = db.session.get(SyncJob, job_id)
+            if job:
+                job.status = 'completed' if result.returncode == 0 else 'failed'
+                job.success = result.returncode == 0
+                job.output = result.stdout[-1000:]  # Last 1000 chars
+                job.error = result.stderr[-1000:] if result.stderr else None
+                job.completed_at = datetime.now().isoformat()
+                db.session.commit()
+
+                # Run follow-up script if main script succeeded
+                if result.returncode == 0 and follow_up_script:
+                    try:
+                        follow_result = subprocess.run(
+                            ['python', follow_up_script],
+                            capture_output=True,
+                            text=True,
+                            timeout=300  # 5 min timeout for follow-up
+                        )
+                        # Append follow-up output to job output
+                        follow_output = f"\n\n--- Auto-Run Follow-Up ---\n{follow_result.stdout[-500:]}"
+                        job.output = (job.output or '') + follow_output
+                        db.session.commit()
+                    except Exception as e:
+                        print(f"Follow-up script failed: {e}")
+
     except subprocess.TimeoutExpired:
-        sync_jobs[job_id].update({
-            'status': 'failed',
-            'success': False,
-            'error': f'Script timed out after {timeout//60} minutes'
-        })
+        with app.app_context():
+            job = db.session.get(SyncJob, job_id)
+            if job:
+                job.status = 'failed'
+                job.success = False
+                job.error = f'Script timed out after {timeout//60} minutes'
+                job.completed_at = datetime.now().isoformat()
+                db.session.commit()
+
     except Exception as e:
-        sync_jobs[job_id].update({
-            'status': 'failed',
-            'success': False,
-            'error': str(e)
-        })
+        with app.app_context():
+            job = db.session.get(SyncJob, job_id)
+            if job:
+                job.status = 'failed'
+                job.success = False
+                job.error = str(e)
+                job.completed_at = datetime.now().isoformat()
+                db.session.commit()
 
 @app.route('/sync/freshservice', methods=['POST'])
 @admin_required
@@ -67,23 +94,27 @@ def sync_freshservice():
     try:
         job_id = str(uuid.uuid4())
         script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pull_freshservice.py')
+        follow_up_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'create_account_numbers.py')
 
-        # Create job entry
-        sync_jobs[job_id] = {
-            'status': 'running',
-            'script': 'freshservice',
-            'started_at': datetime.now().isoformat()
-        }
+        # Create job entry in database
+        job = SyncJob(
+            id=job_id,
+            script='freshservice',
+            status='running',
+            started_at=datetime.now().isoformat()
+        )
+        db.session.add(job)
+        db.session.commit()
 
-        # Start background thread
-        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        # Start background thread with auto-run of account number creation
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path, follow_up_script))
         thread.daemon = True
         thread.start()
 
         return jsonify({
             'success': True,
             'job_id': job_id,
-            'message': 'Freshservice sync started in background'
+            'message': 'Freshservice sync started in background (will auto-create account numbers)'
         })
     except Exception as e:
         return jsonify({
@@ -98,23 +129,27 @@ def sync_datto():
     try:
         job_id = str(uuid.uuid4())
         script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pull_datto.py')
+        follow_up_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'push_account_nums_to_datto.py')
 
-        # Create job entry
-        sync_jobs[job_id] = {
-            'status': 'running',
-            'script': 'datto',
-            'started_at': datetime.now().isoformat()
-        }
+        # Create job entry in database
+        job = SyncJob(
+            id=job_id,
+            script='datto',
+            status='running',
+            started_at=datetime.now().isoformat()
+        )
+        db.session.add(job)
+        db.session.commit()
 
-        # Start background thread
-        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        # Start background thread with auto-run of push to datto
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path, follow_up_script))
         thread.daemon = True
         thread.start()
 
         return jsonify({
             'success': True,
             'job_id': job_id,
-            'message': 'Datto RMM sync started in background'
+            'message': 'Datto RMM sync started in background (will auto-push account numbers)'
         })
     except Exception as e:
         return jsonify({
@@ -126,16 +161,94 @@ def sync_datto():
 @admin_required
 def sync_status(job_id):
     """Check status of a background sync job with live progress."""
-    job = sync_jobs.get(job_id)
+    job = db.session.get(SyncJob, job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
-    # Add current ticket count for ticket syncs to show progress
-    if job.get('script') == 'tickets' and job.get('status') == 'running':
-        from models import TicketDetail
-        job['current_tickets'] = TicketDetail.query.count()
+    job_data = {
+        'id': job.id,
+        'script': job.script,
+        'status': job.status,
+        'started_at': job.started_at,
+        'completed_at': job.completed_at,
+        'output': job.output,
+        'error': job.error,
+        'success': job.success
+    }
 
-    return jsonify(job)
+    # Add current ticket count for ticket syncs to show progress
+    if job.script == 'tickets' and job.status == 'running':
+        job_data['current_tickets'] = TicketDetail.query.count()
+
+    return jsonify(job_data)
+
+@app.route('/sync/create-account-numbers', methods=['POST'])
+@admin_required
+def sync_create_account_numbers():
+    """Create account numbers for companies that don't have them."""
+    try:
+        job_id = str(uuid.uuid4())
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'create_account_numbers.py')
+
+        # Create job entry in database
+        job = SyncJob(
+            id=job_id,
+            script='create-account-numbers',
+            status='running',
+            started_at=datetime.now().isoformat()
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        # Start background thread
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': 'Account number creation started in background'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/sync/push-to-datto', methods=['POST'])
+@admin_required
+def sync_push_to_datto():
+    """Push account numbers to Datto RMM sites."""
+    try:
+        job_id = str(uuid.uuid4())
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'push_account_nums_to_datto.py')
+
+        # Create job entry in database
+        job = SyncJob(
+            id=job_id,
+            script='push-to-datto',
+            status='running',
+            started_at=datetime.now().isoformat()
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        # Start background thread
+        thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': 'Push to Datto started in background'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # --- API Endpoints for Service-to-Service Communication ---
@@ -395,13 +508,15 @@ def sync_tickets():
         job_id = str(uuid.uuid4())
         script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sync_tickets_from_freshservice.py')
 
-        # Create job entry
-        sync_jobs[job_id] = {
-            'status': 'running',
-            'script': 'tickets',
-            'started_at': datetime.now().isoformat(),
-            'progress': 'Starting ticket sync...'
-        }
+        # Create job entry in database
+        job = SyncJob(
+            id=job_id,
+            script='tickets',
+            status='running',
+            started_at=datetime.now().isoformat()
+        )
+        db.session.add(job)
+        db.session.commit()
 
         # Start background thread
         thread = threading.Thread(target=run_sync_script, args=(job_id, script_path))
@@ -418,6 +533,26 @@ def sync_tickets():
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/sync/last/<script_name>', methods=['GET'])
+@token_required
+def get_last_sync(script_name):
+    """Get the last sync job for a specific script (persists across page loads)."""
+    job = SyncJob.query.filter_by(script=script_name).order_by(SyncJob.started_at.desc()).first()
+
+    if not job:
+        return jsonify({'error': 'No sync found for this script'}), 404
+
+    return jsonify({
+        'id': job.id,
+        'script': job.script,
+        'status': job.status,
+        'started_at': job.started_at,
+        'completed_at': job.completed_at,
+        'output': job.output,
+        'error': job.error,
+        'success': job.success
+    })
 
 @app.route('/api/tickets', methods=['GET'])
 @token_required
