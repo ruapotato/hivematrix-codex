@@ -15,17 +15,21 @@ def index():
     """Main dashboard route."""
     if g.is_service_call:
         return {'error': 'This endpoint is for users only'}, 403
-    
+
     # Get counts for dashboard
     company_count = Company.query.count()
     contact_count = Contact.query.count()
     asset_count = Asset.query.count()
-    
-    return render_template('dashboard.html', 
+
+    # Get recent sync jobs for visibility
+    recent_jobs = SyncJob.query.order_by(SyncJob.started_at.desc()).limit(10).all()
+
+    return render_template('dashboard.html',
                          user=g.user,
                          company_count=company_count,
                          contact_count=contact_count,
-                         asset_count=asset_count)
+                         asset_count=asset_count,
+                         recent_jobs=recent_jobs)
 
 def run_sync_script(job_id, script_path, follow_up_script=None):
     """Run sync script in background and update job status in database."""
