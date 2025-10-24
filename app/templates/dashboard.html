@@ -86,8 +86,11 @@
                 </button>
             </div>
 
-            <div style="margin-top: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 4px;">
-                <p id="sync-status" style="margin: 0; min-height: 20px;"></p>
+            <div id="sync-progress" style="margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; display: none;">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95em;">Sync Progress</h4>
+                <p id="sync-status" style="margin: 5px 0; font-weight: 500;"></p>
+                <div style="margin: 10px 0; padding: 8px; background: white; border-radius: 4px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85em; white-space: pre-wrap;" id="sync-output"></div>
+                <p id="sync-elapsed" style="margin: 5px 0; color: #666; font-size: 0.85em;"></p>
             </div>
 
             <div style="margin-top: 15px; font-size: 0.85em; color: #666;">
@@ -103,98 +106,161 @@
     </div>
 
     <script>
-        function syncFreshservice() {
-            const btn = document.getElementById('sync-fs-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Syncing...';
-            status.textContent = 'Starting Freshservice sync...';
-            
-            fetch('{{ url_for("sync_freshservice") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+        let currentJobId = null;
+        let pollInterval = null;
+        let startTime = null;
+
+        function showSyncProgress() {
+            document.getElementById('sync-progress').style.display = 'block';
+        }
+
+        function hideSyncProgress() {
+            document.getElementById('sync-progress').style.display = 'none';
+        }
+
+        function updateElapsedTime() {
+            if (!startTime) return;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('sync-elapsed').textContent =
+                `Elapsed: ${minutes}m ${seconds}s`;
+        }
+
+        function pollJobStatus(jobId, buttonId, buttonLabel) {
+            fetch(`sync/status/${jobId}`, {
+                credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    status.textContent = '✓ Freshservice sync complete!';
-                    setTimeout(() => location.reload(), 2000);
+                const status = document.getElementById('sync-status');
+                const output = document.getElementById('sync-output');
+
+                // Update status
+                if (data.status === 'running') {
+                    status.textContent = `🔄 Syncing ${data.script}... (${data.status})`;
+                    status.style.color = '#007bff';
+                } else if (data.status === 'completed') {
+                    status.textContent = data.success
+                        ? `✓ ${data.script} sync completed successfully!`
+                        : `✗ ${data.script} sync completed with errors`;
+                    status.style.color = data.success ? '#28a745' : '#dc3545';
+                } else if (data.status === 'failed') {
+                    status.textContent = `✗ ${data.script} sync failed`;
+                    status.style.color = '#dc3545';
+                }
+
+                // Update output
+                if (data.output) {
+                    output.textContent = data.output;
+                    output.scrollTop = output.scrollHeight;
+                }
+                if (data.error) {
+                    output.textContent += '\n\nERROR:\n' + data.error;
+                    output.scrollTop = output.scrollHeight;
+                }
+
+                // Update elapsed time
+                updateElapsedTime();
+
+                // Stop polling if complete or failed
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                    currentJobId = null;
+
+                    const btn = document.getElementById(buttonId);
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = buttonLabel;
+
+                    // Reload after 3 seconds to update counts
+                    setTimeout(() => location.reload(), 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Poll error:', error);
+            });
+        }
+
+        function startSync(url, buttonId, buttonLabel, syncName) {
+            const btn = document.getElementById(buttonId);
+            const status = document.getElementById('sync-status');
+            const output = document.getElementById('sync-output');
+
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Starting...';
+
+            showSyncProgress();
+            status.textContent = `Starting ${syncName} sync...`;
+            status.style.color = '#666';
+            output.textContent = 'Initializing...\n';
+            startTime = Date.now();
+
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.job_id) {
+                    currentJobId = data.job_id;
+                    output.textContent += `Job ID: ${data.job_id}\n`;
+                    output.textContent += `Sync started at ${new Date().toLocaleTimeString()}\n\n`;
+
+                    // Start polling every 2 seconds
+                    pollInterval = setInterval(() => {
+                        pollJobStatus(data.job_id, buttonId, buttonLabel);
+                    }, 2000);
+
+                    // Do first poll immediately
+                    pollJobStatus(data.job_id, buttonId, buttonLabel);
                 } else {
-                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
+                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
+                    status.style.color = '#dc3545';
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = buttonLabel;
                 }
             })
             .catch(error => {
                 status.textContent = '✗ Error: ' + error.message;
-            })
-            .finally(() => {
+                status.style.color = '#dc3545';
                 btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = '📋 Sync Freshservice (Companies & Contacts)';
+                btn.querySelector('.btn__label').textContent = buttonLabel;
             });
+        }
+
+        function syncFreshservice() {
+            startSync(
+                '{{ url_for("sync_freshservice") }}',
+                'sync-fs-btn',
+                '📋 Sync Freshservice (Companies & Contacts)',
+                'Freshservice'
+            );
         }
 
         function syncDatto() {
-            const btn = document.getElementById('sync-datto-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Syncing...';
-            status.textContent = 'Starting Datto RMM sync...';
-
-            fetch('{{ url_for("sync_datto") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    status.textContent = '✓ Datto RMM sync complete!';
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
-                }
-            })
-            .catch(error => {
-                status.textContent = '✗ Error: ' + error.message;
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = '💻 Sync Datto RMM (Assets & Backup)';
-            });
+            startSync(
+                '{{ url_for("sync_datto") }}',
+                'sync-datto-btn',
+                '💻 Sync Datto RMM (Assets & Backup)',
+                'Datto RMM'
+            );
         }
 
         function syncTickets() {
-            const btn = document.getElementById('sync-tickets-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Syncing...';
-            status.textContent = 'Starting Freshservice ticket sync... This may take several hours for full sync.';
-
-            fetch('{{ url_for("sync_tickets") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    status.textContent = '✓ Ticket sync complete! Output: ' + (data.output || 'Success');
-                    setTimeout(() => location.reload(), 3000);
-                } else {
-                    status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
-                }
-            })
-            .catch(error => {
-                status.textContent = '✗ Error: ' + error.message;
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = '🎫 Sync Tickets (Full Context)';
-            });
+            startSync(
+                '{{ url_for("sync_tickets") }}',
+                'sync-tickets-btn',
+                '🎫 Sync Tickets (Full Context)',
+                'Tickets'
+            );
         }
+
+        // Clear any orphaned intervals on page load
+        window.addEventListener('beforeunload', () => {
+            if (pollInterval) clearInterval(pollInterval);
+        });
     </script>
     {% endif %}
 </body>
