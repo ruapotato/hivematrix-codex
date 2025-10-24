@@ -10,42 +10,216 @@
             <h1 class="card__title">{{ company.name }}</h1>
         </div>
         <div class="card__body">
-            <p><strong>Account Number:</strong> {{ company.account_number }}</p>
-            <p><strong>Plan:</strong> {{ company.plan_selected or 'N/A' }}</p>
-            <p><strong>Phone:</strong> {{ company.company_main_number or 'N/A' }}</p>
-            <p><strong>Description:</strong> {{ company.description or 'N/A' }}</p>
-            
-            <h3>Contacts ({{ company.contacts|length }})</h3>
-            <ul>
-                {% for contact in company.contacts %}
-                <li>
-                    <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
-                        {{ contact.name }}
-                    </a> - {{ contact.email }}
-                </li>
-                {% else %}
-                <li>No contacts found</li>
-                {% endfor %}
-            </ul>
-            
-            <h3>Assets ({{ company.assets|length }})</h3>
-            <ul>
-                {% for asset in company.assets %}
-                <li>
-                    <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
-                        {{ asset.hostname }}
-                    </a> - {{ asset.operating_system or 'Unknown OS' }}
-                </li>
-                {% else %}
-                <li>No assets found</li>
-                {% endfor %}
-            </ul>
-            
             <a href="{{ url_for('companies.list_companies') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Companies</span>
+                <button class="btn" style="margin-bottom: 20px;">
+                    <span class="btn__label">← Back to Companies</span>
                 </button>
             </a>
+
+            <!-- Company Overview Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Company Overview</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Company Name:</strong> {{ company.name }}</p>
+                        <p style="margin: 8px 0;"><strong>Account Number:</strong> {{ company.account_number }}</p>
+                        <p style="margin: 8px 0;"><strong>Plan:</strong> {{ company.billing_plan or company.plan_selected or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Support Level:</strong> {{ company.support_level or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Profit/Non-Profit:</strong> {{ company.profit_or_non_profit or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Company Start Date:</strong> {{ company.company_start_date or 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Managed Users:</strong> {{ company.managed_users or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Managed Devices:</strong> {{ company.managed_devices or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Managed Network:</strong> {{ company.managed_network or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Assets Count:</strong> {{ company.assets|length }}</p>
+                        <p style="margin: 8px 0;"><strong>Contacts Count:</strong> {{ company.contacts|length }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contract Information Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Contract Information</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Contract Term:</strong> {{ company.contract_term_length or company.contract_term or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Contract Start Date:</strong> {{ company.contract_start_date or 'N/A' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Information Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Contact Information</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Phone:</strong> {{ company.company_main_number or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Address:</strong> {{ company.address or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Description:</strong> {{ company.description or 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Company Head:</strong> {{ company.head_name or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Prime User:</strong> {{ company.prime_user_name or 'N/A' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Domains Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Domains</h2>
+                {% if domain_list %}
+                    <ul style="margin: 8px 0; padding-left: 20px;">
+                        {% for domain in domain_list %}
+                        <li>{{ domain }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="margin: 8px 0; color: #999;">No domains configured</p>
+                {% endif %}
+            </div>
+
+            <!-- Plan Features Section -->
+            {% if plan_features %}
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Plan Features</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="text-align: left; padding: 10px;">Feature</th>
+                            <th style="text-align: left; padding: 10px;">Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>Antivirus</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.antivirus or 'Not Included' }}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>SOC (Security Operations Center)</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.soc or 'Not Included' }}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>Password Manager</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.password_manager or 'Not Included' }}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>Security Awareness Training</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.sat or 'Not Included' }}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>Email Security</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.email_security or 'Not Included' }}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;"><strong>Network Management</strong></td>
+                            <td style="padding: 10px;">{{ plan_features.network_management or 'Not Included' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Systems & Technology Section -->
+            {% if company.datto_portal_url %}
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Systems & Technology</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Datto Portal:</strong> <a href="{{ company.datto_portal_url }}" target="_blank" style="color: #007bff;">View Portal</a></p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Metadata Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Metadata</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Freshservice ID:</strong> {{ company.freshservice_id or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Created At:</strong> {{ company.created_at or 'N/A' }}</p>
+                        <p style="margin: 8px 0;"><strong>Updated At:</strong> {{ company.updated_at or 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p style="margin: 8px 0;"><strong>Workspace ID:</strong> {{ company.workspace_id or 'N/A' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contacts List Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Contacts ({{ company.contacts|length }})</h2>
+                {% if company.contacts %}
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="text-align: left; padding: 10px;">Name</th>
+                            <th style="text-align: left; padding: 10px;">Email</th>
+                            <th style="text-align: left; padding: 10px;">Job Title</th>
+                            <th style="text-align: left; padding: 10px;">Phone</th>
+                            <th style="text-align: left; padding: 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in company.contacts %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;">{{ contact.name }}</td>
+                            <td style="padding: 10px;">{{ contact.email }}</td>
+                            <td style="padding: 10px;">{{ contact.job_title or contact.title or 'N/A' }}</td>
+                            <td style="padding: 10px;">{{ contact.work_phone_number or contact.mobile_phone_number or 'N/A' }}</td>
+                            <td style="padding: 10px;">
+                                <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" style="color: #007bff;">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="color: #999; margin: 8px 0;">No contacts found</p>
+                {% endif %}
+            </div>
+
+            <!-- Assets List Section -->
+            <div style="margin-bottom: 30px;">
+                <h2 style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 15px;">Assets ({{ company.assets|length }})</h2>
+                {% if company.assets %}
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="text-align: left; padding: 10px;">Hostname</th>
+                            <th style="text-align: left; padding: 10px;">Type</th>
+                            <th style="text-align: left; padding: 10px;">OS</th>
+                            <th style="text-align: left; padding: 10px;">Status</th>
+                            <th style="text-align: left; padding: 10px;">Last Seen</th>
+                            <th style="text-align: left; padding: 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in company.assets %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;">{{ asset.hostname }}</td>
+                            <td style="padding: 10px;">{{ asset.hardware_type or asset.device_type or 'N/A' }}</td>
+                            <td style="padding: 10px;">{{ asset.operating_system or 'Unknown' }}</td>
+                            <td style="padding: 10px;">
+                                {% if asset.online %}
+                                <span style="color: #28a745;">● Online</span>
+                                {% else %}
+                                <span style="color: #dc3545;">● Offline</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 10px;">{{ asset.last_seen or 'N/A' }}</td>
+                            <td style="padding: 10px;">
+                                <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}" style="color: #007bff;">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="color: #999; margin: 8px 0;">No assets found</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 </body>

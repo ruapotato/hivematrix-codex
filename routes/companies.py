@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for
 from app.auth import token_required
-from models import Company, db
+from models import Company, BillingPlan, db
 from sqlalchemy import asc, desc
 
 companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
@@ -58,6 +58,28 @@ def company_details(account_number):
 
     company = Company.query.get_or_404(account_number)
 
+    # Parse domains JSON if present
+    import json
+    domain_list = []
+    if company.domains:
+        try:
+            domain_list = json.loads(company.domains)
+        except (json.JSONDecodeError, TypeError):
+            domain_list = []
+
+    # Get billing plan features
+    plan_features = None
+    if company.billing_plan or company.plan_selected:
+        plan_name = company.billing_plan or company.plan_selected
+        term = company.contract_term_length or company.contract_term or 'Month to Month'
+
+        plan_features = BillingPlan.query.filter_by(
+            plan_name=plan_name,
+            term_length=term
+        ).first()
+
     return render_template('companies/details.html',
                          user=g.user,
-                         company=company)
+                         company=company,
+                         domain_list=domain_list,
+                         plan_features=plan_features)
