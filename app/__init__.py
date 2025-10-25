@@ -54,7 +54,8 @@ db.init_app(app)
 
 # Apply middleware to handle URL prefix when behind Nexus proxy
 from app.middleware import PrefixMiddleware
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=f'/{app.config["SERVICE_NAME"]}')
+service_name = app.config['SERVICE_NAME']
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=f'/{service_name}')
 
 # Register blueprints
 from routes.companies import companies_bp
@@ -92,4 +93,5 @@ except Exception as e:
     helm_logger.error(f"Failed to initialize scheduler: {e}")
 
 # Log service startup
-helm_logger.info(f"{app.config["SERVICE_NAME"]} service started")
+service_name = app.config['SERVICE_NAME']
+helm_logger.info(f"{service_name} service started")

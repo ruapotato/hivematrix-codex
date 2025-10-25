@@ -12,6 +12,7 @@ Features:
 
 Usage:
     python init_db.py                    # Interactive setup
+    python init_db.py --test             # Non-interactive: use defaults and test
     python init_db.py --migrate-only     # Skip config, just migrate schema
     python init_db.py --force-rebuild    # Nuclear option: drop and recreate (DEV ONLY)
 """
@@ -197,13 +198,44 @@ def migrate_schema():
         tables_created = []
         columns_added = []
 
+        # Create tables in dependency order (association tables last)
+        # First, create all base tables (no foreign keys to other app tables)
+        base_tables = []
+        association_tables = []
+
         for table_name, table in model_tables.items():
+            # Association tables typically have multiple foreign keys and no primary key of their own
+            # or have 'link' in the name
+            if 'link' in table_name.lower() or len([c for c in table.columns if c.foreign_keys]) >= 2:
+                association_tables.append((table_name, table))
+            else:
+                base_tables.append((table_name, table))
+
+        # Create base tables first
+        for table_name, table in base_tables:
             if table_name not in existing_tables:
                 # Table doesn't exist - create it
                 print(f"\n→ Creating new table: {table_name}")
                 table.create(db.engine)
                 tables_created.append(table_name)
             else:
+                # Table exists - check for missing columns (below)
+                pass
+
+        # Then create association tables
+        for table_name, table in association_tables:
+            if table_name not in existing_tables:
+                # Table doesn't exist - create it
+                print(f"\n→ Creating new association table: {table_name}")
+                table.create(db.engine)
+                tables_created.append(table_name)
+            else:
+                # Table exists - check for missing columns (below)
+                pass
+
+        # Now check all tables for missing columns
+        for table_name, table in base_tables + association_tables:
+            if table_name in existing_tables:
                 # Table exists - check for missing columns
                 existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
                 model_columns = {col.name for col in table.columns}
@@ -301,7 +333,7 @@ def force_rebuild():
     print("\n✓ Force rebuild complete")
 
 
-def init_db(migrate_only=False, force=False):
+def init_db(migrate_only=False, force=False, test_mode=False):
     """Main initialization function."""
     print("\n" + "="*80)
     print("CODEX DATABASE INITIALIZATION")
@@ -316,6 +348,86 @@ def init_db(migrate_only=False, force=False):
 
     # Use RawConfigParser to avoid interpolation issues with special characters
     config = configparser.RawConfigParser()
+
+    if test_mode:
+        # Non-interactive test mode - use defaults and show errors
+        print("\n→ Running in TEST MODE (non-interactive)")
+
+        # Read existing config if it exists to preserve Freshservice/Datto settings
+        if os.path.exists(config_path):
+            config.read(config_path)
+            print(f"→ Loaded existing configuration from: {config_path}")
+
+        print("Using default credentials:")
+
+        default_creds = {
+            'host': 'localhost',
+            'port': '5432',
+            'dbname': 'codex_db',
+            'user': 'codex_user',
+            'password': 'Integotec@123'
+        }
+
+        print(f"  Host: {default_creds['host']}")
+        print(f"  Port: {default_creds['port']}")
+        print(f"  Database: {default_creds['dbname']}")
+        print(f"  User: {default_creds['user']}")
+        print(f"  Password: {'*' * len(default_creds['password'])}")
+
+        print("\nTesting database connection...")
+        conn_string, success = test_db_connection(default_creds)
+
+        if success:
+            print("\n✓ Connection test PASSED")
+            print(f"✓ Connection string: {conn_string.replace(default_creds['password'], '***')}")
+
+            # Save the config
+            if not config.has_section('database'):
+                config.add_section('database')
+            config.set('database', 'connection_string', conn_string)
+
+            if not config.has_section('database_credentials'):
+                config.add_section('database_credentials')
+            for key, val in default_creds.items():
+                if key != 'password':
+                    config.set('database_credentials', f'db_{key}', val)
+
+            # Add Freshservice section (with placeholder values in test mode)
+            if not config.has_section('freshservice'):
+                config.add_section('freshservice')
+            if not config.has_option('freshservice', 'domain'):
+                config.set('freshservice', 'domain', 'your-domain.freshservice.com')
+            if not config.has_option('freshservice', 'api_key'):
+                config.set('freshservice', 'api_key', 'YOUR_FRESHSERVICE_API_KEY')
+
+            # Add Datto section (with placeholder values in test mode)
+            if not config.has_section('datto'):
+                config.add_section('datto')
+            if not config.has_option('datto', 'api_endpoint'):
+                config.set('datto', 'api_endpoint', 'https://zinfandel-api.centrastage.net')
+            if not config.has_option('datto', 'public_key'):
+                config.set('datto', 'public_key', 'YOUR_DATTO_PUBLIC_KEY')
+            if not config.has_option('datto', 'secret_key'):
+                config.set('datto', 'secret_key', 'YOUR_DATTO_SECRET_KEY')
+
+            # Save minimal config
+            os.makedirs(instance_path, exist_ok=True)
+            with open(config_path, 'w') as configfile:
+                config.write(configfile)
+            print(f"✓ Configuration saved to: {config_path}")
+
+            # Run migration
+            migrate_schema()
+            print("\n✓ Test mode complete - database is ready!")
+            return
+        else:
+            print("\n✗ Connection test FAILED")
+            print("Please check:")
+            print("  1. PostgreSQL is running: sudo systemctl status postgresql")
+            print("  2. User exists: sudo -u postgres psql -c \"\\du codex_user\"")
+            print("  3. Database exists: sudo -u postgres psql -c \"\\l codex_db\"")
+            print("  4. Password is correct: Integotec@123")
+            sys.exit(1)
 
     if not migrate_only:
         config_exists = os.path.exists(config_path)
@@ -417,7 +529,12 @@ if __name__ == '__main__':
         action='store_true',
         help='DANGEROUS: Drop all tables and rebuild (DEV ONLY)'
     )
+    parser.add_argument(
+        '--test',
+        action='store_true',
+        help='Non-interactive mode: use defaults and test connection'
+    )
 
     args = parser.parse_args()
 
-    init_db(migrate_only=args.migrate_only, force=args.force_rebuild)
+    init_db(migrate_only=args.migrate_only, force=args.force_rebuild, test_mode=args.test)
