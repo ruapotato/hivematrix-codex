@@ -333,6 +333,85 @@ def force_rebuild():
     print("\n✓ Force rebuild complete")
 
 
+
+def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_only=False, create_sample_data=False):
+    """Non-interactive database initialization for automated installation."""
+    from urllib.parse import quote_plus
+
+    print("\n" + "="*80)
+    print("CODEX DATABASE INITIALIZATION (HEADLESS MODE)")
+    print("="*80)
+
+    instance_path = app.instance_path
+    config_path = os.path.join(instance_path, 'codex.conf')
+
+    config = configparser.RawConfigParser()
+
+    # Create or update config
+    if os.path.exists(config_path):
+        config.read(config_path)
+        print(f"\n✓ Loaded existing configuration: {config_path}")
+    else:
+        print(f"\n→ Creating new configuration: {config_path}")
+        os.makedirs(instance_path, exist_ok=True)
+
+    # Build connection string
+    escaped_password = quote_plus(db_password)
+    conn_string = f"postgresql://{db_user}:{escaped_password}@{db_host}:{db_port}/{db_name}"
+
+    # Test connection
+    print(f"\n→ Testing database connection to {db_host}:{db_port}/{db_name}...")
+    try:
+        engine = create_engine(conn_string)
+        with engine.connect() as connection:
+            print("✓ Database connection successful")
+    except Exception as e:
+        print(f"✗ Connection failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Save configuration
+    if not config.has_section('database'):
+        config.add_section('database')
+    config.set('database', 'connection_string', conn_string)
+
+    if not config.has_section('database_credentials'):
+        config.add_section('database_credentials')
+    config.set('database_credentials', 'db_host', db_host)
+    config.set('database_credentials', 'db_port', db_port)
+    config.set('database_credentials', 'db_name', db_name)
+    config.set('database_credentials', 'db_user', db_user)
+
+    # Preserve or create Freshservice section
+    if not config.has_section('freshservice'):
+        config.add_section('freshservice')
+    if not config.has_option('freshservice', 'domain'):
+        config.set('freshservice', 'domain', 'your-domain.freshservice.com')
+    if not config.has_option('freshservice', 'api_key'):
+        config.set('freshservice', 'api_key', 'YOUR_FRESHSERVICE_API_KEY')
+
+    # Preserve or create Datto section
+    if not config.has_section('datto'):
+        config.add_section('datto')
+    if not config.has_option('datto', 'api_endpoint'):
+        config.set('datto', 'api_endpoint', 'https://zinfandel-api.centrastage.net')
+    if not config.has_option('datto', 'public_key'):
+        config.set('datto', 'public_key', 'YOUR_DATTO_PUBLIC_KEY')
+    if not config.has_option('datto', 'secret_key'):
+        config.set('datto', 'secret_key', 'YOUR_DATTO_SECRET_KEY')
+
+    with open(config_path, 'w') as configfile:
+        config.write(configfile)
+    print(f"✓ Configuration saved to: {config_path}")
+
+    # Run schema migration
+    print("")
+    migrate_schema()
+
+    print("\n" + "="*80)
+    print(" ✓ Codex Initialization Complete!")
+    print("="*80)
+
+
 def init_db(migrate_only=False, force=False, test_mode=False):
     """Main initialization function."""
     print("\n" + "="*80)
@@ -535,6 +614,62 @@ if __name__ == '__main__':
         help='Non-interactive mode: use defaults and test connection'
     )
 
+    parser.add_argument(
+        '--headless',
+        action='store_true',
+        help='Non-interactive mode for automated installation'
+    )
+    parser.add_argument(
+        '--db-host',
+        type=str,
+        default='localhost',
+        help='Database host (default: localhost)'
+    )
+    parser.add_argument(
+        '--db-port',
+        type=str,
+        default='5432',
+        help='Database port (default: 5432)'
+    )
+    parser.add_argument(
+        '--db-name',
+        type=str,
+        default='codex_db',
+        help='Database name (default: codex_db)'
+    )
+    parser.add_argument(
+        '--db-user',
+        type=str,
+        default='codex_user',
+        help='Database user (default: codex_user)'
+    )
+    parser.add_argument(
+        '--db-password',
+        type=str,
+        help='Database password (required for headless mode)'
+    )
+    parser.add_argument(
+        '--create-sample-data',
+        action='store_true',
+        help='Create sample data for new database (headless mode only)'
+    )
+
     args = parser.parse_args()
 
-    init_db(migrate_only=args.migrate_only, force=args.force_rebuild, test_mode=args.test)
+    # Handle headless mode
+    if args.headless:
+        if not args.db_password:
+            print("ERROR: --db-password is required for headless mode", file=sys.stderr)
+            sys.exit(1)
+
+        init_db_headless(
+            db_host=args.db_host,
+            db_port=args.db_port,
+            db_name=args.db_name,
+            db_user=args.db_user,
+            db_password=args.db_password,
+            migrate_only=args.migrate_only,
+            create_sample_data=args.create_sample_data
+        )
+    else:
+        init_db(migrate_only=args.migrate_only, force=args.force_rebuild, test_mode=args.test)
