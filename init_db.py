@@ -30,13 +30,25 @@ from dotenv import load_dotenv
 load_dotenv('.flaskenv')
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app import app
-from extensions import db
-# Import ALL models so SQLAlchemy knows about them
-from models import (
-    Company, Contact, Asset, CompanyFeatureOverride, Location,
-    DattoSiteLink, TicketDetail, SyncJob
-)
+# NOTE: We import app later in functions to allow config file to be created first
+# For headless mode, app is imported AFTER config file is written
+app = None
+db = None
+
+def _import_app():
+    """Import app and db after config file exists."""
+    global app, db
+    if app is None:
+        from app import app as flask_app
+        from extensions import db as database
+        # Import ALL models so SQLAlchemy knows about them
+        from models import (
+            Company, Contact, Asset, CompanyFeatureOverride, Location,
+            DattoSiteLink, TicketDetail, SyncJob
+        )
+        app = flask_app
+        db = database
+    return app, db
 
 
 def get_db_credentials(config):
@@ -185,6 +197,7 @@ def migrate_schema():
     print("DATABASE SCHEMA MIGRATION")
     print("="*80)
 
+    app, db = _import_app()
     with app.app_context():
         inspector = inspect(db.engine)
         existing_tables = inspector.get_table_names()
@@ -321,6 +334,7 @@ def force_rebuild():
         print("\nAborted.")
         sys.exit(0)
 
+    app, db = _import_app()
     print("\n→ Dropping all tables...")
     with app.app_context():
         db.drop_all()
@@ -342,7 +356,9 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
     print("CODEX DATABASE INITIALIZATION (HEADLESS MODE)")
     print("="*80)
 
-    instance_path = app.instance_path
+    # Determine instance path without importing app yet
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    instance_path = os.path.join(script_dir, 'instance')
     config_path = os.path.join(instance_path, 'codex.conf')
 
     config = configparser.RawConfigParser()
@@ -403,14 +419,7 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
         config.write(configfile)
     print(f"✓ Configuration saved to: {config_path}")
 
-    # IMPORTANT: Update app config with the new connection string before running migrations
-    app.config['SQLALCHEMY_DATABASE_URI'] = conn_string
-
-    # Reinitialize the database with the new connection string
-    with app.app_context():
-        db.engine.dispose()  # Close any existing connections
-
-    # Run schema migration
+    # Run schema migration (app will be imported now and will read the config we just wrote)
     print("")
     migrate_schema()
 
@@ -429,6 +438,7 @@ def init_db(migrate_only=False, force=False, test_mode=False):
         force_rebuild()
         return
 
+    app, db = _import_app()
     instance_path = app.instance_path
     config_path = os.path.join(instance_path, 'codex.conf')
 
