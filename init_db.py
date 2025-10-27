@@ -403,6 +403,13 @@ def init_db_headless(db_host, db_port, db_name, db_user, db_password, migrate_on
         config.write(configfile)
     print(f"✓ Configuration saved to: {config_path}")
 
+    # IMPORTANT: Update app config with the new connection string before running migrations
+    app.config['SQLALCHEMY_DATABASE_URI'] = conn_string
+
+    # Reinitialize the database with the new connection string
+    with app.app_context():
+        db.engine.dispose()  # Close any existing connections
+
     # Run schema migration
     print("")
     migrate_schema()
