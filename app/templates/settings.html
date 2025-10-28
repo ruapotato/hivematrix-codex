@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Settings - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">User Settings</h1>
+            <p>Personalize your HiveMatrix experience</p>
+        </div>
+        <div class="card__body">
+            <!-- User Info Section -->
+            <div style="margin-bottom: 2rem;">
+                <h2>Account Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-item__label">Username</span>
+                        <span class="info-item__value" id="user-username">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-item__label">Email</span>
+                        <span class="info-item__value" id="user-email">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Theme Settings Section -->
+            <div style="margin-bottom: 2rem;">
+                <h2>Appearance</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: 1.5rem;">
+                    Choose your preferred color theme. Changes apply immediately across all HiveMatrix services.
+                </p>
+
+                <div class="theme-selector">
+                    <div class="theme-option" id="theme-light" onclick="selectTheme('light')">
+                        <div class="theme-option__preview theme-option__preview--light">
+                            <div class="preview-header"></div>
+                            <div class="preview-sidebar"></div>
+                            <div class="preview-content"></div>
+                        </div>
+                        <div class="theme-option__info">
+                            <h3 class="theme-option__name">☀️ Light Theme</h3>
+                            <p class="theme-option__desc">Clean and bright interface</p>
+                        </div>
+                        <div class="theme-option__indicator"></div>
+                    </div>
+
+                    <div class="theme-option" id="theme-dark" onclick="selectTheme('dark')">
+                        <div class="theme-option__preview theme-option__preview--dark">
+                            <div class="preview-header"></div>
+                            <div class="preview-sidebar"></div>
+                            <div class="preview-content"></div>
+                        </div>
+                        <div class="theme-option__info">
+                            <h3 class="theme-option__name">🌙 Dark Theme</h3>
+                            <p class="theme-option__desc">Easy on the eyes for long sessions</p>
+                        </div>
+                        <div class="theme-option__indicator"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Save Button -->
+            <div class="action-footer">
+                <button class="btn btn--primary" onclick="saveSettings()" id="save-btn">
+                    <span class="btn__label">💾 Save Settings</span>
+                </button>
+                <span id="save-status" style="margin-left: 1rem; color: var(--color-success);"></span>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .theme-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .theme-option {
+            border: 3px solid var(--color-border-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .theme-option:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .theme-option.selected {
+            border-color: var(--color-primary);
+            background: var(--color-surface-raised);
+        }
+
+        .theme-option__preview {
+            width: 100%;
+            height: 120px;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .theme-option__preview--light {
+            background: #ffffff;
+        }
+
+        .theme-option__preview--dark {
+            background: #1e1e2e;
+        }
+
+        .preview-header {
+            height: 20px;
+            width: 100%;
+        }
+
+        .theme-option__preview--light .preview-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .theme-option__preview--dark .preview-header {
+            background: #181825;
+            border-bottom: 1px solid #313244;
+        }
+
+        .preview-sidebar {
+            position: absolute;
+            left: 0;
+            top: 20px;
+            width: 30%;
+            height: calc(100% - 20px);
+        }
+
+        .theme-option__preview--light .preview-sidebar {
+            background: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .theme-option__preview--dark .preview-sidebar {
+            background: #181825;
+            border-right: 1px solid #313244;
+        }
+
+        .preview-content {
+            position: absolute;
+            right: 0;
+            top: 20px;
+            width: 70%;
+            height: calc(100% - 20px);
+            padding: 8px;
+        }
+
+        .theme-option__preview--light .preview-content {
+            background: #ffffff;
+        }
+
+        .theme-option__preview--light .preview-content::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 12px;
+            background: #0d6efd;
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .theme-option__preview--dark .preview-content {
+            background: #1e1e2e;
+        }
+
+        .theme-option__preview--dark .preview-content::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 12px;
+            background: #89b4fa;
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .theme-option__info {
+            margin-bottom: 0.5rem;
+        }
+
+        .theme-option__name {
+            font-size: 1.1rem;
+            color: var(--color-primary);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .theme-option__desc {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .theme-option__indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--color-border-medium);
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .theme-option.selected .theme-option__indicator {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .theme-option.selected .theme-option__indicator::after {
+            content: '✓';
+            color: var(--color-primary-text);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+
+    <script>
+        let currentTheme = 'light';
+        let savedTheme = 'light';
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        async function loadSettings() {
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/api/my/settings`, {
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+
+                if (data.synced) {
+                    document.getElementById('user-username').textContent = data.username || 'N/A';
+                    document.getElementById('user-email').textContent = data.email || 'N/A';
+                    currentTheme = data.theme_preference || 'light';
+                    savedTheme = currentTheme;
+                    selectTheme(currentTheme, false);
+                } else {
+                    // User not synced yet
+                    document.getElementById('user-username').textContent = 'Not synced';
+                    document.getElementById('user-email').textContent = 'Not synced';
+                    document.getElementById('save-status').innerHTML = '<span class="alert alert--warning">Your account hasn\'t been synced from Keycloak yet. Ask an admin to sync agents.</span>';
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                document.getElementById('save-status').innerHTML = '<span class="alert alert--error">Error loading settings</span>';
+            }
+        }
+
+        function selectTheme(theme, markUnsaved = true) {
+            currentTheme = theme;
+
+            // Update UI
+            document.getElementById('theme-light').classList.toggle('selected', theme === 'light');
+            document.getElementById('theme-dark').classList.toggle('selected', theme === 'dark');
+
+            // Apply theme immediately for preview
+            document.documentElement.setAttribute('data-theme', theme);
+
+            if (markUnsaved && theme !== savedTheme) {
+                document.getElementById('save-status').innerHTML = '<span style="color: var(--color-warning);">Unsaved changes</span>';
+            }
+        }
+
+        async function saveSettings() {
+            const saveBtn = document.getElementById('save-btn');
+            const saveStatus = document.getElementById('save-status');
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="btn__label">Saving...</span>';
+            saveStatus.textContent = '';
+
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/api/my/settings`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        theme_preference: currentTheme
+                    }),
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    savedTheme = currentTheme;
+                    saveStatus.innerHTML = '<span style="color: var(--color-success);">✓ Settings saved! Theme will apply across all HiveMatrix services.</span>';
+
+                    // Reload page after 1 second to apply theme globally
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    saveStatus.innerHTML = `<span class="alert alert--error">Error: ${result.error || 'Failed to save settings'}</span>`;
+                }
+            } catch (error) {
+                saveStatus.innerHTML = `<span class="alert alert--error">Error: ${error.message}</span>`;
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span class="btn__label">💾 Save Settings</span>';
+            }
+        }
+
+        // Load settings on page load
+        window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>

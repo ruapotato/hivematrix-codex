@@ -246,3 +246,45 @@ class FeatureOption(db.Model):
     option_value = db.Column(db.String(100), nullable=False)  # 'SentinelOne', 'Microsoft 365', etc.
 
     __table_args__ = (db.UniqueConstraint('feature_category', 'option_value', name='unique_feature_option'),)
+
+class Agent(db.Model):
+    """
+    Agents are system users from Keycloak with additional settings.
+    These are internal users (technicians, admins, etc.) not Freshservice contacts.
+    """
+    __tablename__ = 'agents'
+
+    # Primary key - Keycloak user ID
+    keycloak_id = db.Column(db.String(100), primary_key=True)
+
+    # User info from Keycloak
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    first_name = db.Column(db.String(150))
+    last_name = db.Column(db.String(150))
+
+    # Status
+    enabled = db.Column(db.Boolean, default=True)
+
+    # User settings - stored in Codex, not Keycloak
+    theme_preference = db.Column(db.String(20), default='light')  # 'light' or 'dark'
+
+    # Metadata
+    created_at = db.Column(db.String(100))  # ISO timestamp
+    updated_at = db.Column(db.String(100))  # ISO timestamp
+    last_synced_at = db.Column(db.String(100))  # Last time synced from Keycloak
+
+    def to_dict(self):
+        """Convert agent to dictionary for API responses"""
+        return {
+            'keycloak_id': self.keycloak_id,
+            'username': self.username,
+            'email': self.email,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'enabled': self.enabled,
+            'theme_preference': self.theme_preference,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'last_synced_at': self.last_synced_at
+        }

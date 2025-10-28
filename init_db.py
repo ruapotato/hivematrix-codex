@@ -44,7 +44,7 @@ def _import_app():
         # Import ALL models so SQLAlchemy knows about them
         from models import (
             Company, Contact, Asset, CompanyFeatureOverride, Location,
-            DattoSiteLink, TicketDetail, SyncJob
+            DattoSiteLink, TicketDetail, SyncJob, BillingPlan, FeatureOption, Agent
         )
         app = flask_app
         db = database

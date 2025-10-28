@@ -65,6 +65,18 @@
                     </button>
                 </a>
             </div>
+
+            {% if user.permission_level == 'admin' %}
+            <div style="margin-bottom: 1em;">
+                <h3>Agents</h3>
+                <p><strong id="agent-count">Loading...</strong> system users</p>
+                <a href="{{ url_for('agents_dashboard') }}">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">Manage Agents</span>
+                    </button>
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -88,6 +100,9 @@
                 </button>
                 <button class="btn btn--primary" onclick="syncTickets()" id="sync-tickets-btn">
                     <span class="btn__label">🎫 Sync Tickets (Full Context)</span>
+                </button>
+                <button class="btn btn--primary" onclick="syncAgents()" id="sync-agents-btn">
+                    <span class="btn__label">👥 Sync Keycloak (Agents)</span>
                 </button>
             </div>
 
@@ -427,6 +442,60 @@
                 'Push to Datto'
             );
         }
+
+        async function syncAgents() {
+            const btn = document.getElementById('sync-agents-btn');
+            const originalText = '👥 Sync Keycloak (Agents)';
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="btn__label">⏳ Syncing...</span>';
+
+            try {
+                const basePath = window.location.pathname.startsWith('/codex/') ? '/codex' : '';
+                const response = await fetch(`${basePath}/api/agents/sync`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`Agent Sync Complete!\n\nSynced: ${result.synced}\nCreated: ${result.created}\nUpdated: ${result.updated}`);
+                    loadAgentCount(); // Refresh count
+                } else {
+                    alert('Sync failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span class="btn__label">${originalText}</span>`;
+            }
+        }
+
+        async function loadAgentCount() {
+            try {
+                const basePath = window.location.pathname.startsWith('/codex/') ? '/codex' : '';
+                const response = await fetch(`${basePath}/api/agents`);
+                const data = await response.json();
+
+                const countElem = document.getElementById('agent-count');
+                if (countElem) {
+                    countElem.textContent = data.total || 0;
+                }
+            } catch (error) {
+                console.error('Error loading agent count:', error);
+                const countElem = document.getElementById('agent-count');
+                if (countElem) {
+                    countElem.textContent = '0';
+                }
+            }
+        }
+
+        // Load agent count on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAgentCount();
+        });
 
         // Clear any orphaned intervals on page load
         window.addEventListener('beforeunload', () => {

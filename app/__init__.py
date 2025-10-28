@@ -52,10 +52,15 @@ except FileNotFoundError:
 from extensions import db
 db.init_app(app)
 
-# Apply middleware to handle URL prefix when behind Nexus proxy
-from app.middleware import PrefixMiddleware
-service_name = app.config['SERVICE_NAME']
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=f'/{service_name}')
+# Apply ProxyFix to handle X-Forwarded headers from Nexus proxy
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,      # Trust X-Forwarded-For
+    x_proto=1,    # Trust X-Forwarded-Proto (http/https)
+    x_host=1,     # Trust X-Forwarded-Host
+    x_prefix=1    # Trust X-Forwarded-Prefix (sets SCRIPT_NAME for url_for)
+)
 
 # Register blueprints
 from routes.companies import companies_bp
@@ -80,7 +85,14 @@ helm_logger = init_helm_logger(
     app.config["HELM_SERVICE_URL"]
 )
 
+# Keycloak configuration for agent management
+app.config['KEYCLOAK_SERVER_URL'] = os.environ.get('KEYCLOAK_SERVER_URL', 'http://localhost:8080')
+app.config['KEYCLOAK_REALM'] = os.environ.get('KEYCLOAK_REALM', 'hivematrix')
+app.config['KEYCLOAK_ADMIN_USER'] = os.environ.get('KEYCLOAK_ADMIN_USER', 'admin')
+app.config['KEYCLOAK_ADMIN_PASS'] = os.environ.get('KEYCLOAK_ADMIN_PASS', 'admin')
+
 from app import routes
+from app import agent_routes  # Agent management and Keycloak sync routes
 
 # Initialize background scheduler for auto-sync (optional)
 try:

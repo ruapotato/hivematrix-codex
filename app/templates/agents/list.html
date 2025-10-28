@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agents - Codex</title>
+</head>
+<body>
+    <div class="card">
+        <div class="card__header">
+            <h1 class="card__title">Agent Management</h1>
+            <p>Manage system users from Keycloak with Codex-specific settings</p>
+        </div>
+        <div class="card__body">
+            <div style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem;">
+                <button class="btn btn--primary" onclick="syncAgents()">
+                    <span class="btn__label">🔄 Sync from Keycloak</span>
+                </button>
+                <button class="btn btn--primary" onclick="showCreateAgentModal()">
+                    <span class="btn__label">➕ Create New Agent</span>
+                </button>
+            </div>
+
+            <!-- Results Info -->
+            <div class="results-header">
+                <p class="results-header__count">
+                    Total: <strong id="agent-count">Loading...</strong> agents
+                </p>
+            </div>
+
+            <!-- Agents List -->
+            <div id="agent-list">
+                <p>Loading agents...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Agent Modal -->
+    <div id="createAgentModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Agent in Keycloak</h2>
+                <span class="modal-close" onclick="hideCreateAgentModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="createAgentForm" onsubmit="event.preventDefault(); createAgent(); return false;">
+                    <div class="form-group">
+                        <label>Username *</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="firstName">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="lastName">
+                    </div>
+                    <div class="form-group">
+                        <label>Password *</label>
+                        <input type="password" id="password" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="temporary" checked>
+                            Require Password Change on First Login
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Theme Preference</label>
+                        <select id="theme">
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Groups</label>
+                        <div style="margin-top: 0.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="group-admins" value="admins">
+                                Admin
+                            </label>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="group-technicians" value="technicians">
+                                Technician
+                            </label>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="group-billing" value="billing">
+                                Billing
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideCreateAgentModal()">Cancel</button>
+                <button class="btn btn--primary" onclick="createAgent()">Create Agent</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Agent Modal -->
+    <div id="editAgentModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Agent</h2>
+                <span class="modal-close" onclick="hideEditAgentModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editAgentForm">
+                    <input type="hidden" id="edit-keycloak-id">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="edit-username" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="edit-email" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="edit-firstName">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="edit-lastName">
+                    </div>
+                    <div class="form-group">
+                        <label>Theme Preference</label>
+                        <select id="edit-theme">
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="edit-enabled">
+                            Account Enabled
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Groups</label>
+                        <div style="margin-top: 0.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="edit-group-admins" value="admins">
+                                Admin
+                            </label>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="edit-group-technicians" value="technicians">
+                                Technician
+                            </label>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
+                                <input type="checkbox" id="edit-group-billing" value="billing">
+                                Billing
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--danger" onclick="deleteAgent()">Delete Agent</button>
+                <button class="btn btn--warning" onclick="showResetPasswordModal()">Reset Password</button>
+                <button class="btn" onclick="hideEditAgentModal()">Cancel</button>
+                <button class="btn btn--primary" onclick="updateAgent()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div id="resetPasswordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Reset Password</h2>
+                <span class="modal-close" onclick="hideResetPasswordModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Resetting password for: <strong id="reset-username"></strong></p>
+                <form onsubmit="event.preventDefault(); resetPassword(); return false;">
+                    <div class="form-group">
+                        <label for="new-password">New Password</label>
+                        <input type="password" id="new-password" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm Password</label>
+                        <input type="password" id="confirm-password" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="temporary-password" checked>
+                            Temporary (user must change on next login)
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideResetPasswordModal()">Cancel</button>
+                <button class="btn btn--primary" onclick="resetPassword()">Reset Password</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--color-surface);
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--color-primary);
+        }
+
+        .modal-close {
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--color-text-primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--color-border-light);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group select {
+            width: 100%;
+        }
+
+        .agent-card {
+            border: 1px solid var(--color-border-light);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--color-surface);
+        }
+
+        .agent-card:hover {
+            background: var(--color-hover-bg);
+            transform: translateX(4px);
+        }
+
+        .agent-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .agent-card__name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin: 0;
+        }
+
+        .agent-card__info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .agent-card__info-item {
+            color: var(--color-text-secondary);
+        }
+
+        .agent-card__info-item strong {
+            color: var(--color-text-primary);
+        }
+
+        .btn--warning {
+            background: var(--color-warning);
+            color: #000000;
+        }
+
+        .btn--warning:hover {
+            opacity: 0.9;
+        }
+    </style>
+
+    <script>
+        let allGroups = [];
+        let currentKeycloakId = null;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        async function loadAgents() {
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/api/agents`, {
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+
+                if (data.agents) {
+                    displayAgents(data.agents);
+                    document.getElementById('agent-count').textContent = data.total;
+                } else {
+                    document.getElementById('agent-list').innerHTML = '<p class="empty-state">No agents found</p>';
+                    document.getElementById('agent-count').textContent = '0';
+                }
+            } catch (error) {
+                document.getElementById('agent-list').innerHTML = `<p class="alert alert--error">Error loading agents: ${error.message}</p>`;
+            }
+        }
+
+        function displayAgents(agents) {
+            const container = document.getElementById('agent-list');
+            container.innerHTML = '';
+
+            if (agents.length === 0) {
+                container.innerHTML = '<p class="empty-state">No agents found. Click "Sync from Keycloak" to import users.</p>';
+                return;
+            }
+
+            agents.forEach(agent => {
+                const card = document.createElement('div');
+                card.className = 'agent-card';
+                card.onclick = () => editAgent(agent.keycloak_id);
+
+                const themeIcon = agent.theme_preference === 'dark' ? '🌙' : '☀️';
+                const statusBadge = agent.enabled
+                    ? '<span class="badge badge--success">Enabled</span>'
+                    : '<span class="badge badge--danger">Disabled</span>';
+
+                card.innerHTML = `
+                    <div class="agent-card__header">
+                        <h3 class="agent-card__name">${agent.username}</h3>
+                        ${statusBadge}
+                    </div>
+                    <div class="agent-card__info">
+                        <div class="agent-card__info-item">
+                            <strong>Email:</strong> ${agent.email || 'N/A'}
+                        </div>
+                        <div class="agent-card__info-item">
+                            <strong>Name:</strong> ${agent.first_name || ''} ${agent.last_name || ''}
+                        </div>
+                        <div class="agent-card__info-item">
+                            <strong>Theme:</strong> ${themeIcon} ${agent.theme_preference}
+                        </div>
+                        <div class="agent-card__info-item">
+                            <strong>Last Synced:</strong> ${agent.last_synced_at ? new Date(agent.last_synced_at).toLocaleDateString() : 'Never'}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        async function syncAgents() {
+            if (!confirm('Sync all users from Keycloak? This will update existing agents and create new ones.')) {
+                return;
+            }
+
+            try {
+                const basePath = getBasePath();
+                document.getElementById('agent-list').innerHTML = '<p>Syncing agents from Keycloak...</p>';
+
+                const response = await fetch(`${basePath}/api/agents/sync`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`Sync complete!\n\nSynced: ${result.synced}\nCreated: ${result.created}\nUpdated: ${result.updated}`);
+                    loadAgents();
+                } else {
+                    alert('Sync failed: ' + (result.error || 'Unknown error'));
+                    loadAgents();
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                loadAgents();
+            }
+        }
+
+        function showCreateAgentModal() {
+            document.getElementById('createAgentModal').style.display = 'flex';
+        }
+
+        function hideCreateAgentModal() {
+            document.getElementById('createAgentModal').style.display = 'none';
+            document.getElementById('createAgentForm').reset();
+        }
+
+        async function createAgent() {
+            const userData = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                enabled: true
+            };
+
+            const password = document.getElementById('password').value;
+            const temporary = document.getElementById('temporary').checked;
+            const theme = document.getElementById('theme').value;
+
+            // Get selected groups
+            const selectedGroups = [];
+            ['admins', 'technicians', 'billing'].forEach(groupName => {
+                if (document.getElementById(`group-${groupName}`).checked) {
+                    selectedGroups.push(groupName);
+                }
+            });
+
+            try {
+                const basePath = getBasePath();
+
+                // Create user in Keycloak via Helm API
+                const helmUrl = '/helm'; // Assuming Helm is accessible via Nexus
+                const createResponse = await fetch(`${helmUrl}/api/keycloak/users`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(userData),
+                    credentials: 'same-origin'
+                });
+
+                if (!createResponse.ok) {
+                    const error = await createResponse.json();
+                    alert('Error creating agent in Keycloak: ' + (error.error || 'Unknown error'));
+                    return;
+                }
+
+                // Re-sync to pull the new user into Codex
+                await fetch(`${basePath}/api/agents/sync`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+
+                // Find the newly created agent and set theme
+                const agentsResponse = await fetch(`${basePath}/api/agents`, {
+                    credentials: 'same-origin'
+                });
+                const agentsData = await agentsResponse.json();
+                const newAgent = agentsData.agents.find(a => a.email === userData.email);
+
+                if (newAgent && theme !== 'light') {
+                    // Update theme if not default
+                    await fetch(`${basePath}/api/agents/${newAgent.keycloak_id}/settings`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ theme_preference: theme }),
+                        credentials: 'same-origin'
+                    });
+                }
+
+                alert('Agent created successfully!');
+                hideCreateAgentModal();
+                loadAgents();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function editAgent(keycloakId) {
+            currentKeycloakId = keycloakId;
+
+            try {
+                const basePath = getBasePath();
+
+                // Get agent from Codex
+                const response = await fetch(`${basePath}/api/agents/${keycloakId}`, {
+                    credentials: 'same-origin'
+                });
+                const agent = await response.json();
+
+                // Populate form
+                document.getElementById('edit-keycloak-id').value = agent.keycloak_id;
+                document.getElementById('edit-username').value = agent.username;
+                document.getElementById('edit-email').value = agent.email;
+                document.getElementById('edit-firstName').value = agent.first_name || '';
+                document.getElementById('edit-lastName').value = agent.last_name || '';
+                document.getElementById('edit-theme').value = agent.theme_preference || 'light';
+                document.getElementById('edit-enabled').checked = agent.enabled;
+
+                // Fetch and display group membership from Keycloak via Helm API
+                try {
+                    const helmUrl = '/helm';
+                    const groupsResponse = await fetch(`${helmUrl}/api/keycloak/users/${keycloakId}/groups`, {
+                        credentials: 'same-origin'
+                    });
+
+                    if (groupsResponse.ok) {
+                        const groupsData = await groupsResponse.json();
+                        const userGroups = groupsData.groups || [];
+
+                        // Uncheck all groups first
+                        document.getElementById('edit-group-admins').checked = false;
+                        document.getElementById('edit-group-technicians').checked = false;
+                        document.getElementById('edit-group-billing').checked = false;
+
+                        // Check groups user is member of
+                        userGroups.forEach(group => {
+                            const groupName = group.name || group;
+                            if (groupName === 'admins') {
+                                document.getElementById('edit-group-admins').checked = true;
+                            } else if (groupName === 'technicians') {
+                                document.getElementById('edit-group-technicians').checked = true;
+                            } else if (groupName === 'billing') {
+                                document.getElementById('edit-group-billing').checked = true;
+                            }
+                        });
+                    }
+                } catch (groupError) {
+                    console.error('Error loading groups:', groupError);
+                }
+
+                document.getElementById('editAgentModal').style.display = 'flex';
+            } catch (error) {
+                alert('Error loading agent: ' + error.message);
+            }
+        }
+
+        function hideEditAgentModal() {
+            document.getElementById('editAgentModal').style.display = 'none';
+            currentKeycloakId = null;
+        }
+
+        async function updateAgent() {
+            const keycloakId = document.getElementById('edit-keycloak-id').value;
+            const theme = document.getElementById('edit-theme').value;
+
+            try {
+                const basePath = getBasePath();
+
+                // Update theme in Codex
+                const response = await fetch(`${basePath}/api/agents/${keycloakId}/settings`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ theme_preference: theme }),
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('Error updating agent theme: ' + (error.error || 'Unknown error'));
+                    return;
+                }
+
+                // Update groups in Keycloak via Helm
+                const selectedGroups = [];
+                if (document.getElementById('edit-group-admins').checked) selectedGroups.push('admins');
+                if (document.getElementById('edit-group-technicians').checked) selectedGroups.push('technicians');
+                if (document.getElementById('edit-group-billing').checked) selectedGroups.push('billing');
+
+                const helmUrl = '/helm';
+                const groupsResponse = await fetch(`${helmUrl}/api/keycloak/users/${keycloakId}/groups`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ groups: selectedGroups }),
+                    credentials: 'same-origin'
+                });
+
+                if (groupsResponse.ok) {
+                    alert('Agent updated successfully!');
+                    hideEditAgentModal();
+                    loadAgents();
+                } else {
+                    const error = await groupsResponse.json();
+                    alert('Warning: Theme saved but group update failed: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteAgent() {
+            if (!confirm('Are you sure you want to delete this agent from Keycloak?')) {
+                return;
+            }
+
+            const keycloakId = document.getElementById('edit-keycloak-id').value;
+
+            try {
+                const helmUrl = '/helm';
+                const response = await fetch(`${helmUrl}/api/keycloak/users/${keycloakId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    alert('Agent deleted successfully!');
+                    hideEditAgentModal();
+
+                    // Re-sync to remove from Codex
+                    const basePath = getBasePath();
+                    await fetch(`${basePath}/api/agents/sync`, {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+
+                    loadAgents();
+                } else {
+                    const error = await response.json();
+                    alert('Error deleting agent: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function showResetPasswordModal() {
+            const username = document.getElementById('edit-username').value;
+            document.getElementById('reset-username').textContent = username;
+            document.getElementById('editAgentModal').style.display = 'none';
+            document.getElementById('resetPasswordModal').style.display = 'flex';
+        }
+
+        function hideResetPasswordModal() {
+            document.getElementById('resetPasswordModal').style.display = 'none';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('editAgentModal').style.display = 'flex';
+        }
+
+        async function resetPassword() {
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const temporary = document.getElementById('temporary-password').checked;
+
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                alert('Password must be at least 8 characters long!');
+                return;
+            }
+
+            const keycloakId = document.getElementById('edit-keycloak-id').value;
+
+            try {
+                const helmUrl = '/helm';
+                const response = await fetch(`${helmUrl}/api/keycloak/users/${keycloakId}/reset-password`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: newPassword, temporary }),
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    alert('Password reset successfully!');
+                    hideResetPasswordModal();
+                } else {
+                    const error = await response.json();
+                    alert('Error resetting password: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Load agents on page load
+        window.addEventListener('DOMContentLoaded', loadAgents);
+    </script>
+</body>
+</html>
