@@ -4,11 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contacts - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">Contacts</h1>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
         </div>
         <div class="card__body">
             <!-- Search Box -->
@@ -22,12 +31,18 @@
                         class="search-form__input"
                     >
                     <button type="submit" class="btn btn--primary">
-                        <span class="btn__label">🔍 Search</span>
+                        <span class="btn__label">
+                            <i data-lucide="search" class="btn__icon"></i>
+                            Search
+                        </span>
                     </button>
                     {% if search_query %}
                     <a href="{{ url_for('contacts.list_contacts') }}">
                         <button type="button" class="btn">
-                            <span class="btn__label">Clear</span>
+                            <span class="btn__label">
+                                <i data-lucide="x" class="btn__icon"></i>
+                                Clear
+                            </span>
                         </button>
                     </a>
                     {% endif %}
@@ -44,6 +59,10 @@
                     {% endif %}
                 </p>
                 <div class="results-header__controls">
+                    <label>
+                        <input type="checkbox" id="show_inactive" onchange="toggleInactive(this.checked)" {{ 'checked' if show_inactive else '' }}>
+                        Show Inactive
+                    </label>
                     <label for="per_page">Per page:</label>
                     <select id="per_page" onchange="changePerPage(this.value)">
                         <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
@@ -59,29 +78,34 @@
                     <thead>
                         <tr>
                             <th class="sortable-header">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
                                     Name {{ '↓' if sort_by == 'name' and order == 'desc' else '↑' if sort_by == 'name' else '' }}
                                 </a>
                             </th>
                             <th class="sortable-header">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='email', order='desc' if sort_by == 'email' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='email', order='desc' if sort_by == 'email' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
                                     Email {{ '↓' if sort_by == 'email' and order == 'desc' else '↑' if sort_by == 'email' else '' }}
                                 </a>
                             </th>
                             <th>Phone</th>
                             <th>Company</th>
+                            {% if show_inactive %}
                             <th class="sortable-header text-center">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='active', order='desc' if sort_by == 'active' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
+                                <a href="{{ url_for('contacts.list_contacts', sort_by='active', order='desc' if sort_by == 'active' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
                                     Active {{ '↓' if sort_by == 'active' and order == 'desc' else '↑' if sort_by == 'active' else '' }}
                                 </a>
                             </th>
-                            <th class="text-center">Actions</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for contact in contacts %}
                         <tr>
-                            <td><strong>{{ contact.name }}</strong></td>
+                            <td>
+                                <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                                    <strong>{{ contact.name }}</strong>
+                                </a>
+                            </td>
                             <td>
                                 <a href="mailto:{{ contact.email }}">
                                     {{ contact.email }}
@@ -99,28 +123,25 @@
                                     <span>No company</span>
                                 {% endif %}
                             </td>
+                            {% if show_inactive %}
                             <td class="text-center">
                                 {% if contact.active %}
-                                    <span class="badge badge--success">
-                                        ✓ Active
+                                    <span class="badge badge--success" style="color: var(--color-success);">
+                                        <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                        Active
                                     </span>
                                 {% else %}
-                                    <span class="badge badge--danger">
-                                        ✗ Inactive
+                                    <span class="badge badge--danger" style="color: var(--color-danger);">
+                                        <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                        Inactive
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="text-center">
-                                <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
-                                    <button class="btn btn--primary btn--small">
-                                        <span class="btn__label">View</span>
-                                    </button>
-                                </a>
-                            </td>
+                            {% endif %}
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="empty-state">
+                            <td colspan="{{ '5' if show_inactive else '4' }}" class="empty-state">
                                 {% if search_query %}
                                     No contacts found matching "{{ search_query }}". Try a different search term.
                                 {% else %}
@@ -137,11 +158,21 @@
             {% if pagination.pages > 1 %}
             <div class="pagination">
                 {% if pagination.has_prev %}
-                    <a href="{{ url_for('contacts.list_contacts', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">⏮ First</span></button>
+                    <a href="{{ url_for('contacts.list_contacts', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
+                        <button class="btn">
+                            <span class="btn__label">
+                                <i data-lucide="chevrons-left" class="btn__icon"></i>
+                                First
+                            </span>
+                        </button>
                     </a>
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">◀ Previous</span></button>
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
+                        <button class="btn">
+                            <span class="btn__label">
+                                <i data-lucide="chevron-left" class="btn__icon"></i>
+                                Previous
+                            </span>
+                        </button>
                     </a>
                 {% endif %}
 
@@ -150,24 +181,25 @@
                 </span>
 
                 {% if pagination.has_next %}
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">Next ▶</span></button>
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
+                        <button class="btn">
+                            <span class="btn__label">
+                                Next
+                                <i data-lucide="chevron-right" class="btn__icon"></i>
+                            </span>
+                        </button>
                     </a>
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">Last ⏭</span></button>
+                    <a href="{{ url_for('contacts.list_contacts', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
+                        <button class="btn">
+                            <span class="btn__label">
+                                Last
+                                <i data-lucide="chevrons-right" class="btn__icon"></i>
+                            </span>
+                        </button>
                     </a>
                 {% endif %}
             </div>
             {% endif %}
-
-            <!-- Back Button -->
-            <div class="action-footer">
-                <a href="{{ url_for('index') }}">
-                    <button class="btn">
-                        <span class="btn__label">← Back to Dashboard</span>
-                    </button>
-                </a>
-            </div>
         </div>
     </div>
 
@@ -178,6 +210,18 @@
             url.searchParams.set('page', '1'); // Reset to first page
             window.location.href = url.toString();
         }
+
+        function toggleInactive(checked) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('show_inactive', checked ? '1' : '0');
+            url.searchParams.set('page', '1'); // Reset to first page
+            window.location.href = url.toString();
+        }
+
+        // Initialize Lucide icons
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
     </script>
 </body>
 </html>

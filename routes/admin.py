@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for, flash, current_app
 from app.auth import admin_required
-from models import db, Company, Contact, Asset, Location, DattoSiteLink, CompanyFeatureOverride, TicketDetail, contact_company_link, asset_contact_link
+from models import db, Company, Contact, Asset, Location, DattoSiteLink, CompanyFeatureOverride, TicketDetail, SyncJob, Agent, contact_company_link, asset_contact_link
 import configparser
 import os
 
@@ -19,8 +19,10 @@ def settings():
         'contacts': Contact.query.count(),
         'assets': Asset.query.count(),
         'tickets': TicketDetail.query.count(),
+        'agents': Agent.query.count(),
         'active_contacts': Contact.query.filter_by(active=True).count(),
         'online_assets': Asset.query.filter_by(online=True).count(),
+        'enabled_agents': Agent.query.filter_by(enabled=True).count(),
     }
 
     # Get configuration values
@@ -68,6 +70,9 @@ def settings():
                 'next_run': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else 'N/A'
             })
 
+    # Get recent sync jobs (last 10)
+    recent_jobs = SyncJob.query.order_by(SyncJob.started_at.desc()).limit(10).all()
+
     return render_template('admin/settings.html',
                          user=g.user,
                          stats=stats,
@@ -75,7 +80,8 @@ def settings():
                          datto_config=datto_config,
                          db_config=db_config,
                          scheduler_config=scheduler_config,
-                         scheduler_jobs=scheduler_jobs)
+                         scheduler_jobs=scheduler_jobs,
+                         recent_jobs=recent_jobs)
 
 @admin_bp.route('/update-freshservice', methods=['POST'])
 @admin_required
@@ -169,10 +175,18 @@ def clear_data():
             db.session.commit()
             flash(f'✓ Deleted {deleted_count} assets', 'success')
 
+        elif data_type == 'agents':
+            deleted_count = Agent.query.count()
+            # Agents have no foreign key dependencies
+            Agent.query.delete()
+            db.session.commit()
+            flash(f'✓ Deleted {deleted_count} agents', 'success')
+
         elif data_type == 'all':
             asset_count = Asset.query.count()
             contact_count = Contact.query.count()
             company_count = Company.query.count()
+            agent_count = Agent.query.count()
 
             # Delete association tables first
             db.session.execute(asset_contact_link.delete())
@@ -186,9 +200,10 @@ def clear_data():
             Asset.query.delete()
             Contact.query.delete()
             Company.query.delete()
+            Agent.query.delete()
 
             db.session.commit()
-            flash(f'✓ Deleted ALL data: {company_count} companies, {contact_count} contacts, {asset_count} assets', 'success')
+            flash(f'✓ Deleted ALL data: {company_count} companies, {contact_count} contacts, {asset_count} assets, {agent_count} agents', 'success')
 
     except Exception as e:
         db.session.rollback()

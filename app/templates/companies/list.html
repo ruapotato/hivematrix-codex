@@ -4,11 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Companies - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">Companies</h1>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
         </div>
         <div class="card__body">
             <!-- Search Box -->
@@ -22,12 +31,18 @@
                         class="search-form__input"
                     >
                     <button type="submit" class="btn btn--primary">
-                        <span class="btn__label">🔍 Search</span>
+                        <span class="btn__label">
+                            <i data-lucide="search" class="btn__icon"></i>
+                            Search
+                        </span>
                     </button>
                     {% if search_query %}
                     <a href="{{ url_for('companies.list_companies') }}">
                         <button type="button" class="btn">
-                            <span class="btn__label">Clear</span>
+                            <span class="btn__label">
+                                <i data-lucide="x" class="btn__icon"></i>
+                                Clear
+                            </span>
                         </button>
                     </a>
                     {% endif %}
@@ -74,27 +89,23 @@
                                     Plan {{ '↓' if sort_by == 'plan_selected' and order == 'desc' else '↑' if sort_by == 'plan_selected' else '' }}
                                 </a>
                             </th>
-                            <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for company in companies %}
                         <tr>
                             <td>{{ company.account_number or 'N/A' }}</td>
-                            <td><strong>{{ company.name }}</strong></td>
-                            <td class="text-truncate">{{ company.description or '-' }}</td>
-                            <td><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
-                            <td class="text-center">
+                            <td>
                                 <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
-                                    <button class="btn btn--primary btn--small">
-                                        <span class="btn__label">View</span>
-                                    </button>
+                                    <strong>{{ company.name }}</strong>
                                 </a>
                             </td>
+                            <td class="text-truncate">{{ company.description or '-' }}</td>
+                            <td><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="empty-state">
+                            <td colspan="4" class="empty-state">
                                 {% if search_query %}
                                     No companies found matching "{{ search_query }}". Try a different search term.
                                 {% else %}
@@ -112,10 +123,20 @@
             <div class="pagination">
                 {% if pagination.has_prev %}
                     <a href="{{ url_for('companies.list_companies', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">⏮ First</span></button>
+                        <button class="btn">
+                            <span class="btn__label">
+                                <i data-lucide="chevrons-left" class="btn__icon"></i>
+                                First
+                            </span>
+                        </button>
                     </a>
                     <a href="{{ url_for('companies.list_companies', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">◀ Previous</span></button>
+                        <button class="btn">
+                            <span class="btn__label">
+                                <i data-lucide="chevron-left" class="btn__icon"></i>
+                                Previous
+                            </span>
+                        </button>
                     </a>
                 {% endif %}
 
@@ -123,23 +144,24 @@
 
                 {% if pagination.has_next %}
                     <a href="{{ url_for('companies.list_companies', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">Next ▶</span></button>
+                        <button class="btn">
+                            <span class="btn__label">
+                                Next
+                                <i data-lucide="chevron-right" class="btn__icon"></i>
+                            </span>
+                        </button>
                     </a>
                     <a href="{{ url_for('companies.list_companies', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn"><span class="btn__label">Last ⏭</span></button>
+                        <button class="btn">
+                            <span class="btn__label">
+                                Last
+                                <i data-lucide="chevrons-right" class="btn__icon"></i>
+                            </span>
+                        </button>
                     </a>
                 {% endif %}
             </div>
             {% endif %}
-
-            <!-- Back Button -->
-            <div class="action-footer">
-                <a href="{{ url_for('index') }}">
-                    <button class="btn">
-                        <span class="btn__label">← Back to Dashboard</span>
-                    </button>
-                </a>
-            </div>
         </div>
     </div>
 
@@ -150,6 +172,11 @@
             url.searchParams.set('page', '1'); // Reset to first page
             window.location.href = url.toString();
         }
+
+        // Initialize Lucide icons
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
     </script>
 </body>
 </html>

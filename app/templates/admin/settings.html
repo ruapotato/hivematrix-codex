@@ -3,28 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Settings - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">Admin Settings</h1>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="card__body">
+                {% for category, message in messages %}
+                    <div class="alert alert--{{ 'success' if category == 'success' else 'error' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Data Sync Center</h2>
         </div>
         <div class="card__body">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div style="padding: 1em; margin-bottom: 1em; background-color: {% if category == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; border: 1px solid {% if category == 'success' %}#c3e6cb{% else %}#f5c6cb{% endif %}; border-radius: 4px; color: {% if category == 'success' %}#155724{% else %}#721c24{% endif %};">
-                            {{ message }}
-                        </div>
+            <div class="u-mb-2">
+                <h3 class="u-mt-0">External System Sync</h3>
+                <div class="u-flex u-flex-gap u-flex-wrap">
+                    <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
+                        <span class="btn__label">
+                            <i data-lucide="clipboard-list" class="btn__icon"></i>
+                            Sync Freshservice
+                        </span>
+                    </button>
+                    <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn">
+                        <span class="btn__label">
+                            <i data-lucide="monitor" class="btn__icon"></i>
+                            Sync Datto RMM
+                        </span>
+                    </button>
+                    <button class="btn btn--primary" onclick="syncTickets()" id="sync-tickets-btn">
+                        <span class="btn__label">
+                            <i data-lucide="ticket" class="btn__icon"></i>
+                            Sync Tickets
+                        </span>
+                    </button>
+                    <button class="btn btn--primary" onclick="syncAgents()" id="sync-agents-btn">
+                        <span class="btn__label">
+                            <i data-lucide="users-2" class="btn__icon"></i>
+                            Sync Agents
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div class="u-my-2">
+                <h3 class="u-mt-0">Account Number Management</h3>
+                <div class="u-flex u-flex-gap u-flex-wrap">
+                    <button class="btn btn--primary" onclick="createAccountNumbers()" id="create-acct-btn">
+                        <span class="btn__label">
+                            <i data-lucide="hash" class="btn__icon"></i>
+                            Create Account Numbers
+                        </span>
+                    </button>
+                    <button class="btn btn--primary" onclick="pushToDatto()" id="push-datto-btn">
+                        <span class="btn__label">
+                            <i data-lucide="upload" class="btn__icon"></i>
+                            Push to Datto RMM
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div class="u-mt-2">
+                <h3 class="u-mt-0">Recommended Sync Order</h3>
+                <ol class="u-text-small u-text-secondary">
+                    <li>Freshservice (companies & contacts)</li>
+                    <li>Datto RMM (assets & backup data)</li>
+                    <li>Tickets (billing hours)</li>
+                </ol>
+                <p class="u-text-small u-text-secondary u-mt-1">
+                    <em>Note: Ticket sync may take several hours for initial full sync.</em>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="sync-progress-card" style="display: none;">
+        <div class="card__header">
+            <h2 class="card__title">Sync Progress</h2>
+        </div>
+        <div class="card__body">
+            <p id="sync-status" class="u-my-1 u-font-medium"></p>
+            <div class="code-block u-my-1 u-text-small u-overflow-auto" style="max-height: 300px;" id="sync-output"></div>
+            <p id="sync-elapsed" class="u-my-1 u-text-secondary u-text-small"></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Recent Sync History</h2>
+        </div>
+        <div class="card__body">
+            {% if recent_jobs %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Sync Type</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in recent_jobs %}
+                    <tr>
+                        <td>
+                            <strong>{{ job.script }}</strong>
+                        </td>
+                        <td class="u-text-small">
+                            {{ job.started_at[:19].replace('T', ' ') if job.started_at else 'N/A' }}
+                        </td>
+                        <td class="u-text-small">
+                            {% if job.completed_at and job.started_at %}
+                                {% set duration = (job.completed_at|replace('T', ' ')|replace(':', '')|replace('-', '')|int - job.started_at|replace('T', ' ')|replace(':', '')|replace('-', '')|int) %}
+                                ~{{ (duration // 100) }} min
+                            {% elif job.status == 'running' %}
+                                In progress...
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if job.status == 'completed' and job.success %}
+                                <span class="status-text status-text--success u-font-medium">
+                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Success
+                                </span>
+                            {% elif job.status == 'completed' %}
+                                <span class="status-text status-text--warning u-font-medium">
+                                    <i data-lucide="alert-triangle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Completed with errors
+                                </span>
+                            {% elif job.status == 'running' %}
+                                <span class="status-text status-text--info u-font-medium">
+                                    <i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Running
+                                </span>
+                            {% else %}
+                                <span class="status-text status-text--error u-font-medium">
+                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Failed
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn--primary btn--small" onclick="viewJobDetails('{{ job.id }}')">
+                                <span class="btn__label">
+                                    <i data-lucide="file-text" class="btn__icon"></i>
+                                    View Logs
+                                </span>
+                            </button>
+                        </td>
+                    </tr>
                     {% endfor %}
-                {% endif %}
-            {% endwith %}
-            <p>Welcome, <strong>{{ user.name }}</strong> ({{ user.permission_level }})</p>
-            <a href="{{ url_for('index') }}">
-                <button class="btn">
-                    <span class="btn__label">← Back to Dashboard</span>
-                </button>
-            </a>
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No sync jobs yet. Run your first sync above!</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="jobModal" class="modal">
+        <div class="modal__dialog" style="max-width: 900px;">
+            <div class="modal__header">
+                <h2 class="modal__title">Sync Job Details</h2>
+                <button class="modal__close" onclick="closeJobModal()">&times;</button>
+            </div>
+            <div class="modal__body" id="jobModalContent" style="max-height: 600px; overflow-y: auto;">
+                Loading...
+            </div>
         </div>
     </div>
 
@@ -54,40 +227,15 @@
                         <td><strong>{{ stats.assets }}</strong> ({{ stats.online_assets }} online)</td>
                     </tr>
                     <tr>
+                        <td>Agents</td>
+                        <td><strong>{{ stats.agents }}</strong> ({{ stats.enabled_agents }} enabled)</td>
+                    </tr>
+                    <tr>
                         <td>Tickets</td>
                         <td><strong>{{ stats.tickets }}</strong></td>
                     </tr>
                 </tbody>
             </table>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">Database Configuration</h2>
-        </div>
-        <div class="card__body">
-            <table>
-                <tbody>
-                    <tr>
-                        <td><strong>Host:</strong></td>
-                        <td>{{ db_config.host }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Port:</strong></td>
-                        <td>{{ db_config.port }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Database:</strong></td>
-                        <td>{{ db_config.dbname }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>User:</strong></td>
-                        <td>{{ db_config.user }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            <p><em>To modify database settings, edit instance/codex.conf and restart the service.</em></p>
         </div>
     </div>
 
@@ -106,9 +254,15 @@
                         <td><strong>API Key:</strong></td>
                         <td>
                             {% if fs_config.api_key_set %}
-                                <span style="color: green;">✓ Configured</span>
+                                <span class="u-text-success">
+                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Configured
+                                </span>
                             {% else %}
-                                <span style="color: red;">✗ Not configured</span>
+                                <span class="u-text-danger">
+                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Not configured
+                                </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -152,9 +306,15 @@
                         <td><strong>Public Key:</strong></td>
                         <td>
                             {% if datto_config.public_key_set %}
-                                <span style="color: green;">✓ Configured</span>
+                                <span class="u-text-success">
+                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Configured
+                                </span>
                             {% else %}
-                                <span style="color: red;">✗ Not configured</span>
+                                <span class="u-text-danger">
+                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Not configured
+                                </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -162,9 +322,15 @@
                         <td><strong>Secret Key:</strong></td>
                         <td>
                             {% if datto_config.secret_key_set %}
-                                <span style="color: green;">✓ Configured</span>
+                                <span class="u-text-success">
+                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Configured
+                                </span>
                             {% else %}
-                                <span style="color: red;">✗ Not configured</span>
+                                <span class="u-text-danger">
+                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Not configured
+                                </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -315,175 +481,312 @@ sync_run_on_startup = false</code></pre>
                         <option value="assets">Assets Only ({{ stats.assets }} records)</option>
                         <option value="contacts">Contacts Only ({{ stats.contacts }} records)</option>
                         <option value="companies">Companies Only ({{ stats.companies }} records)</option>
-                        <option value="all">⚠️ ALL DATA (Everything)</option>
+                        <option value="agents">Agents Only ({{ stats.agents }} records)</option>
+                        <option value="all">ALL DATA (Everything)</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn--danger">
-                    <span class="btn__label">⚠️ Delete Selected Data</span>
+                    <span class="btn__label">
+                        <i data-lucide="alert-triangle" class="btn__icon"></i>
+                        Delete Selected Data
+                    </span>
                 </button>
             </form>
-
-            <h3 style="margin-top: 2em;">Re-sync from External Systems</h3>
-            <p>After clearing data, you can re-sync from Freshservice and Datto RMM:</p>
-            <div style="margin-top: 1em;">
-                <button class="btn btn--primary" onclick="syncFreshservice()" id="sync-fs-btn">
-                    <span class="btn__label">Sync Freshservice</span>
-                </button>
-                <button class="btn btn--primary" onclick="syncDatto()" id="sync-datto-btn" style="margin-left: 0.5em;">
-                    <span class="btn__label">Sync Datto RMM</span>
-                </button>
-                <button class="btn btn--primary" onclick="syncTickets()" id="sync-tickets-btn" style="margin-left: 0.5em;">
-                    <span class="btn__label">Sync Tickets</span>
-                </button>
-            </div>
-            <p id="sync-status" style="margin-top: 1em;"></p>
         </div>
     </div>
 
     <script>
-        function pollJobStatus(jobId, btn, label, successMsg, isTicketSync = false) {
-            const status = document.getElementById('sync-status');
+        let currentJobId = null;
+        let pollInterval = null;
+        let startTime = null;
 
-            const poll = setInterval(() => {
-                fetch('/sync/status/' + jobId)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'completed') {
-                            clearInterval(poll);
-                            status.textContent = '✓ ' + successMsg + ' complete!';
-                            status.style.color = 'green';
-                            btn.disabled = false;
-                            btn.querySelector('.btn__label').textContent = label;
-                            setTimeout(() => location.reload(), 2000);
-                        } else if (data.status === 'failed') {
-                            clearInterval(poll);
-                            status.textContent = '✗ Sync failed: ' + (data.error || 'Unknown error');
-                            status.style.color = 'red';
-                            btn.disabled = false;
-                            btn.querySelector('.btn__label').textContent = label;
-                        } else if (data.status === 'running') {
-                            if (isTicketSync && data.current_tickets !== undefined) {
-                                status.textContent = '⏳ Syncing tickets... (' + data.current_tickets.toLocaleString() + ' tickets synced so far)';
-                            } else {
-                                status.textContent = '⏳ Sync in progress... (this may take several minutes)';
-                            }
-                            status.style.color = 'blue';
-                        }
-                    })
-                    .catch(error => {
-                        clearInterval(poll);
-                        status.textContent = '✗ Error checking status: ' + error.message;
-                        status.style.color = 'red';
-                        btn.disabled = false;
-                        btn.querySelector('.btn__label').textContent = label;
-                    });
-            }, 2000); // Poll every 2 seconds
+        function showSyncProgress() {
+            document.getElementById('sync-progress-card').style.display = 'block';
+        }
+
+        function hideSyncProgress() {
+            document.getElementById('sync-progress-card').style.display = 'none';
+        }
+
+        function viewJobDetails(jobId) {
+            document.getElementById('jobModal').classList.add('active');
+            document.getElementById('jobModalContent').innerHTML = 'Loading...';
+
+            const basePath = window.location.pathname.startsWith('/codex/') ? '/codex' : '';
+            fetch(`${basePath}/sync/status/${jobId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const statusClass = data.success ? 'status-text--success' : (data.status === 'failed' ? 'status-text--error' : 'status-text--info');
+                const statusIcon = data.success ? '<i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>' : (data.status === 'failed' ? '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>' : '<i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i>');
+                const statusText = data.success ? 'Success' : (data.status === 'failed' ? 'Failed' : data.status);
+
+                let html = `
+                    <div class="u-mb-2">
+                        <p><strong>Job ID:</strong> ${data.id}</p>
+                        <p><strong>Script:</strong> ${data.script}</p>
+                        <p><strong>Status:</strong> <span class="status-text ${statusClass} u-font-medium">${statusIcon} ${statusText}</span></p>
+                        <p><strong>Started:</strong> ${data.started_at || 'N/A'}</p>
+                        <p><strong>Completed:</strong> ${data.completed_at || 'Still running'}</p>
+                    </div>
+                `;
+
+                if (data.output) {
+                    html += `
+                        <div class="u-mt-2">
+                            <h4 class="u-mb-1">Output:</h4>
+                            <pre class="code-block u-text-small" style="max-height: 400px; overflow-x: auto;">${data.output}</pre>
+                        </div>
+                    `;
+                }
+
+                if (data.error) {
+                    html += `
+                        <div class="u-mt-2">
+                            <h4 class="u-mb-1 u-text-danger">Error:</h4>
+                            <pre class="code-block code-block--error u-text-small" style="max-height: 400px; overflow-x: auto;">${data.error}</pre>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('jobModalContent').innerHTML = html;
+
+                // Re-initialize Lucide icons after DOM update
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            })
+            .catch(error => {
+                document.getElementById('jobModalContent').innerHTML = `<p class="status-text status-text--error">Error loading job details: ${error.message}</p>`;
+            });
+        }
+
+        function closeJobModal() {
+            document.getElementById('jobModal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('jobModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeJobModal();
+            }
+        });
+
+        function updateElapsedTime() {
+            if (!startTime) return;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('sync-elapsed').textContent =
+                `Elapsed: ${minutes}m ${seconds}s`;
+        }
+
+        function pollJobStatus(jobId, buttonId, buttonLabel) {
+            const basePath = window.location.pathname.startsWith('/codex/') ? '/codex' : '';
+            fetch(`${basePath}/sync/status/${jobId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = document.getElementById('sync-status');
+                const output = document.getElementById('sync-output');
+
+                // Update status
+                status.className = ''; // Clear existing classes
+                if (data.status === 'running') {
+                    status.innerHTML = `<i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i> Syncing ${data.script}... (${data.status})`;
+                    status.classList.add('status-text', 'status-text--info', 'u-font-medium');
+                } else if (data.status === 'completed') {
+                    status.innerHTML = data.success
+                        ? `<i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync completed successfully!`
+                        : `<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync completed with errors`;
+                    status.classList.add('status-text', 'u-font-medium',
+                        data.success ? 'status-text--success' : 'status-text--error');
+                } else if (data.status === 'failed') {
+                    status.innerHTML = `<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync failed`;
+                    status.classList.add('status-text', 'status-text--error', 'u-font-medium');
+                }
+
+                // Re-initialize Lucide icons after DOM update
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+
+                // Update output
+                if (data.output) {
+                    output.textContent = data.output;
+                    output.scrollTop = output.scrollHeight;
+                }
+                if (data.error) {
+                    output.textContent += '\n\nERROR:\n' + data.error;
+                    output.scrollTop = output.scrollHeight;
+                }
+
+                // Update elapsed time
+                updateElapsedTime();
+
+                // If done, stop polling
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                    currentJobId = null;
+
+                    const btn = document.getElementById(buttonId);
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = buttonLabel;
+
+                    // Reload page after 3 seconds to show updated history
+                    setTimeout(() => location.reload(), 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Poll error:', error);
+            });
+        }
+
+        function startSync(url, buttonId, buttonLabel, syncName) {
+            const btn = document.getElementById(buttonId);
+            const status = document.getElementById('sync-status');
+            const output = document.getElementById('sync-output');
+
+            btn.disabled = true;
+            btn.querySelector('.btn__label').textContent = 'Starting...';
+
+            showSyncProgress();
+            status.textContent = `Starting ${syncName} sync...`;
+            status.className = 'u-text-secondary';
+            output.textContent = 'Initializing...\n';
+            startTime = Date.now();
+
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.job_id) {
+                    currentJobId = data.job_id;
+                    output.textContent += `Job ID: ${data.job_id}\n`;
+                    output.textContent += `Sync started at ${new Date().toLocaleTimeString()}\n\n`;
+
+                    // Start polling every 2 seconds
+                    pollInterval = setInterval(() => {
+                        pollJobStatus(data.job_id, buttonId, buttonLabel);
+                    }, 2000);
+
+                    // Do first poll immediately
+                    pollJobStatus(data.job_id, buttonId, buttonLabel);
+                } else {
+                    status.innerHTML = '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Failed to start sync: ' + (data.error || 'Unknown error');
+                    status.className = 'status-text status-text--error';
+                    btn.disabled = false;
+                    btn.querySelector('.btn__label').textContent = buttonLabel;
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }
+            })
+            .catch(error => {
+                status.innerHTML = '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Error: ' + error.message;
+                status.className = 'status-text status-text--error';
+                btn.disabled = false;
+                btn.querySelector('.btn__label').textContent = buttonLabel;
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
         }
 
         function syncFreshservice() {
-            const btn = document.getElementById('sync-fs-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Starting...';
-            status.textContent = 'Starting Freshservice sync in background...';
-            status.style.color = 'black';
-
-            fetch('{{ url_for("sync_freshservice") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.job_id) {
-                    status.textContent = '✓ Freshservice sync started! Monitoring progress...';
-                    status.style.color = 'green';
-                    pollJobStatus(data.job_id, btn, 'Sync Freshservice', 'Freshservice sync');
-                } else {
-                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
-                    status.style.color = 'red';
-                    btn.disabled = false;
-                    btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
-                }
-            })
-            .catch(error => {
-                status.textContent = '✗ Error: ' + error.message;
-                status.style.color = 'red';
-                btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = 'Sync Freshservice';
-            });
+            startSync(
+                '{{ url_for("sync_freshservice") }}',
+                'sync-fs-btn',
+                'Sync Freshservice',
+                'Freshservice'
+            );
         }
 
         function syncDatto() {
-            const btn = document.getElementById('sync-datto-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Starting...';
-            status.textContent = 'Starting Datto RMM sync in background...';
-            status.style.color = 'black';
-
-            fetch('{{ url_for("sync_datto") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.job_id) {
-                    status.textContent = '✓ Datto RMM sync started! Monitoring progress...';
-                    status.style.color = 'green';
-                    pollJobStatus(data.job_id, btn, 'Sync Datto RMM', 'Datto RMM sync');
-                } else {
-                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
-                    status.style.color = 'red';
-                    btn.disabled = false;
-                    btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
-                }
-            })
-            .catch(error => {
-                status.textContent = '✗ Error: ' + error.message;
-                status.style.color = 'red';
-                btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = 'Sync Datto RMM';
-            });
+            startSync(
+                '{{ url_for("sync_datto") }}',
+                'sync-datto-btn',
+                'Sync Datto RMM',
+                'Datto RMM'
+            );
         }
 
         function syncTickets() {
-            const btn = document.getElementById('sync-tickets-btn');
-            const status = document.getElementById('sync-status');
-            btn.disabled = true;
-            btn.querySelector('.btn__label').textContent = 'Starting...';
-            status.textContent = 'Starting ticket sync in background...';
-            status.style.color = 'black';
-
-            fetch('{{ url_for("sync_tickets") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.job_id) {
-                    status.textContent = '✓ Ticket sync started! Monitoring progress... (this may take up to 2 hours)';
-                    status.style.color = 'green';
-                    pollJobStatus(data.job_id, btn, 'Sync Tickets', 'Ticket sync', true);
-                } else {
-                    status.textContent = '✗ Failed to start sync: ' + (data.error || 'Unknown error');
-                    status.style.color = 'red';
-                    btn.disabled = false;
-                    btn.querySelector('.btn__label').textContent = 'Sync Tickets';
-                }
-            })
-            .catch(error => {
-                status.textContent = '✗ Error: ' + error.message;
-                status.style.color = 'red';
-                btn.disabled = false;
-                btn.querySelector('.btn__label').textContent = 'Sync Tickets';
-            });
+            startSync(
+                '{{ url_for("sync_tickets") }}',
+                'sync-tickets-btn',
+                'Sync Tickets',
+                'Tickets'
+            );
         }
+
+        function createAccountNumbers() {
+            startSync(
+                '{{ url_for("sync_create_account_numbers") }}',
+                'create-acct-btn',
+                'Create Account Numbers',
+                'Account Numbers'
+            );
+        }
+
+        function pushToDatto() {
+            startSync(
+                '{{ url_for("sync_push_to_datto") }}',
+                'push-datto-btn',
+                'Push to Datto RMM',
+                'Push to Datto'
+            );
+        }
+
+        async function syncAgents() {
+            const btn = document.getElementById('sync-agents-btn');
+            const originalText = 'Sync Agents';
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="btn__label"><i data-lucide="loader" class="btn__icon"></i> Syncing...</span>';
+            lucide.createIcons();
+
+            try {
+                const basePath = window.location.pathname.startsWith('/codex/') ? '/codex' : '';
+                const response = await fetch(`${basePath}/api/agents/sync`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`Agent Sync Complete!\n\nSynced: ${result.synced}\nCreated: ${result.created}\nUpdated: ${result.updated}`);
+                } else {
+                    alert('Sync failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="btn__label"><i data-lucide="users-2" class="btn__icon"></i> ' + originalText + '</span>';
+                lucide.createIcons();
+            }
+        }
+
+        // Update elapsed time every second
+        setInterval(updateElapsedTime, 1000);
+
+        // Initialize Lucide icons
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        // Clear any orphaned intervals on page load
+        window.addEventListener('beforeunload', () => {
+            if (pollInterval) clearInterval(pollInterval);
+        });
     </script>
 </body>
 </html>

@@ -17,8 +17,13 @@ def list_contacts():
     sort_by = request.args.get('sort_by', 'name')
     order = request.args.get('order', 'asc')
     search_query = request.args.get('search', '').strip()
+    show_inactive = request.args.get('show_inactive', '0') == '1'
 
     query = Contact.query
+
+    # Hide inactive contacts by default
+    if not show_inactive:
+        query = query.filter(Contact.active == True)
 
     # Apply search filter
     if search_query:
@@ -48,7 +53,8 @@ def list_contacts():
                          sort_by=sort_by,
                          order=order,
                          per_page=per_page,
-                         search_query=search_query)
+                         search_query=search_query,
+                         show_inactive=show_inactive)
 
 @contacts_bp.route('/<int:contact_id>')
 @token_required

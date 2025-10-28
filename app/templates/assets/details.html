@@ -4,25 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ asset.hostname }} - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">{{ asset.hostname }}</h1>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('assets.list_assets') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Assets
+                    </span>
+                </button>
+            </div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="card__body">
+                {% for category, message in messages %}
+                    <div class="alert alert--{{ 'success' if category == 'success' else 'error' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Device Information</h2>
+            {% if asset.web_remote_url %}
+            <div class="card__header-actions">
+                <a href="{{ asset.web_remote_url }}" target="_blank">
+                    <button class="btn btn--primary btn--small">
+                        <span class="btn__label">
+                            <i data-lucide="monitor" class="btn__icon"></i>
+                            Remote Access
+                        </span>
+                    </button>
+                </a>
+            </div>
+            {% endif %}
         </div>
         <div class="card__body">
-            <!-- Flash Messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert--{{ category }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <h2>Device Information</h2>
             <div class="info-grid">
                 <div class="info-item">
                     <span class="info-item__label">Company:</span>
@@ -48,9 +74,15 @@
                     <span class="info-item__label">Status:</span>
                     <span class="info-item__value">
                         {% if asset.online %}
-                            <span class="badge badge--success">✓ Online</span>
+                            <span class="badge badge--success" style="color: var(--color-success);">
+                                <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                Online
+                            </span>
                         {% else %}
-                            <span class="badge badge--danger">✗ Offline</span>
+                            <span class="badge badge--danger" style="color: var(--color-danger);">
+                                <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                Offline
+                            </span>
                         {% endif %}
                     </span>
                 </div>
@@ -75,21 +107,17 @@
                     <span class="info-item__value">{{ asset.last_logged_in_user or 'N/A' }}</span>
                 </div>
             </div>
+        </div>
+    </div>
 
-            {% if asset.web_remote_url %}
-            <div class="section-actions">
-                <a href="{{ asset.web_remote_url }}" target="_blank">
-                    <button class="btn btn--primary">
-                        <span class="btn__label">🖥️ Remote Access</span>
-                    </button>
-                </a>
-            </div>
-            {% endif %}
-
-            <!-- User Assignment Section -->
-            <div class="section-divider"></div>
-            <h2>Assigned Users ({{ asset.contacts|length }})</h2>
-
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="users" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                Assigned Users ({{ asset.contacts|length }})
+            </h2>
+        </div>
+        <div class="card__body">
             {% if asset.contacts %}
             <div class="user-list">
                 {% for contact in asset.contacts %}
@@ -102,7 +130,10 @@
                     </div>
                     <form method="POST" action="{{ url_for('assets.unassign_user', asset_id=asset.id, contact_id=contact.id) }}" class="user-item__action">
                         <button type="submit" class="btn btn--danger btn--small" onclick="return confirm('Remove {{ contact.name }} from this device?')">
-                            <span class="btn__label">Remove</span>
+                            <span class="btn__label">
+                                <i data-lucide="user-minus" class="btn__icon"></i>
+                                Remove
+                            </span>
                         </button>
                     </form>
                 </div>
@@ -112,39 +143,38 @@
             <p class="empty-state">No users assigned to this device.</p>
             {% endif %}
 
-            <!-- Assign New User Form -->
             {% if available_contacts %}
-            <div class="assign-user-form">
-                <h3>Assign New User</h3>
-                <form method="POST" action="{{ url_for('assets.assign_user', asset_id=asset.id) }}" class="form-inline">
-                    <div class="form-inline__controls">
-                        <select name="contact_id" class="form-inline__select" required>
-                            <option value="">Select a user...</option>
-                            {% for contact in available_contacts %}
-                                {% if contact not in asset.contacts %}
-                                <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.email }})</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn--primary">
-                            <span class="btn__label">Assign User</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            {% else %}
-            <p class="info-message">No additional users available from {{ asset.company.name if asset.company else 'this company' }}.</p>
-            {% endif %}
-
-            <!-- Back Button -->
-            <div class="action-footer">
-                <a href="{{ url_for('assets.list_assets') }}">
-                    <button class="btn">
-                        <span class="btn__label">← Back to Assets</span>
+            <div class="section-divider"></div>
+            <h3 class="u-mt-2 u-mb-1">Assign New User</h3>
+            <form method="POST" action="{{ url_for('assets.assign_user', asset_id=asset.id) }}" class="form-inline">
+                <div class="form-inline__controls">
+                    <select name="contact_id" class="form-inline__select" required>
+                        <option value="">Select a user...</option>
+                        {% for contact in available_contacts %}
+                            {% if contact not in asset.contacts %}
+                            <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.email }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn--primary">
+                        <span class="btn__label">
+                            <i data-lucide="user-plus" class="btn__icon"></i>
+                            Assign User
+                        </span>
                     </button>
-                </a>
-            </div>
+                </div>
+            </form>
+            {% else %}
+            <div class="section-divider"></div>
+            <p class="u-text-secondary u-mt-2">No additional users available from {{ asset.company.name if asset.company else 'this company' }}.</p>
+            {% endif %}
         </div>
     </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
 </body>
 </html>

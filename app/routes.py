@@ -21,15 +21,11 @@ def index():
     contact_count = Contact.query.count()
     asset_count = Asset.query.count()
 
-    # Get recent sync jobs for visibility
-    recent_jobs = SyncJob.query.order_by(SyncJob.started_at.desc()).limit(10).all()
-
     return render_template('dashboard.html',
                          user=g.user,
                          company_count=company_count,
                          contact_count=contact_count,
-                         asset_count=asset_count,
-                         recent_jobs=recent_jobs)
+                         asset_count=asset_count)
 
 def run_sync_script(job_id, script_path, follow_up_script=None):
     """Run sync script in background and update job status in database."""

@@ -2,52 +2,103 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ contact.name }} - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">{{ contact.name }}</h1>
-        </div>
-        <div class="card__body">
-            <p><strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
-            <p><strong>Title:</strong> {{ contact.title or 'N/A' }}</p>
-            <p><strong>Active:</strong> {{ 'Yes' if contact.active else 'No' }}</p>
-            <p><strong>Mobile:</strong> {{ contact.mobile_phone_number or 'N/A' }}</p>
-            <p><strong>Work Phone:</strong> {{ contact.work_phone_number or 'N/A' }}</p>
-            
-            <h3>Companies ({{ contact.companies|length }})</h3>
-            <ul>
-                {% for company in contact.companies %}
-                <li>
-                    <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
-                        {{ company.name }}
-                    </a>
-                </li>
-                {% else %}
-                <li>No companies associated</li>
-                {% endfor %}
-            </ul>
-            
-            <h3>Assets ({{ contact.assets|length }})</h3>
-            <ul>
-                {% for asset in contact.assets %}
-                <li>
-                    <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
-                        {{ asset.hostname }}
-                    </a>
-                </li>
-                {% else %}
-                <li>No assets associated</li>
-                {% endfor %}
-            </ul>
-            
-            <a href="{{ url_for('contacts.list_contacts') }}">
-                <button class="btn">
-                    <span class="btn__label">Back to Contacts</span>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('contacts.list_contacts') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Contacts
+                    </span>
                 </button>
-            </a>
+            </div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Contact Information</h2>
+        </div>
+        <div class="card__body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                <div>
+                    <p class="u-mb-1"><strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
+                    <p class="u-mb-1"><strong>Title:</strong> {{ contact.title or 'N/A' }}</p>
+                    <p class="u-mb-1">
+                        <strong>Status:</strong>
+                        {% if contact.active %}
+                        <span class="badge badge--success">Active</span>
+                        {% else %}
+                        <span class="badge badge--danger">Inactive</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <p class="u-mb-1"><strong>Mobile:</strong> {{ contact.mobile_phone_number or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>Work Phone:</strong> {{ contact.work_phone_number or 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="building-2" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                Companies ({{ contact.companies|length }})
+            </h2>
+        </div>
+        <div class="card__body">
+            {% if contact.companies %}
+                <ul class="u-pl-2">
+                    {% for company in contact.companies %}
+                    <li>
+                        <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                            {{ company.name }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">No companies associated</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="hard-drive" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                Assets ({{ contact.assets|length }})
+            </h2>
+        </div>
+        <div class="card__body">
+            {% if contact.assets %}
+                <ul class="u-pl-2">
+                    {% for asset in contact.assets %}
+                    <li>
+                        <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                            {{ asset.hostname }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">No assets associated</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
 </body>
 </html>

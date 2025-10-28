@@ -4,20 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agents - Codex</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">Agent Management</h1>
-            <p>Manage system users from Keycloak with Codex-specific settings</p>
+            <div class="card__header-actions">
+                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('index') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="arrow-left" class="btn__icon"></i>
+                        Back to Dashboard
+                    </span>
+                </button>
+            </div>
         </div>
         <div class="card__body">
-            <div style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem;">
+            <p class="u-text-secondary u-mb-2">Manage system users from Keycloak with Codex-specific settings</p>
+            <div class="u-flex u-flex-gap u-flex-wrap u-mb-2">
                 <button class="btn btn--primary" onclick="syncAgents()">
-                    <span class="btn__label">🔄 Sync from Keycloak</span>
+                    <span class="btn__label">
+                        <i data-lucide="refresh-cw" class="btn__icon"></i>
+                        Sync from Keycloak
+                    </span>
                 </button>
                 <button class="btn btn--primary" onclick="showCreateAgentModal()">
-                    <span class="btn__label">➕ Create New Agent</span>
+                    <span class="btn__label">
+                        <i data-lucide="user-plus" class="btn__icon"></i>
+                        Create New Agent
+                    </span>
                 </button>
             </div>
 
@@ -35,14 +50,13 @@
         </div>
     </div>
 
-    <!-- Create Agent Modal -->
-    <div id="createAgentModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Create New Agent in Keycloak</h2>
-                <span class="modal-close" onclick="hideCreateAgentModal()">&times;</span>
+    <div id="createAgentModal" class="modal">
+        <div class="modal__dialog">
+            <div class="modal__header">
+                <h2 class="modal__title">Create New Agent in Keycloak</h2>
+                <button class="modal__close" onclick="hideCreateAgentModal()">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal__body">
                 <form id="createAgentForm" onsubmit="event.preventDefault(); createAgent(); return false;">
                     <div class="form-group">
                         <label>Username *</label>
@@ -96,21 +110,30 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button class="btn" onclick="hideCreateAgentModal()">Cancel</button>
-                <button class="btn btn--primary" onclick="createAgent()">Create Agent</button>
+            <div class="modal__footer">
+                <button class="btn" onclick="hideCreateAgentModal()">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                <button class="btn btn--primary" onclick="createAgent()">
+                    <span class="btn__label">
+                        <i data-lucide="user-plus" class="btn__icon"></i>
+                        Create Agent
+                    </span>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Edit Agent Modal -->
-    <div id="editAgentModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Agent</h2>
-                <span class="modal-close" onclick="hideEditAgentModal()">&times;</span>
+    <div id="editAgentModal" class="modal">
+        <div class="modal__dialog">
+            <div class="modal__header">
+                <h2 class="modal__title">Edit Agent</h2>
+                <button class="modal__close" onclick="hideEditAgentModal()">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal__body">
                 <form id="editAgentForm">
                     <input type="hidden" id="edit-keycloak-id">
                     <div class="form-group">
@@ -161,23 +184,42 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn--danger" onclick="deleteAgent()">Delete Agent</button>
-                <button class="btn btn--warning" onclick="showResetPasswordModal()">Reset Password</button>
-                <button class="btn" onclick="hideEditAgentModal()">Cancel</button>
-                <button class="btn btn--primary" onclick="updateAgent()">Save Changes</button>
+            <div class="modal__footer">
+                <button class="btn btn--danger" onclick="deleteAgent()">
+                    <span class="btn__label">
+                        <i data-lucide="trash-2" class="btn__icon"></i>
+                        Delete Agent
+                    </span>
+                </button>
+                <button class="btn btn--warning" onclick="showResetPasswordModal()">
+                    <span class="btn__label">
+                        <i data-lucide="key" class="btn__icon"></i>
+                        Reset Password
+                    </span>
+                </button>
+                <button class="btn" onclick="hideEditAgentModal()">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                <button class="btn btn--primary" onclick="updateAgent()">
+                    <span class="btn__label">
+                        <i data-lucide="save" class="btn__icon"></i>
+                        Save Changes
+                    </span>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Reset Password Modal -->
-    <div id="resetPasswordModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Reset Password</h2>
-                <span class="modal-close" onclick="hideResetPasswordModal()">&times;</span>
+    <div id="resetPasswordModal" class="modal">
+        <div class="modal__dialog">
+            <div class="modal__header">
+                <h2 class="modal__title">Reset Password</h2>
+                <button class="modal__close" onclick="hideResetPasswordModal()">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal__body">
                 <p>Resetting password for: <strong id="reset-username"></strong></p>
                 <form onsubmit="event.preventDefault(); resetPassword(); return false;">
                     <div class="form-group">
@@ -196,73 +238,24 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button class="btn" onclick="hideResetPasswordModal()">Cancel</button>
-                <button class="btn btn--primary" onclick="resetPassword()">Reset Password</button>
+            <div class="modal__footer">
+                <button class="btn" onclick="hideResetPasswordModal()">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                <button class="btn btn--primary" onclick="resetPassword()">
+                    <span class="btn__label">
+                        <i data-lucide="key" class="btn__icon"></i>
+                        Reset Password
+                    </span>
+                </button>
             </div>
         </div>
     </div>
 
     <style>
-        .modal {
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: var(--color-surface);
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow-lg);
-        }
-
-        .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--color-border-light);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            margin: 0;
-            color: var(--color-primary);
-        }
-
-        .modal-close {
-            font-size: 2rem;
-            cursor: pointer;
-            color: var(--color-text-muted);
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--color-text-primary);
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--color-border-light);
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-        }
-
         .form-group {
             margin-bottom: 1rem;
         }
@@ -324,15 +317,6 @@
         .agent-card__info-item strong {
             color: var(--color-text-primary);
         }
-
-        .btn--warning {
-            background: var(--color-warning);
-            color: #000000;
-        }
-
-        .btn--warning:hover {
-            opacity: 0.9;
-        }
     </style>
 
     <script>
@@ -381,10 +365,12 @@
                 card.className = 'agent-card';
                 card.onclick = () => editAgent(agent.keycloak_id);
 
-                const themeIcon = agent.theme_preference === 'dark' ? '🌙' : '☀️';
+                const themeIcon = agent.theme_preference === 'dark'
+                    ? '<i data-lucide="moon" style="width: 14px; height: 14px; vertical-align: middle;"></i>'
+                    : '<i data-lucide="sun" style="width: 14px; height: 14px; vertical-align: middle;"></i>';
                 const statusBadge = agent.enabled
-                    ? '<span class="badge badge--success">Enabled</span>'
-                    : '<span class="badge badge--danger">Disabled</span>';
+                    ? '<span class="badge badge--success" style="color: var(--color-success);"><i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i> Enabled</span>'
+                    : '<span class="badge badge--danger" style="color: var(--color-danger);"><i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Disabled</span>';
 
                 card.innerHTML = `
                     <div class="agent-card__header">
@@ -409,6 +395,11 @@
 
                 container.appendChild(card);
             });
+
+            // Re-initialize Lucide icons after creating cards
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         }
 
         async function syncAgents() {
@@ -442,11 +433,14 @@
         }
 
         function showCreateAgentModal() {
-            document.getElementById('createAgentModal').style.display = 'flex';
+            document.getElementById('createAgentModal').classList.add('active');
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         }
 
         function hideCreateAgentModal() {
-            document.getElementById('createAgentModal').style.display = 'none';
+            document.getElementById('createAgentModal').classList.remove('active');
             document.getElementById('createAgentForm').reset();
         }
 
@@ -573,14 +567,17 @@
                     console.error('Error loading groups:', groupError);
                 }
 
-                document.getElementById('editAgentModal').style.display = 'flex';
+                document.getElementById('editAgentModal').classList.add('active');
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
             } catch (error) {
                 alert('Error loading agent: ' + error.message);
             }
         }
 
         function hideEditAgentModal() {
-            document.getElementById('editAgentModal').style.display = 'none';
+            document.getElementById('editAgentModal').classList.remove('active');
             currentKeycloakId = null;
         }
 
@@ -670,15 +667,18 @@
         function showResetPasswordModal() {
             const username = document.getElementById('edit-username').value;
             document.getElementById('reset-username').textContent = username;
-            document.getElementById('editAgentModal').style.display = 'none';
-            document.getElementById('resetPasswordModal').style.display = 'flex';
+            document.getElementById('editAgentModal').classList.remove('active');
+            document.getElementById('resetPasswordModal').classList.add('active');
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         }
 
         function hideResetPasswordModal() {
-            document.getElementById('resetPasswordModal').style.display = 'none';
+            document.getElementById('resetPasswordModal').classList.remove('active');
             document.getElementById('new-password').value = '';
             document.getElementById('confirm-password').value = '';
-            document.getElementById('editAgentModal').style.display = 'flex';
+            document.getElementById('editAgentModal').classList.add('active');
         }
 
         async function resetPassword() {
@@ -719,8 +719,24 @@
             }
         }
 
+        // Close modals when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                if (e.target.id === 'createAgentModal') {
+                    hideCreateAgentModal();
+                } else if (e.target.id === 'editAgentModal') {
+                    hideEditAgentModal();
+                } else if (e.target.id === 'resetPasswordModal') {
+                    hideResetPasswordModal();
+                }
+            }
+        });
+
         // Load agents on page load
-        window.addEventListener('DOMContentLoaded', loadAgents);
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAgents();
+            lucide.createIcons();
+        });
     </script>
 </body>
 </html>

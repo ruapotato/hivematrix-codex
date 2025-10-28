@@ -5,6 +5,9 @@ import secrets
 
 app = Flask(__name__, instance_relative_config=True)
 
+# Enable template auto-reload for development
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
 # Set secret key for sessions (generate a random one if not set)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
