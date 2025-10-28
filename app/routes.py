@@ -919,6 +919,112 @@ def get_billing_plan(plan_id):
     })
 
 
+@app.route('/api/billing-plans', methods=['POST'])
+@token_required
+def create_billing_plan():
+    """Create a new billing plan"""
+    data = request.get_json()
+
+    # Validate required fields
+    if not data.get('plan_name') or not data.get('term_length'):
+        return jsonify({'error': 'plan_name and term_length are required'}), 400
+
+    # Check if plan already exists
+    existing = BillingPlan.query.filter_by(
+        plan_name=data['plan_name'],
+        term_length=data['term_length']
+    ).first()
+
+    if existing:
+        return jsonify({'error': 'Plan with this name and term already exists'}), 409
+
+    # Create new plan
+    plan = BillingPlan(
+        plan_name=data['plan_name'],
+        term_length=data['term_length'],
+        per_user_cost=data.get('per_user_cost', 0.0),
+        per_workstation_cost=data.get('per_workstation_cost', 0.0),
+        per_server_cost=data.get('per_server_cost', 0.0),
+        per_vm_cost=data.get('per_vm_cost', 0.0),
+        per_switch_cost=data.get('per_switch_cost', 0.0),
+        per_firewall_cost=data.get('per_firewall_cost', 0.0),
+        per_hour_ticket_cost=data.get('per_hour_ticket_cost', 0.0),
+        backup_base_fee_workstation=data.get('backup_base_fee_workstation', 0.0),
+        backup_base_fee_server=data.get('backup_base_fee_server', 0.0),
+        backup_cost_per_gb_workstation=data.get('backup_cost_per_gb_workstation', 0.0),
+        backup_cost_per_gb_server=data.get('backup_cost_per_gb_server', 0.0),
+        support_level=data.get('support_level', 'Billed Hourly'),
+        antivirus=data.get('antivirus', 'Not Included'),
+        soc=data.get('soc', 'Not Included'),
+        password_manager=data.get('password_manager', 'Not Included'),
+        sat=data.get('sat', 'Not Included'),
+        email_security=data.get('email_security', 'Not Included'),
+        network_management=data.get('network_management', 'Not Included')
+    )
+
+    db.session.add(plan)
+    db.session.commit()
+
+    return jsonify({'id': plan.id, 'message': 'Billing plan created'}), 201
+
+
+@app.route('/api/billing-plans/<int:plan_id>', methods=['PUT'])
+@token_required
+def update_billing_plan(plan_id):
+    """Update an existing billing plan"""
+    plan = BillingPlan.query.get(plan_id)
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+
+    data = request.get_json()
+
+    # Update fields
+    if 'plan_name' in data:
+        plan.plan_name = data['plan_name']
+    if 'term_length' in data:
+        plan.term_length = data['term_length']
+    if 'per_user_cost' in data:
+        plan.per_user_cost = data['per_user_cost']
+    if 'per_workstation_cost' in data:
+        plan.per_workstation_cost = data['per_workstation_cost']
+    if 'per_server_cost' in data:
+        plan.per_server_cost = data['per_server_cost']
+    if 'per_vm_cost' in data:
+        plan.per_vm_cost = data['per_vm_cost']
+    if 'per_switch_cost' in data:
+        plan.per_switch_cost = data['per_switch_cost']
+    if 'per_firewall_cost' in data:
+        plan.per_firewall_cost = data['per_firewall_cost']
+    if 'per_hour_ticket_cost' in data:
+        plan.per_hour_ticket_cost = data['per_hour_ticket_cost']
+    if 'backup_base_fee_workstation' in data:
+        plan.backup_base_fee_workstation = data['backup_base_fee_workstation']
+    if 'backup_base_fee_server' in data:
+        plan.backup_base_fee_server = data['backup_base_fee_server']
+    if 'backup_cost_per_gb_workstation' in data:
+        plan.backup_cost_per_gb_workstation = data['backup_cost_per_gb_workstation']
+    if 'backup_cost_per_gb_server' in data:
+        plan.backup_cost_per_gb_server = data['backup_cost_per_gb_server']
+    if 'support_level' in data:
+        plan.support_level = data['support_level']
+    if 'antivirus' in data:
+        plan.antivirus = data['antivirus']
+    if 'soc' in data:
+        plan.soc = data['soc']
+    if 'password_manager' in data:
+        plan.password_manager = data['password_manager']
+    if 'sat' in data:
+        plan.sat = data['sat']
+    if 'email_security' in data:
+        plan.email_security = data['email_security']
+    if 'network_management' in data:
+        plan.network_management = data['network_management']
+
+    db.session.commit()
+
+    return jsonify({'id': plan.id, 'message': 'Billing plan updated'}), 200
+
+
 @app.route('/api/feature-options', methods=['GET'])
 @token_required
 def get_feature_options():
@@ -937,3 +1043,34 @@ def get_feature_options():
         'feature_category': f.feature_category,
         'option_value': f.option_value
     } for f in features])
+
+
+@app.route('/api/feature-options', methods=['POST'])
+@token_required
+def create_feature_option():
+    """Create a new feature option"""
+    data = request.get_json()
+
+    # Validate required fields
+    if not data.get('feature_type') or not data.get('value'):
+        return jsonify({'error': 'feature_type and value are required'}), 400
+
+    # Check if feature already exists
+    existing = FeatureOption.query.filter_by(
+        feature_category=data['feature_type'],
+        option_value=data['value']
+    ).first()
+
+    if existing:
+        return jsonify({'message': 'Feature already exists', 'id': existing.id}), 200
+
+    # Create new feature
+    feature = FeatureOption(
+        feature_category=data['feature_type'],
+        option_value=data['value']
+    )
+
+    db.session.add(feature)
+    db.session.commit()
+
+    return jsonify({'id': feature.id, 'message': 'Feature option created'}), 201
