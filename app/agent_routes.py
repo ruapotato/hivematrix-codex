@@ -288,8 +288,8 @@ def update_my_settings():
     # Update KnowledgeTree view preference
     if 'knowledgetree_view_preference' in data:
         view = data['knowledgetree_view_preference']
-        if view not in ['grid', 'tree']:
-            return {'error': 'Invalid view preference. Must be "grid" or "tree"'}, 400
+        if view not in ['grid', 'tree', 'hierarchy']:
+            return {'error': 'Invalid view preference. Must be "grid", "tree", or "hierarchy"'}, 400
         agent.knowledgetree_view_preference = view
 
     agent.updated_at = datetime.utcnow().isoformat()

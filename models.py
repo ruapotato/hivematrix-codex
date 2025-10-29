@@ -268,7 +268,7 @@ class Agent(db.Model):
 
     # User settings - stored in Codex, not Keycloak
     theme_preference = db.Column(db.String(20), default='light')  # 'light' or 'dark'
-    knowledgetree_view_preference = db.Column(db.String(20), default='grid')  # 'grid' or 'tree'
+    knowledgetree_view_preference = db.Column(db.String(20), default='grid')  # 'grid', 'tree', or 'hierarchy'
 
     # Metadata
     created_at = db.Column(db.String(100))  # ISO timestamp
