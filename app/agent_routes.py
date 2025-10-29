@@ -241,11 +241,13 @@ def get_my_settings():
         # Agent not yet synced, return defaults
         return jsonify({
             'theme_preference': 'light',
+            'knowledgetree_view_preference': 'grid',
             'synced': False
         })
 
     return jsonify({
         'theme_preference': agent.theme_preference,
+        'knowledgetree_view_preference': agent.knowledgetree_view_preference,
         'username': agent.username,
         'email': agent.email,
         'synced': True
@@ -283,6 +285,13 @@ def update_my_settings():
             return {'error': 'Invalid theme. Must be "light" or "dark"'}, 400
         agent.theme_preference = theme
 
+    # Update KnowledgeTree view preference
+    if 'knowledgetree_view_preference' in data:
+        view = data['knowledgetree_view_preference']
+        if view not in ['grid', 'tree']:
+            return {'error': 'Invalid view preference. Must be "grid" or "tree"'}, 400
+        agent.knowledgetree_view_preference = view
+
     agent.updated_at = datetime.utcnow().isoformat()
 
     try:
@@ -290,7 +299,8 @@ def update_my_settings():
         return jsonify({
             'success': True,
             'message': 'Settings updated successfully',
-            'theme_preference': agent.theme_preference
+            'theme_preference': agent.theme_preference,
+            'knowledgetree_view_preference': agent.knowledgetree_view_preference
         })
     except Exception as e:
         db.session.rollback()
