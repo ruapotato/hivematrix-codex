@@ -1,6 +1,13 @@
 # HiveMatrix Codex
 
-Code generation and documentation service for HiveMatrix.
+Central data hub for HiveMatrix - the API aggregation point for company information, contacts, assets, and user preferences.
+
+Codex serves as the "rolodex" of the platform, storing:
+- Company and contact information
+- Asset and equipment inventory
+- User settings (themes, preferences)
+- Network equipment details
+- Integration data from third-party systems (Freshservice, Datto RMM)
 
 ## Documentation
 
