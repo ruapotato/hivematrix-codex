@@ -17,4 +17,4 @@ For installation, configuration, and architecture documentation, please visit:
 
 ## Quick Start
 
-This service is deployed as part of the HiveMatrix Helm chart. See the documentation link above for setup instructions.
+This service is installed and managed by HiveMatrix Helm. See the documentation link above for setup instructions.
