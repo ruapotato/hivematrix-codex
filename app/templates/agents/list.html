@@ -11,7 +11,7 @@
         <div class="card__header">
             <h1 class="card__title">Agent Management</h1>
             <div class="card__header-actions">
-                <button class="btn btn--primary" onclick="window.location.href='{{ url_for('index') }}'">
+                <button class="btn" onclick="window.location.href='{{ url_for('index') }}'">
                     <span class="btn__label">
                         <i data-lucide="arrow-left" class="btn__icon"></i>
                         Back to Dashboard
@@ -54,29 +54,31 @@
         <div class="modal__dialog">
             <div class="modal__header">
                 <h2 class="modal__title">Create New Agent in Keycloak</h2>
-                <button class="modal__close" onclick="hideCreateAgentModal()">&times;</button>
+                <button class="modal__close" onclick="hideCreateAgentModal()">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
             <div class="modal__body">
                 <form id="createAgentForm" onsubmit="event.preventDefault(); createAgent(); return false;">
                     <div class="form-group">
-                        <label>Username *</label>
-                        <input type="text" id="username" required>
+                        <label class="form-group__label">Username *</label>
+                        <input type="text" id="username" class="form-group__input" required>
                     </div>
                     <div class="form-group">
-                        <label>Email *</label>
-                        <input type="email" id="email" required>
+                        <label class="form-group__label">Email *</label>
+                        <input type="email" id="email" class="form-group__input" required>
                     </div>
                     <div class="form-group">
-                        <label>First Name</label>
-                        <input type="text" id="firstName">
+                        <label class="form-group__label">First Name</label>
+                        <input type="text" id="firstName" class="form-group__input">
                     </div>
                     <div class="form-group">
-                        <label>Last Name</label>
-                        <input type="text" id="lastName">
+                        <label class="form-group__label">Last Name</label>
+                        <input type="text" id="lastName" class="form-group__input">
                     </div>
                     <div class="form-group">
-                        <label>Password *</label>
-                        <input type="password" id="password" required minlength="8">
+                        <label class="form-group__label">Password *</label>
+                        <input type="password" id="password" class="form-group__input" required minlength="8">
                     </div>
                     <div class="form-group">
                         <label>
@@ -85,27 +87,27 @@
                         </label>
                     </div>
                     <div class="form-group">
-                        <label>Theme Preference</label>
-                        <select id="theme">
+                        <label class="form-group__label">Theme Preference</label>
+                        <select id="theme" class="form-group__input">
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Groups</label>
-                        <div style="margin-top: 0.5rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="group-admins" value="admins">
-                                Admin
-                            </label>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="group-technicians" value="technicians">
-                                Technician
-                            </label>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="group-billing" value="billing">
-                                Billing
-                            </label>
+                        <label class="form-group__label">Groups</label>
+                        <div class="u-mt-1">
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="group-admins" class="form-group__checkbox" value="admins">
+                                <label class="form-group__checkbox-label" for="group-admins">Admin</label>
+                            </div>
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="group-technicians" class="form-group__checkbox" value="technicians">
+                                <label class="form-group__checkbox-label" for="group-technicians">Technician</label>
+                            </div>
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="group-billing" class="form-group__checkbox" value="billing">
+                                <label class="form-group__checkbox-label" for="group-billing">Billing</label>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -131,30 +133,32 @@
         <div class="modal__dialog">
             <div class="modal__header">
                 <h2 class="modal__title">Edit Agent</h2>
-                <button class="modal__close" onclick="hideEditAgentModal()">&times;</button>
+                <button class="modal__close" onclick="hideEditAgentModal()">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
             <div class="modal__body">
                 <form id="editAgentForm">
                     <input type="hidden" id="edit-keycloak-id">
                     <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="edit-username" readonly>
+                        <label class="form-group__label">Username</label>
+                        <input type="text" id="edit-username" class="form-group__input" readonly>
                     </div>
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="edit-email" readonly>
+                        <label class="form-group__label">Email</label>
+                        <input type="email" id="edit-email" class="form-group__input" readonly>
                     </div>
                     <div class="form-group">
-                        <label>First Name</label>
-                        <input type="text" id="edit-firstName">
+                        <label class="form-group__label">First Name</label>
+                        <input type="text" id="edit-firstName" class="form-group__input">
                     </div>
                     <div class="form-group">
-                        <label>Last Name</label>
-                        <input type="text" id="edit-lastName">
+                        <label class="form-group__label">Last Name</label>
+                        <input type="text" id="edit-lastName" class="form-group__input">
                     </div>
                     <div class="form-group">
-                        <label>Theme Preference</label>
-                        <select id="edit-theme">
+                        <label class="form-group__label">Theme Preference</label>
+                        <select id="edit-theme" class="form-group__input">
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
                         </select>
@@ -166,32 +170,32 @@
                         </label>
                     </div>
                     <div class="form-group">
-                        <label>Groups</label>
-                        <div style="margin-top: 0.5rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="edit-group-admins" value="admins">
-                                Admin
-                            </label>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="edit-group-technicians" value="technicians">
-                                Technician
-                            </label>
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: normal;">
-                                <input type="checkbox" id="edit-group-billing" value="billing">
-                                Billing
-                            </label>
+                        <label class="form-group__label">Groups</label>
+                        <div class="u-mt-1">
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="edit-group-admins" class="form-group__checkbox" value="admins">
+                                <label class="form-group__checkbox-label" for="edit-group-admins">Admin</label>
+                            </div>
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="edit-group-technicians" class="form-group__checkbox" value="technicians">
+                                <label class="form-group__checkbox-label" for="edit-group-technicians">Technician</label>
+                            </div>
+                            <div class="form-group__checkbox-wrapper">
+                                <input type="checkbox" id="edit-group-billing" class="form-group__checkbox" value="billing">
+                                <label class="form-group__checkbox-label" for="edit-group-billing">Billing</label>
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal__footer">
-                <button class="btn btn--danger" onclick="deleteAgent()">
+                <button id="deleteAgentBtn" class="btn btn--danger" onclick="deleteAgent()">
                     <span class="btn__label">
                         <i data-lucide="trash-2" class="btn__icon"></i>
                         Delete Agent
                     </span>
                 </button>
-                <button class="btn btn--warning" onclick="showResetPasswordModal()">
+                <button class="btn" onclick="showResetPasswordModal()">
                     <span class="btn__label">
                         <i data-lucide="key" class="btn__icon"></i>
                         Reset Password
@@ -217,18 +221,20 @@
         <div class="modal__dialog">
             <div class="modal__header">
                 <h2 class="modal__title">Reset Password</h2>
-                <button class="modal__close" onclick="hideResetPasswordModal()">&times;</button>
+                <button class="modal__close" onclick="hideResetPasswordModal()">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
             <div class="modal__body">
                 <p>Resetting password for: <strong id="reset-username"></strong></p>
                 <form onsubmit="event.preventDefault(); resetPassword(); return false;">
                     <div class="form-group">
-                        <label for="new-password">New Password</label>
-                        <input type="password" id="new-password" required minlength="8">
+                        <label class="form-group__label" for="new-password">New Password</label>
+                        <input type="password" id="new-password" class="form-group__input" required minlength="8">
                     </div>
                     <div class="form-group">
-                        <label for="confirm-password">Confirm Password</label>
-                        <input type="password" id="confirm-password" required minlength="8">
+                        <label class="form-group__label" for="confirm-password">Confirm Password</label>
+                        <input type="password" id="confirm-password" class="form-group__input" required minlength="8">
                     </div>
                     <div class="form-group">
                         <label>
@@ -256,24 +262,6 @@
     </div>
 
     <style>
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: var(--color-text-secondary);
-        }
-
-        .form-group input[type="text"],
-        .form-group input[type="email"],
-        .form-group input[type="password"],
-        .form-group select {
-            width: 100%;
-        }
-
         .agent-card {
             border: 1px solid var(--color-border-light);
             border-radius: 8px;
@@ -567,6 +555,14 @@
                     console.error('Error loading groups:', groupError);
                 }
 
+                // Hide delete button if this is the admin user
+                const deleteBtn = document.getElementById('deleteAgentBtn');
+                if (agent.username.toLowerCase() === 'admin') {
+                    deleteBtn.style.display = 'none';
+                } else {
+                    deleteBtn.style.display = 'inline-block';
+                }
+
                 document.getElementById('editAgentModal').classList.add('active');
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
@@ -630,6 +626,14 @@
         }
 
         async function deleteAgent() {
+            const username = document.getElementById('edit-username').value;
+
+            // Prevent deletion of admin user
+            if (username.toLowerCase() === 'admin') {
+                alert('Cannot delete the admin user!');
+                return;
+            }
+
             if (!confirm('Are you sure you want to delete this agent from Keycloak?')) {
                 return;
             }

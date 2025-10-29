@@ -12,7 +12,7 @@
             <h1 class="card__title">Codex</h1>
         </div>
         <div class="card__body">
-            <div class="dashboard-grid">
+            <div class="dashboard-grid dashboard-grid--three-col">
                 <a href="{{ url_for('companies.list_companies') }}" class="dashboard-card">
                     <div class="dashboard-card__icon">
                         <i data-lucide="building-2"></i>
@@ -53,38 +53,28 @@
                         <p class="dashboard-card__count" id="agent-count">Loading...</p>
                     </div>
                 </a>
+
+                <a href="{{ url_for('billing_plans.list_plans') }}" class="dashboard-card">
+                    <div class="dashboard-card__icon">
+                        <i data-lucide="dollar-sign"></i>
+                    </div>
+                    <div class="dashboard-card__content">
+                        <h2 class="dashboard-card__title">Billing Plans</h2>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('admin.settings') }}" class="dashboard-card">
+                    <div class="dashboard-card__icon">
+                        <i data-lucide="settings"></i>
+                    </div>
+                    <div class="dashboard-card__content">
+                        <h2 class="dashboard-card__title">Admin Settings</h2>
+                    </div>
+                </a>
                 {% endif %}
             </div>
         </div>
     </div>
-
-    {% if user.permission_level == 'admin' %}
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">Settings</h2>
-        </div>
-        <div class="card__body">
-            <div class="u-flex u-flex-gap">
-                <a href="{{ url_for('admin.settings') }}">
-                    <button class="btn btn--primary">
-                        <span class="btn__label">
-                            <i data-lucide="settings" class="btn__icon"></i>
-                            Admin Settings
-                        </span>
-                    </button>
-                </a>
-                <a href="{{ url_for('billing_plans.list_plans') }}">
-                    <button class="btn btn--primary">
-                        <span class="btn__label">
-                            <i data-lucide="dollar-sign" class="btn__icon"></i>
-                            Billing Plans
-                        </span>
-                    </button>
-                </a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
     <script>
         async function loadAgentCount() {
