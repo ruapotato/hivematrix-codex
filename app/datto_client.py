@@ -32,8 +32,8 @@ class DattoClient:
             raise ValueError("Datto configuration not found in codex.conf")
 
         api_endpoint = config.get('datto', 'api_endpoint')
-        api_key = config.get('datto', 'api_key')
-        api_secret = config.get('datto', 'api_secret')
+        api_key = config.get('datto', 'public_key')
+        api_secret = config.get('datto', 'secret_key')
 
         if not all([api_endpoint, api_key, api_secret]):
             raise ValueError("Datto API credentials not fully configured")
