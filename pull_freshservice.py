@@ -167,25 +167,6 @@ def populate_database(companies_data, users_data):
 
             db.session.commit()
 
-            # Handle location (from address custom field)
-            if custom_fields.get('address'):
-                location = Location.query.filter_by(
-                    company_account_number=account_number_str,
-                    name="Main Office"
-                ).first()
-
-                if not location:
-                    location = Location(
-                        name="Main Office",
-                        company_account_number=account_number_str
-                    )
-                    db.session.add(location)
-
-                location.address = custom_fields.get('address')
-                location.phone_number = custom_fields.get('company_main_number')
-                db.session.commit()
-                print(f"   -> Synced 'Main Office' location for {company_data['name']}")
-
         print(" -> Finished processing companies.")
         print("\nProcessing contacts...")
 

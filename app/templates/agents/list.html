@@ -261,52 +261,6 @@
         </div>
     </div>
 
-    <style>
-        .agent-card {
-            border: 1px solid var(--color-border-light);
-            border-radius: 8px;
-            padding: 1.25rem;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: var(--color-surface);
-        }
-
-        .agent-card:hover {
-            background: var(--color-hover-bg);
-            transform: translateX(4px);
-        }
-
-        .agent-card__header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 0.75rem;
-        }
-
-        .agent-card__name {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--color-primary);
-            margin: 0;
-        }
-
-        .agent-card__info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .agent-card__info-item {
-            color: var(--color-text-secondary);
-        }
-
-        .agent-card__info-item strong {
-            color: var(--color-text-primary);
-        }
-    </style>
-
     <script>
         let allGroups = [];
         let currentKeycloakId = null;
@@ -354,11 +308,11 @@
                 card.onclick = () => editAgent(agent.keycloak_id);
 
                 const themeIcon = agent.theme_preference === 'dark'
-                    ? '<i data-lucide="moon" style="width: 14px; height: 14px; vertical-align: middle;"></i>'
-                    : '<i data-lucide="sun" style="width: 14px; height: 14px; vertical-align: middle;"></i>';
+                    ? '<i data-lucide="moon"></i>'
+                    : '<i data-lucide="sun"></i>';
                 const statusBadge = agent.enabled
-                    ? '<span class="badge badge--success" style="color: var(--color-success);"><i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i> Enabled</span>'
-                    : '<span class="badge badge--danger" style="color: var(--color-danger);"><i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Disabled</span>';
+                    ? '<span class="status-text status-text--success">Enabled</span>'
+                    : '<span class="status-text status-text--danger">Disabled</span>';
 
                 card.innerHTML = `
                     <div class="agent-card__header">
@@ -558,9 +512,9 @@
                 // Hide delete button if this is the admin user
                 const deleteBtn = document.getElementById('deleteAgentBtn');
                 if (agent.username.toLowerCase() === 'admin') {
-                    deleteBtn.style.display = 'none';
+                    deleteBtn.classList.add('u-hidden');
                 } else {
-                    deleteBtn.style.display = 'inline-block';
+                    deleteBtn.classList.remove('u-hidden');
                 }
 
                 document.getElementById('editAgentModal').classList.add('active');

@@ -21,37 +21,28 @@
         </div>
         <div class="card__body">
             <!-- Search Box -->
-            <form method="GET" action="{{ url_for('assets.list_assets') }}" class="search-form">
+            <form id="searchForm" class="search-form" onsubmit="return false;">
                 <div class="search-form__controls">
                     <input
                         type="text"
+                        id="searchInput"
                         name="search"
                         placeholder="Search by hostname, description, or company..."
                         value="{{ search_query or '' }}"
                         class="search-form__input"
                     >
-                    <button type="submit" class="btn btn--primary">
+                    <button type="button" class="btn" id="clearBtn" onclick="clearSearch()" style="display: {{ 'inline-block' if search_query else 'none' }};">
                         <span class="btn__label">
-                            <i data-lucide="search" class="btn__icon"></i>
-                            Search
+                            <i data-lucide="x" class="btn__icon"></i>
+                            Clear
                         </span>
                     </button>
-                    {% if search_query %}
-                    <a href="{{ url_for('assets.list_assets') }}">
-                        <button type="button" class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="x" class="btn__icon"></i>
-                                Clear
-                            </span>
-                        </button>
-                    </a>
-                    {% endif %}
                 </div>
             </form>
 
             <!-- Results Info -->
             <div class="results-header">
-                <p class="results-header__count">
+                <p class="results-header__count" id="resultsCount">
                     {% if search_query %}
                         Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
@@ -59,6 +50,12 @@
                     {% endif %}
                 </p>
                 <div class="results-header__controls">
+                    <button class="btn btn--small" onclick="toggleColumnChooser()">
+                        <span class="btn__label">
+                            <i data-lucide="columns" class="btn__icon"></i>
+                            Columns
+                        </span>
+                    </button>
                     <label for="per_page">Per page:</label>
                     <select id="per_page" onchange="changePerPage(this.value)">
                         <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
@@ -68,45 +65,59 @@
                 </div>
             </div>
 
+            <!-- Column Chooser -->
+            <div id="columnChooser" class="card u-mb-2" style="display: none;">
+                <div class="card__body">
+                    <h3 class="u-mb-1">Show/Hide Columns</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem;">
+                        <label>
+                            <input type="checkbox" checked disabled> Hostname
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-company" checked onchange="toggleColumn('company')"> Company
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-type" checked onchange="toggleColumn('type')"> Type
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-os" checked onchange="toggleColumn('os')"> OS
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-last_user" checked onchange="toggleColumn('last_user')"> Last User
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-status" checked onchange="toggleColumn('status')"> Status
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-remote" checked onchange="toggleColumn('remote')"> Remote Access
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Assets Table -->
             <div class="table-wrapper">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th class="sortable-header">
-                                <a href="{{ url_for('assets.list_assets', sort_by='hostname', order='desc' if sort_by == 'hostname' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
-                                    Hostname {{ '↓' if sort_by == 'hostname' and order == 'desc' else '↑' if sort_by == 'hostname' else '' }}
-                                </a>
-                            </th>
-                            <th>Company</th>
-                            <th class="sortable-header">
-                                <a href="{{ url_for('assets.list_assets', sort_by='hardware_type', order='desc' if sort_by == 'hardware_type' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
-                                    Type {{ '↓' if sort_by == 'hardware_type' and order == 'desc' else '↑' if sort_by == 'hardware_type' else '' }}
-                                </a>
-                            </th>
-                            <th class="sortable-header">
-                                <a href="{{ url_for('assets.list_assets', sort_by='operating_system', order='desc' if sort_by == 'operating_system' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
-                                    OS {{ '↓' if sort_by == 'operating_system' and order == 'desc' else '↑' if sort_by == 'operating_system' else '' }}
-                                </a>
-                            </th>
-                            <th>Last User</th>
-                            <th class="sortable-header text-center">
-                                <a href="{{ url_for('assets.list_assets', sort_by='online', order='desc' if sort_by == 'online' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}">
-                                    Status {{ '↓' if sort_by == 'online' and order == 'desc' else '↑' if sort_by == 'online' else '' }}
-                                </a>
-                            </th>
-                            <th class="text-center">Remote Access</th>
+                            <th data-column="hostname" class="sortable-header">Hostname</th>
+                            <th data-column="company">Company</th>
+                            <th data-column="type" class="sortable-header">Type</th>
+                            <th data-column="os" class="sortable-header">OS</th>
+                            <th data-column="last_user">Last User</th>
+                            <th data-column="status" class="sortable-header u-text-center">Status</th>
+                            <th data-column="remote" class="u-text-center">Remote Access</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="assetsTableBody">
                         {% for asset in assets %}
                         <tr>
-                            <td>
+                            <td data-column="hostname">
                                 <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
                                     <strong>{{ asset.hostname }}</strong>
                                 </a>
                             </td>
-                            <td>
+                            <td data-column="company">
                                 {% if asset.company %}
                                     <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
                                         {{ asset.company.name }}
@@ -115,25 +126,19 @@
                                     <span>Unassigned</span>
                                 {% endif %}
                             </td>
-                            <td>{{ asset.hardware_type or 'N/A' }}</td>
-                            <td>{{ asset.operating_system or 'N/A' }}</td>
-                            <td>
+                            <td data-column="type">{{ asset.hardware_type or 'N/A' }}</td>
+                            <td data-column="os">{{ asset.operating_system or 'N/A' }}</td>
+                            <td data-column="last_user">
                                 {{ asset.last_logged_in_user or '-' }}
                             </td>
-                            <td class="text-center">
+                            <td data-column="status" class="u-text-center">
                                 {% if asset.online %}
-                                    <span class="badge badge--success" style="color: var(--color-success);">
-                                        <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                        Online
-                                    </span>
+                                    <span class="status-text status-text--success">Online</span>
                                 {% else %}
-                                    <span class="badge badge--danger" style="color: var(--color-danger);">
-                                        <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                        Offline
-                                    </span>
+                                    <span class="status-text status-text--danger">Offline</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center">
+                            <td data-column="remote" class="u-text-center">
                                 {% if asset.web_remote_url %}
                                     <a href="{{ asset.web_remote_url }}" target="_blank">
                                         <button class="btn btn--primary btn--small">
@@ -164,65 +169,240 @@
             </div>
 
             <!-- Pagination Controls -->
-            {% if pagination.pages > 1 %}
-            <div class="pagination">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('assets.list_assets', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevrons-left" class="btn__icon"></i>
-                                First
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('assets.list_assets', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevron-left" class="btn__icon"></i>
-                                Previous
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
-
-                <span class="pagination__info">
-                    Page {{ pagination.page }} of {{ pagination.pages }}
-                </span>
-
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('assets.list_assets', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Next
-                                <i data-lucide="chevron-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('assets.list_assets', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Last
-                                <i data-lucide="chevrons-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
+            <div class="pagination" id="paginationControls" style="display: {{ 'flex' if pagination.pages > 1 else 'none' }};">
+                <!-- Pagination will be dynamically updated -->
             </div>
-            {% endif %}
         </div>
     </div>
 
     <script>
-        function changePerPage(value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('per_page', value);
-            url.searchParams.set('page', '1'); // Reset to first page
-            window.location.href = url.toString();
+        let currentPage = {{ pagination.page }};
+        let currentPerPage = {{ per_page }};
+        let currentSortBy = '{{ sort_by }}';
+        let currentOrder = '{{ order }}';
+        let currentSearch = '{{ search_query or '' }}';
+        let searchTimeout = null;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
         }
 
-        // Initialize Lucide icons
+        // Real-time search with debouncing
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentSearch = e.target.value.trim();
+                currentPage = 1;
+                loadAssets();
+                document.getElementById('clearBtn').style.display = currentSearch ? 'inline-block' : 'none';
+            }, 300);
+        });
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            currentSearch = '';
+            currentPage = 1;
+            document.getElementById('clearBtn').style.display = 'none';
+            loadAssets();
+        }
+
+        function changePerPage(value) {
+            currentPerPage = parseInt(value);
+            currentPage = 1;
+            loadAssets();
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadAssets();
+        }
+
+        async function loadAssets() {
+            const basePath = getBasePath();
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: currentPerPage,
+                sort_by: currentSortBy,
+                order: currentOrder,
+                search: currentSearch
+            });
+
+            try {
+                const response = await fetch(`${basePath}/assets/api/search?${params}`, {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch assets');
+
+                const data = await response.json();
+                updateTable(data.assets);
+                updatePagination(data.pagination);
+                updateResultsCount(data.pagination.total);
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading assets:', error);
+                alert('Error loading assets. Please try again.');
+            }
+        }
+
+        function updateTable(assets) {
+            const tbody = document.getElementById('assetsTableBody');
+            const basePath = getBasePath();
+
+            if (assets.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            ${currentSearch ?
+                                `No assets found matching "${currentSearch}". Try a different search term.` :
+                                'No assets found. Run Datto RMM sync to import data.'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = assets.map(asset => {
+                const companyCell = asset.company_name ?
+                    `<a href="${basePath}/companies/${asset.company_account_number}">${asset.company_name}</a>` :
+                    '<span>Unassigned</span>';
+
+                const statusCell = asset.online ?
+                    '<span class="status-text status-text--success">Online</span>' :
+                    '<span class="status-text status-text--danger">Offline</span>';
+
+                const remoteAccessCell = asset.web_remote_url ?
+                    `<a href="${asset.web_remote_url}" target="_blank">
+                        <button class="btn btn--primary btn--small">
+                            <span class="btn__label">
+                                <i data-lucide="monitor" class="btn__icon"></i>
+                                Remote Access
+                            </span>
+                        </button>
+                    </a>` :
+                    '<span class="u-text-secondary">-</span>';
+
+                return `
+                    <tr>
+                        <td data-column="hostname">
+                            <a href="${basePath}/assets/${asset.id}">
+                                <strong>${asset.hostname}</strong>
+                            </a>
+                        </td>
+                        <td data-column="company">${companyCell}</td>
+                        <td data-column="type">${asset.hardware_type || 'N/A'}</td>
+                        <td data-column="os">${asset.operating_system || 'N/A'}</td>
+                        <td data-column="last_user">${asset.last_logged_in_user || '-'}</td>
+                        <td data-column="status" class="u-text-center">${statusCell}</td>
+                        <td data-column="remote" class="u-text-center">${remoteAccessCell}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Re-apply column visibility preferences
+            loadColumnPreferences();
+        }
+
+        function updatePagination(pagination) {
+            const container = document.getElementById('paginationControls');
+
+            if (pagination.pages <= 1) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+            let html = '';
+
+            if (pagination.has_prev) {
+                html += `
+                    <button class="btn" onclick="changePage(1)">
+                        <span class="btn__label">
+                            <i data-lucide="chevrons-left" class="btn__icon"></i>
+                            First
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.prev_num})">
+                        <span class="btn__label">
+                            <i data-lucide="chevron-left" class="btn__icon"></i>
+                            Previous
+                        </span>
+                    </button>
+                `;
+            }
+
+            html += `<span class="pagination__info">Page ${pagination.page} of ${pagination.pages}</span>`;
+
+            if (pagination.has_next) {
+                html += `
+                    <button class="btn" onclick="changePage(${pagination.next_num})">
+                        <span class="btn__label">
+                            Next
+                            <i data-lucide="chevron-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.pages})">
+                        <span class="btn__label">
+                            Last
+                            <i data-lucide="chevrons-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function updateResultsCount(total) {
+            const countElement = document.getElementById('resultsCount');
+            if (currentSearch) {
+                countElement.innerHTML = `Showing <strong>${total}</strong> results for "${currentSearch}"`;
+            } else {
+                countElement.innerHTML = `Total: <strong>${total}</strong> assets`;
+            }
+        }
+
+        function toggleColumnChooser() {
+            const chooser = document.getElementById('columnChooser');
+            chooser.style.display = chooser.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleColumn(columnName) {
+            const isChecked = document.getElementById(`col-${columnName}`).checked;
+            const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
+            const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
+
+            headers.forEach(th => {
+                th.style.display = isChecked ? '' : 'none';
+            });
+
+            cells.forEach(td => {
+                td.style.display = isChecked ? '' : 'none';
+            });
+
+            // Save preference to localStorage
+            localStorage.setItem(`assets_column_${columnName}`, isChecked);
+        }
+
+        function loadColumnPreferences() {
+            const columns = ['company', 'type', 'os', 'last_user', 'status', 'remote'];
+            columns.forEach(column => {
+                const saved = localStorage.getItem(`assets_column_${column}`);
+                if (saved !== null) {
+                    const isVisible = saved === 'true';
+                    document.getElementById(`col-${column}`).checked = isVisible;
+                    toggleColumn(column);
+                }
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            loadColumnPreferences();
         });
     </script>
 </body>

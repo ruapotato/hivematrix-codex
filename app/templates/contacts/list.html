@@ -21,37 +21,28 @@
         </div>
         <div class="card__body">
             <!-- Search Box -->
-            <form method="GET" action="{{ url_for('contacts.list_contacts') }}" class="search-form">
+            <form id="searchForm" class="search-form" onsubmit="return false;">
                 <div class="search-form__controls">
                     <input
                         type="text"
+                        id="searchInput"
                         name="search"
                         placeholder="Search by name, email, or phone..."
                         value="{{ search_query or '' }}"
                         class="search-form__input"
                     >
-                    <button type="submit" class="btn btn--primary">
+                    <button type="button" class="btn" id="clearBtn" onclick="clearSearch()" style="display: {{ 'inline-block' if search_query else 'none' }};">
                         <span class="btn__label">
-                            <i data-lucide="search" class="btn__icon"></i>
-                            Search
+                            <i data-lucide="x" class="btn__icon"></i>
+                            Clear
                         </span>
                     </button>
-                    {% if search_query %}
-                    <a href="{{ url_for('contacts.list_contacts') }}">
-                        <button type="button" class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="x" class="btn__icon"></i>
-                                Clear
-                            </span>
-                        </button>
-                    </a>
-                    {% endif %}
                 </div>
             </form>
 
             <!-- Results Info -->
             <div class="results-header">
-                <p class="results-header__count">
+                <p class="results-header__count" id="resultsCount">
                     {% if search_query %}
                         Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
@@ -59,6 +50,12 @@
                     {% endif %}
                 </p>
                 <div class="results-header__controls">
+                    <button class="btn btn--small" onclick="toggleColumnChooser()">
+                        <span class="btn__label">
+                            <i data-lucide="columns" class="btn__icon"></i>
+                            Columns
+                        </span>
+                    </button>
                     <label>
                         <input type="checkbox" id="show_inactive" onchange="toggleInactive(this.checked)" {{ 'checked' if show_inactive else '' }}>
                         Show Inactive
@@ -72,47 +69,54 @@
                 </div>
             </div>
 
+            <!-- Column Chooser -->
+            <div id="columnChooser" class="card u-mb-2" style="display: none;">
+                <div class="card__body">
+                    <h3 class="u-mb-1">Show/Hide Columns</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem;">
+                        <label>
+                            <input type="checkbox" checked disabled> Name
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-email" checked onchange="toggleColumn('email')"> Email
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-phone" checked onchange="toggleColumn('phone')"> Phone
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-company" checked onchange="toggleColumn('company')"> Company
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Contacts Table -->
             <div class="table-wrapper">
                 <table class="data-table">
-                    <thead>
+                    <thead id="tableHead">
                         <tr>
-                            <th class="sortable-header">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                                    Name {{ '↓' if sort_by == 'name' and order == 'desc' else '↑' if sort_by == 'name' else '' }}
-                                </a>
-                            </th>
-                            <th class="sortable-header">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='email', order='desc' if sort_by == 'email' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                                    Email {{ '↓' if sort_by == 'email' and order == 'desc' else '↑' if sort_by == 'email' else '' }}
-                                </a>
-                            </th>
-                            <th>Phone</th>
-                            <th>Company</th>
-                            {% if show_inactive %}
-                            <th class="sortable-header text-center">
-                                <a href="{{ url_for('contacts.list_contacts', sort_by='active', order='desc' if sort_by == 'active' and order == 'asc' else 'asc', per_page=per_page, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                                    Active {{ '↓' if sort_by == 'active' and order == 'desc' else '↑' if sort_by == 'active' else '' }}
-                                </a>
-                            </th>
-                            {% endif %}
+                            <th data-column="name" class="sortable-header">Name</th>
+                            <th data-column="email" class="sortable-header">Email</th>
+                            <th data-column="phone">Phone</th>
+                            <th data-column="company">Company</th>
+                            <th data-column="active" class="u-text-center" id="activeHeader" style="display: {{ 'table-cell' if show_inactive else 'none' }};">Active</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="contactsTableBody">
                         {% for contact in contacts %}
                         <tr>
-                            <td>
+                            <td data-column="name">
                                 <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
                                     <strong>{{ contact.name }}</strong>
                                 </a>
                             </td>
-                            <td>
+                            <td data-column="email">
                                 <a href="mailto:{{ contact.email }}">
                                     {{ contact.email }}
                                 </a>
                             </td>
-                            <td>{{ contact.mobile_phone_number or contact.work_phone_number or '-' }}</td>
-                            <td>
+                            <td data-column="phone">{{ contact.mobile_phone_number or contact.work_phone_number or '-' }}</td>
+                            <td data-column="company">
                                 {% if contact.companies %}
                                     {% for company in contact.companies %}
                                         <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
@@ -124,17 +128,11 @@
                                 {% endif %}
                             </td>
                             {% if show_inactive %}
-                            <td class="text-center">
+                            <td data-column="active" class="u-text-center">
                                 {% if contact.active %}
-                                    <span class="badge badge--success" style="color: var(--color-success);">
-                                        <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                        Active
-                                    </span>
+                                    <span class="status-text status-text--success">Active</span>
                                 {% else %}
-                                    <span class="badge badge--danger" style="color: var(--color-danger);">
-                                        <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                        Inactive
-                                    </span>
+                                    <span class="status-text status-text--danger">Inactive</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -155,72 +153,248 @@
             </div>
 
             <!-- Pagination Controls -->
-            {% if pagination.pages > 1 %}
-            <div class="pagination">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('contacts.list_contacts', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevrons-left" class="btn__icon"></i>
-                                First
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevron-left" class="btn__icon"></i>
-                                Previous
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
-
-                <span class="pagination__info">
-                    Page {{ pagination.page }} of {{ pagination.pages }}
-                </span>
-
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Next
-                                <i data-lucide="chevron-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('contacts.list_contacts', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query, show_inactive='1' if show_inactive else '0') }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Last
-                                <i data-lucide="chevrons-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
+            <div class="pagination" id="paginationControls" style="display: {{ 'flex' if pagination.pages > 1 else 'none' }};">
+                <!-- Pagination will be dynamically updated -->
             </div>
-            {% endif %}
         </div>
     </div>
 
     <script>
+        let currentPage = {{ pagination.page }};
+        let currentPerPage = {{ per_page }};
+        let currentSortBy = '{{ sort_by }}';
+        let currentOrder = '{{ order }}';
+        let currentSearch = '{{ search_query or '' }}';
+        let currentShowInactive = {{ 'true' if show_inactive else 'false' }};
+        let searchTimeout = null;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        // Real-time search with debouncing
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentSearch = e.target.value.trim();
+                currentPage = 1;
+                loadContacts();
+                document.getElementById('clearBtn').style.display = currentSearch ? 'inline-block' : 'none';
+            }, 300);
+        });
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            currentSearch = '';
+            currentPage = 1;
+            document.getElementById('clearBtn').style.display = 'none';
+            loadContacts();
+        }
+
         function changePerPage(value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('per_page', value);
-            url.searchParams.set('page', '1'); // Reset to first page
-            window.location.href = url.toString();
+            currentPerPage = parseInt(value);
+            currentPage = 1;
+            loadContacts();
         }
 
         function toggleInactive(checked) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('show_inactive', checked ? '1' : '0');
-            url.searchParams.set('page', '1'); // Reset to first page
-            window.location.href = url.toString();
+            currentShowInactive = checked;
+            currentPage = 1;
+            loadContacts();
         }
 
-        // Initialize Lucide icons
+        function changePage(page) {
+            currentPage = page;
+            loadContacts();
+        }
+
+        async function loadContacts() {
+            const basePath = getBasePath();
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: currentPerPage,
+                sort_by: currentSortBy,
+                order: currentOrder,
+                search: currentSearch,
+                show_inactive: currentShowInactive ? '1' : '0'
+            });
+
+            try {
+                const response = await fetch(`${basePath}/contacts/api/search?${params}`, {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch contacts');
+
+                const data = await response.json();
+                updateTable(data.contacts);
+                updatePagination(data.pagination);
+                updateResultsCount(data.pagination.total);
+                updateActiveHeader();
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+                alert('Error loading contacts. Please try again.');
+            }
+        }
+
+        function updateTable(contacts) {
+            const tbody = document.getElementById('contactsTableBody');
+            const basePath = getBasePath();
+            const colSpan = currentShowInactive ? 5 : 4;
+
+            if (contacts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${colSpan}" class="empty-state">
+                            ${currentSearch ?
+                                `No contacts found matching "${currentSearch}". Try a different search term.` :
+                                'No contacts found. Run Freshservice sync to import data.'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = contacts.map(contact => {
+                const phone = contact.mobile_phone_number || contact.work_phone_number || '-';
+                const companyDisplay = contact.company_count > 0 ? `${contact.company_count} companies` : 'No company';
+                const activeCell = currentShowInactive ? `
+                    <td data-column="active" class="u-text-center">
+                        ${contact.active ?
+                            '<span class="status-text status-text--success">Active</span>' :
+                            '<span class="status-text status-text--danger">Inactive</span>'}
+                    </td>
+                ` : '';
+
+                return `
+                    <tr>
+                        <td data-column="name">
+                            <a href="${basePath}/contacts/${contact.id}">
+                                <strong>${contact.name}</strong>
+                            </a>
+                        </td>
+                        <td data-column="email">
+                            <a href="mailto:${contact.email}">
+                                ${contact.email}
+                            </a>
+                        </td>
+                        <td data-column="phone">${phone}</td>
+                        <td data-column="company">${companyDisplay}</td>
+                        ${activeCell}
+                    </tr>
+                `;
+            }).join('');
+
+            // Re-apply column visibility preferences
+            loadColumnPreferences();
+        }
+
+        function updateActiveHeader() {
+            const header = document.getElementById('activeHeader');
+            header.style.display = currentShowInactive ? 'table-cell' : 'none';
+        }
+
+        function updatePagination(pagination) {
+            const container = document.getElementById('paginationControls');
+
+            if (pagination.pages <= 1) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+            let html = '';
+
+            if (pagination.has_prev) {
+                html += `
+                    <button class="btn" onclick="changePage(1)">
+                        <span class="btn__label">
+                            <i data-lucide="chevrons-left" class="btn__icon"></i>
+                            First
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.prev_num})">
+                        <span class="btn__label">
+                            <i data-lucide="chevron-left" class="btn__icon"></i>
+                            Previous
+                        </span>
+                    </button>
+                `;
+            }
+
+            html += `<span class="pagination__info">Page ${pagination.page} of ${pagination.pages}</span>`;
+
+            if (pagination.has_next) {
+                html += `
+                    <button class="btn" onclick="changePage(${pagination.next_num})">
+                        <span class="btn__label">
+                            Next
+                            <i data-lucide="chevron-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.pages})">
+                        <span class="btn__label">
+                            Last
+                            <i data-lucide="chevrons-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function updateResultsCount(total) {
+            const countElement = document.getElementById('resultsCount');
+            if (currentSearch) {
+                countElement.innerHTML = `Showing <strong>${total}</strong> results for "${currentSearch}"`;
+            } else {
+                countElement.innerHTML = `Total: <strong>${total}</strong> contacts`;
+            }
+        }
+
+        function toggleColumnChooser() {
+            const chooser = document.getElementById('columnChooser');
+            chooser.style.display = chooser.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleColumn(columnName) {
+            const isChecked = document.getElementById(`col-${columnName}`).checked;
+            const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
+            const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
+
+            headers.forEach(th => {
+                th.style.display = isChecked ? '' : 'none';
+            });
+
+            cells.forEach(td => {
+                td.style.display = isChecked ? '' : 'none';
+            });
+
+            // Save preference to localStorage
+            localStorage.setItem(`contacts_column_${columnName}`, isChecked);
+        }
+
+        function loadColumnPreferences() {
+            const columns = ['email', 'phone', 'company'];
+            columns.forEach(column => {
+                const saved = localStorage.getItem(`contacts_column_${column}`);
+                if (saved !== null) {
+                    const isVisible = saved === 'true';
+                    document.getElementById(`col-${column}`).checked = isVisible;
+                    toggleColumn(column);
+                }
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            loadColumnPreferences();
         });
     </script>
 </body>

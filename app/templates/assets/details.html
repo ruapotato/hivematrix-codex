@@ -74,15 +74,9 @@
                     <span class="info-item__label">Status:</span>
                     <span class="info-item__value">
                         {% if asset.online %}
-                            <span class="badge badge--success" style="color: var(--color-success);">
-                                <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                Online
-                            </span>
+                            <span class="status-text status-text--success">Online</span>
                         {% else %}
-                            <span class="badge badge--danger" style="color: var(--color-danger);">
-                                <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                Offline
-                            </span>
+                            <span class="status-text status-text--danger">Offline</span>
                         {% endif %}
                     </span>
                 </div>
@@ -112,10 +106,7 @@
 
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">
-                <i data-lucide="users" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
-                Assigned Users ({{ asset.contacts|length }})
-            </h2>
+            <h2 class="card__title">Assigned Users ({{ asset.contacts|length }})</h2>
         </div>
         <div class="card__body">
             {% if asset.contacts %}

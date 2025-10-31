@@ -860,7 +860,9 @@ def get_billing_plans():
     return jsonify([{
         'id': p.id,
         'plan_name': p.plan_name,
+        'billing_plan': p.plan_name,  # Alias for compatibility
         'term_length': p.term_length,
+        'support_level': p.support_level,
         'per_user_cost': float(p.per_user_cost),
         'per_workstation_cost': float(p.per_workstation_cost),
         'per_server_cost': float(p.per_server_cost),
@@ -870,9 +872,8 @@ def get_billing_plans():
         'per_hour_ticket_cost': float(p.per_hour_ticket_cost),
         'backup_base_fee_workstation': float(p.backup_base_fee_workstation),
         'backup_base_fee_server': float(p.backup_base_fee_server),
-        'backup_cost_per_gb_workstation': float(p.backup_cost_per_gb_workstation),
-        'backup_cost_per_gb_server': float(p.backup_cost_per_gb_server),
-        'support_level': p.support_level,
+        'backup_included_tb': float(p.backup_included_tb),
+        'backup_per_tb_fee': float(p.backup_per_tb_fee),
         'antivirus': p.antivirus,
         'soc': p.soc,
         'password_manager': p.password_manager,
@@ -893,7 +894,9 @@ def get_billing_plan(plan_id):
     return jsonify({
         'id': plan.id,
         'plan_name': plan.plan_name,
+        'billing_plan': plan.plan_name,  # Alias for compatibility
         'term_length': plan.term_length,
+        'support_level': plan.support_level,
         'per_user_cost': float(plan.per_user_cost),
         'per_workstation_cost': float(plan.per_workstation_cost),
         'per_server_cost': float(plan.per_server_cost),
@@ -903,9 +906,8 @@ def get_billing_plan(plan_id):
         'per_hour_ticket_cost': float(plan.per_hour_ticket_cost),
         'backup_base_fee_workstation': float(plan.backup_base_fee_workstation),
         'backup_base_fee_server': float(plan.backup_base_fee_server),
-        'backup_cost_per_gb_workstation': float(plan.backup_cost_per_gb_workstation),
-        'backup_cost_per_gb_server': float(plan.backup_cost_per_gb_server),
-        'support_level': plan.support_level,
+        'backup_included_tb': float(plan.backup_included_tb),
+        'backup_per_tb_fee': float(plan.backup_per_tb_fee),
         'antivirus': plan.antivirus,
         'soc': plan.soc,
         'password_manager': plan.password_manager,
@@ -936,8 +938,9 @@ def create_billing_plan():
 
     # Create new plan
     plan = BillingPlan(
-        plan_name=data['plan_name'],
+        plan_name=data.get('plan_name') or data.get('billing_plan'),
         term_length=data['term_length'],
+        support_level=data.get('support_level', 'Billed Hourly'),
         per_user_cost=data.get('per_user_cost', 0.0),
         per_workstation_cost=data.get('per_workstation_cost', 0.0),
         per_server_cost=data.get('per_server_cost', 0.0),
@@ -947,9 +950,8 @@ def create_billing_plan():
         per_hour_ticket_cost=data.get('per_hour_ticket_cost', 0.0),
         backup_base_fee_workstation=data.get('backup_base_fee_workstation', 0.0),
         backup_base_fee_server=data.get('backup_base_fee_server', 0.0),
-        backup_cost_per_gb_workstation=data.get('backup_cost_per_gb_workstation', 0.0),
-        backup_cost_per_gb_server=data.get('backup_cost_per_gb_server', 0.0),
-        support_level=data.get('support_level', 'Billed Hourly'),
+        backup_included_tb=data.get('backup_included_tb', 1.0),
+        backup_per_tb_fee=data.get('backup_per_tb_fee', 0.0),
         antivirus=data.get('antivirus', 'Not Included'),
         soc=data.get('soc', 'Not Included'),
         password_manager=data.get('password_manager', 'Not Included'),
@@ -974,11 +976,13 @@ def update_billing_plan(plan_id):
 
     data = request.get_json()
 
-    # Update fields
-    if 'plan_name' in data:
-        plan.plan_name = data['plan_name']
+    # Update fields (support both plan_name and billing_plan for compatibility)
+    if 'plan_name' in data or 'billing_plan' in data:
+        plan.plan_name = data.get('plan_name') or data.get('billing_plan')
     if 'term_length' in data:
         plan.term_length = data['term_length']
+    if 'support_level' in data:
+        plan.support_level = data['support_level']
     if 'per_user_cost' in data:
         plan.per_user_cost = data['per_user_cost']
     if 'per_workstation_cost' in data:
@@ -997,12 +1001,10 @@ def update_billing_plan(plan_id):
         plan.backup_base_fee_workstation = data['backup_base_fee_workstation']
     if 'backup_base_fee_server' in data:
         plan.backup_base_fee_server = data['backup_base_fee_server']
-    if 'backup_cost_per_gb_workstation' in data:
-        plan.backup_cost_per_gb_workstation = data['backup_cost_per_gb_workstation']
-    if 'backup_cost_per_gb_server' in data:
-        plan.backup_cost_per_gb_server = data['backup_cost_per_gb_server']
-    if 'support_level' in data:
-        plan.support_level = data['support_level']
+    if 'backup_included_tb' in data:
+        plan.backup_included_tb = data['backup_included_tb']
+    if 'backup_per_tb_fee' in data:
+        plan.backup_per_tb_fee = data['backup_per_tb_fee']
     if 'antivirus' in data:
         plan.antivirus = data['antivirus']
     if 'soc' in data:
@@ -1025,19 +1027,22 @@ def update_billing_plan(plan_id):
 @token_required
 def get_feature_options():
     """Get all feature options"""
-    category = request.args.get('category')
+    feature_type = request.args.get('feature_type') or request.args.get('category')
 
     query = FeatureOption.query
 
-    if category:
-        query = query.filter_by(feature_category=category)
+    if feature_type:
+        query = query.filter_by(feature_type=feature_type)
 
     features = query.all()
 
     return jsonify([{
         'id': f.id,
-        'feature_category': f.feature_category,
-        'option_value': f.option_value
+        'feature_type': f.feature_type,
+        'feature_category': f.feature_type,  # Alias for compatibility
+        'display_name': f.display_name,
+        'option_value': f.display_name,  # Alias for compatibility
+        'description': f.description
     } for f in features])
 
 
@@ -1047,14 +1052,17 @@ def create_feature_option():
     """Create a new feature option"""
     data = request.get_json()
 
-    # Validate required fields
-    if not data.get('feature_type') or not data.get('value'):
-        return jsonify({'error': 'feature_type and value are required'}), 400
+    # Validate required fields (support both old and new field names)
+    feature_type = data.get('feature_type') or data.get('category')
+    display_name = data.get('display_name') or data.get('value')
+
+    if not feature_type or not display_name:
+        return jsonify({'error': 'feature_type and display_name are required'}), 400
 
     # Check if feature already exists
     existing = FeatureOption.query.filter_by(
-        feature_category=data['feature_type'],
-        option_value=data['value']
+        feature_type=feature_type,
+        display_name=display_name
     ).first()
 
     if existing:
@@ -1062,8 +1070,9 @@ def create_feature_option():
 
     # Create new feature
     feature = FeatureOption(
-        feature_category=data['feature_type'],
-        option_value=data['value']
+        feature_type=feature_type,
+        display_name=display_name,
+        description=data.get('description')
     )
 
     db.session.add(feature)

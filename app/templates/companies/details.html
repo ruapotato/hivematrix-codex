@@ -11,7 +11,27 @@
         <div class="card__header">
             <h1 class="card__title">{{ company.name }}</h1>
             <div class="card__header-actions">
-                <button class="btn" onclick="window.location.href='{{ url_for('companies.list_companies') }}'">
+                {% if user.permission_level in ['admin', 'technician'] %}
+                <button type="button" id="editBtn" class="btn btn--primary" onclick="toggleEditMode()">
+                    <span class="btn__label">
+                        <i data-lucide="edit" class="btn__icon"></i>
+                        Edit Details
+                    </span>
+                </button>
+                <button type="button" id="saveBtn" class="btn btn--success" onclick="saveCompany()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="save" class="btn__icon"></i>
+                        Save Changes
+                    </span>
+                </button>
+                <button type="button" id="cancelBtn" class="btn btn--secondary" onclick="cancelEdit()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                {% endif %}
+                <button type="button" class="btn" onclick="window.location.href='{{ url_for('companies.list_companies') }}'">
                     <span class="btn__label">
                         <i data-lucide="arrow-left" class="btn__icon"></i>
                         Back to Companies
@@ -26,21 +46,267 @@
             <h2 class="card__title">Company Overview</h2>
         </div>
         <div class="card__body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="info-grid">
                 <div>
-                    <p class="u-mb-1"><strong>Company Name:</strong> {{ company.name }}</p>
+                    <!-- Company Name -->
+                    <p class="u-mb-1 view-mode"><strong>Company Name:</strong> {{ company.name }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Company Name</label>
+                        <input type="text" class="form-group__input" id="edit-name" value="{{ company.name }}">
+                        <small class="form-group__help">
+                            <em>(synced from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    <!-- Account Number -->
                     <p class="u-mb-1"><strong>Account Number:</strong> {{ company.account_number }}</p>
-                    <p class="u-mb-1"><strong>Plan:</strong> <span class="badge">{{ company.billing_plan or company.plan_selected or 'N/A' }}</span></p>
-                    <p class="u-mb-1"><strong>Support Level:</strong> {{ company.support_level or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Profit/Non-Profit:</strong> {{ company.profit_or_non_profit or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Company Start Date:</strong> {{ company.company_start_date or 'N/A' }}</p>
+
+                    <!-- Plan -->
+                    <p class="u-mb-1 view-mode"><strong>Plan:</strong> <span class="badge">{{ company.billing_plan or company.plan_selected or 'N/A' }}</span></p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Plan</label>
+                        <select class="form-group__input" id="edit-billing_plan">
+                            <option value="">Select Plan</option>
+                            {% for plan_name in billing_plan_names %}
+                            <option value="{{ plan_name }}" {% if plan_name == (company.billing_plan or company.plan_selected) %}selected{% endif %}>{{ plan_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.billing_plan or company.plan_selected or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Support Level -->
+                    <p class="u-mb-1 view-mode"><strong>Support Level:</strong> {{ company.support_level or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Support Level</label>
+                        <select class="form-group__input" id="edit-support_level">
+                            <option value="">Select Support Level</option>
+                            <option value="Billed Hourly" {% if company.support_level == 'Billed Hourly' %}selected{% endif %}>Billed Hourly</option>
+                            <option value="Unlimited" {% if company.support_level == 'Unlimited' %}selected{% endif %}>Unlimited</option>
+                        </select>
+                    </div>
+
+                    <!-- Managed Users -->
+                    <p class="u-mb-1 view-mode"><strong>Managed Users:</strong> {{ company.managed_users or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Managed Users</label>
+                        <input type="number" class="form-group__input" id="edit-managed_users" value="{{ company.managed_users or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.managed_users or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Managed Devices -->
+                    <p class="u-mb-1 view-mode"><strong>Managed Devices:</strong> {{ company.managed_devices or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Managed Devices</label>
+                        <input type="number" class="form-group__input" id="edit-managed_devices" value="{{ company.managed_devices or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.managed_devices or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Managed Network Devices -->
+                    <p class="u-mb-1 view-mode"><strong>Managed Network Devices:</strong> {{ company.managed_network or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Managed Network Devices</label>
+                        <input type="number" class="form-group__input" id="edit-managed_network" value="{{ company.managed_network or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.managed_network or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Email System -->
+                    <p class="u-mb-1 view-mode"><strong>Email System:</strong> {{ company.email_system or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Email System</label>
+                        <select class="form-group__input" id="edit-email_system">
+                            <option value="">Not Set</option>
+                            {% for option in email_options %}
+                            <option value="{{ option.display_name }}" {% if company.email_system == option.display_name %}selected{% endif %}>
+                                {{ option.display_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Phone System -->
+                    <p class="u-mb-1 view-mode"><strong>Phone System:</strong> {{ company.phone_system or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Phone System</label>
+                        <select class="form-group__input" id="edit-phone_system">
+                            <option value="">Not Set</option>
+                            {% for option in phone_options %}
+                            <option value="{{ option.display_name }}" {% if company.phone_system == option.display_name %}selected{% endif %}>
+                                {{ option.display_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 <div>
-                    <p class="u-mb-1"><strong>Managed Users:</strong> {{ company.managed_users or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Managed Devices:</strong> {{ company.managed_devices or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Managed Network:</strong> {{ company.managed_network or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Assets Count:</strong> {{ company.assets|length }}</p>
+                    <!-- Company Head -->
+                    <p class="u-mb-1 view-mode"><strong>Company Head:</strong> {{ company.head_name or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Company Head</label>
+                        <select class="form-group__input" id="edit-head_user_id">
+                            <option value="">Not Set</option>
+                            {% for contact in company.contacts %}
+                            <option value="{{ contact.freshservice_id }}" {% if contact.freshservice_id == company.head_user_id %}selected{% endif %}>{{ contact.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.head_name or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Prime User -->
+                    <p class="u-mb-1 view-mode"><strong>Prime User:</strong> {{ company.prime_user_name or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Prime User</label>
+                        <select class="form-group__input" id="edit-prime_user_id">
+                            <option value="">Not Set</option>
+                            {% for contact in company.contacts %}
+                            <option value="{{ contact.freshservice_id }}" {% if contact.freshservice_id == company.prime_user_id %}selected{% endif %}>{{ contact.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.prime_user_name or 'Not Set' }})</em>
+                        </small>
+                    </div>
+
+                    <!-- Phone -->
+                    <p class="u-mb-1 view-mode">
+                        <strong>Phone:</strong>
+                        {% if company.company_main_number %}
+                            <a href="tel:{{ company.company_main_number }}">{{ company.company_main_number }}</a>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Phone</label>
+                        <input type="tel" class="form-group__input" id="edit-company_main_number" value="{{ company.company_main_number or '' }}">
+                    </div>
+
+                    <!-- Company Start Date -->
+                    <p class="u-mb-1 view-mode">
+                        <strong>Company Start Date:</strong>
+                        <span id="company-start-date-display">
+                            {% if company.company_start_date %}
+                                {{ company.company_start_date.split('T')[0] if 'T' in company.company_start_date else company.company_start_date }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </span>
+                    </p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Company Start Date</label>
+                        <input type="date" class="form-group__input" id="edit-company_start_date" value="{% if company.company_start_date %}{{ company.company_start_date.split('T')[0] if 'T' in company.company_start_date else company.company_start_date }}{% endif %}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    <!-- Contacts Count -->
                     <p class="u-mb-1"><strong>Contacts Count:</strong> {{ company.contacts|length }}</p>
+
+                    <!-- Assets Count -->
+                    <p class="u-mb-1"><strong>Assets Count:</strong> {{ company.assets|length }}</p>
+
+                    <!-- Domains -->
+                    <p class="u-mb-1 view-mode">
+                        <strong>Domains:</strong>
+                        {% if domain_list %}
+                            {% for domain in domain_list %}
+                                <a href="https://{{ domain }}" target="_blank">{{ domain }}</a>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Domains</label>
+                        <textarea class="form-group__input" id="edit-domains" rows="2" placeholder="One domain per line">{% if domain_list %}{% for domain in domain_list %}{{ domain }}
+{% endfor %}{% endif %}</textarea>
+                        <small class="form-group__help">
+                            <em>(from Freshservice, one per line)</em>
+                        </small>
+                    </div>
+
+                    <!-- Description -->
+                    <p class="u-mb-1 view-mode"><strong>Description:</strong> {{ company.description or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Description</label>
+                        <textarea class="form-group__input" id="edit-description" rows="3">{{ company.description or '' }}</textarea>
+                        <small class="form-group__help">
+                            <em>(synced from Freshservice)</em>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contract Information Section -->
+            <div class="u-mt-3">
+                <h3 class="u-mb-2">Contract Information</h3>
+                <div class="info-grid">
+                    <div>
+                        <!-- Contract Term -->
+                        <p class="u-mb-1 view-mode"><strong>Contract Term:</strong> {{ company.contract_term_length or company.contract_term or 'N/A' }}</p>
+                        <div class="form-group edit-mode" style="display: none;">
+                            <label class="form-group__label">Contract Term</label>
+                            <select class="form-group__input" id="edit-contract_term_length">
+                                <option value="">Select Term</option>
+                                <option value="Month to Month" {% if (company.contract_term_length or company.contract_term) == 'Month to Month' %}selected{% endif %}>Month to Month</option>
+                                <option value="1-Year" {% if (company.contract_term_length or company.contract_term) == '1-Year' %}selected{% endif %}>1-Year</option>
+                                <option value="2-Year" {% if (company.contract_term_length or company.contract_term) == '2-Year' %}selected{% endif %}>2-Year</option>
+                                <option value="3-Year" {% if (company.contract_term_length or company.contract_term) == '3-Year' %}selected{% endif %}>3-Year</option>
+                            </select>
+                            <small class="form-group__help">
+                                <em>(from Freshservice: {{ company.contract_term_length or company.contract_term or 'Not Set' }})</em>
+                            </small>
+                        </div>
+
+                        <!-- Contract Start Date -->
+                        <p class="u-mb-1 view-mode">
+                            <strong>Contract Start Date:</strong>
+                            <span id="contract-start-date-display">
+                                {% if company.contract_start_date %}
+                                    {{ company.contract_start_date.split('T')[0] if 'T' in company.contract_start_date else company.contract_start_date }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </p>
+                        <div class="form-group edit-mode" style="display: none;">
+                            <label class="form-group__label">Contract Start Date</label>
+                            <input type="date" class="form-group__input" id="edit-contract_start_date" value="{% if company.contract_start_date %}{{ company.contract_start_date.split('T')[0] if 'T' in company.contract_start_date else company.contract_start_date }}{% endif %}">
+                            <small class="form-group__help">
+                                <em>(from Freshservice: <span id="contract-start-synced">{{ company.contract_start_date.split('T')[0] if company.contract_start_date and 'T' in company.contract_start_date else (company.contract_start_date or 'Not Set') }}</span>)</em>
+                            </small>
+                        </div>
+                    </div>
+                    <div>
+                        <!-- Contract End Date (Calculated) -->
+                        <p class="u-mb-1 view-mode">
+                            <strong>Contract End Date:</strong>
+                            <span id="contract-end-date-display">
+                                {% if company.contract_end_date %}
+                                    {{ company.contract_end_date.split('T')[0] if 'T' in company.contract_end_date else company.contract_end_date }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </p>
+                        <div class="form-group edit-mode" style="display: none;">
+                            <label class="form-group__label">Contract End Date</label>
+                            <input type="date" class="form-group__input" id="edit-contract_end_date" value="{% if company.contract_end_date %}{{ company.contract_end_date.split('T')[0] if 'T' in company.contract_end_date else company.contract_end_date }}{% endif %}" readonly>
+                            <small class="form-group__help">
+                                <em>(Calculated automatically based on term and start date)</em>
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -48,58 +314,67 @@
 
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Contract Information</h2>
+            <h2 class="card__title">Locations</h2>
+            <div class="card__header-actions">
+                <button class="btn btn--primary btn--small" onclick="showAddLocationModal()">
+                    <span class="btn__label">
+                        <i data-lucide="plus" class="btn__icon"></i>
+                        Add Location
+                    </span>
+                </button>
+            </div>
         </div>
         <div class="card__body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                <div>
-                    <p class="u-mb-1"><strong>Contract Term:</strong> {{ company.contract_term_length or company.contract_term or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Contract Start Date:</strong> {{ company.contract_start_date or 'N/A' }}</p>
+            <div id="locations-list">
+                <!-- Main Location (synced from Freshservice company address field) -->
+                <div class="location-item">
+                    <div class="location-item__header">
+                        <h3 class="location-item__name">Main Location</h3>
+                        <span class="u-text-secondary u-text-small">(from Freshservice)</span>
+                    </div>
+
+                    <!-- View Mode -->
+                    <p class="location-item__address view-mode">
+                        <i data-lucide="map-pin"></i>
+                        {% if company.address %}
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ company.address|urlencode }}" target="_blank">
+                            {{ company.address }}
+                        </a>
+                        {% else %}
+                        <span class="u-text-secondary">No address configured</span>
+                        {% endif %}
+                    </p>
+
+                    <!-- Edit Mode -->
+                    <div class="form-group edit-mode" style="display: none;">
+                        <textarea class="form-group__input" id="edit-address" rows="3" placeholder="Full address">{{ company.address or '' }}</textarea>
+                        <small class="form-group__help">
+                            <em>(from Freshservice: {{ company.address or 'Not Set' }})</em>
+                        </small>
+                    </div>
                 </div>
+
+                <!-- Additional Locations (manually added, stored in database) -->
+                <div id="additional-locations"></div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">Contact Information</h2>
-        </div>
-        <div class="card__body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                <div>
-                    <p class="u-mb-1"><strong>Phone:</strong> {{ company.company_main_number or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Address:</strong> {{ company.address or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Description:</strong> {{ company.description or 'N/A' }}</p>
-                </div>
-                <div>
-                    <p class="u-mb-1"><strong>Company Head:</strong> {{ company.head_name or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Prime User:</strong> {{ company.prime_user_name or 'N/A' }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
 
+    {% if client_features %}
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Domains</h2>
-        </div>
-        <div class="card__body">
-            {% if domain_list %}
-                <ul class="u-pl-2">
-                    {% for domain in domain_list %}
-                    <li>{{ domain }}</li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p class="u-text-secondary">No domains configured</p>
+            <h2 class="card__title">Client Features</h2>
+            {% if user.permission_level in ['admin', 'technician'] %}
+            <div class="card__header-actions">
+                <button class="btn btn--primary btn--small" onclick="window.location.href='{{ url_for('billing_plans.list_plans') }}'">
+                    <span class="btn__label">
+                        <i data-lucide="settings" class="btn__icon"></i>
+                        Manage Features
+                    </span>
+                </button>
+            </div>
             {% endif %}
-        </div>
-    </div>
-
-    {% if plan_features %}
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">Plan Features</h2>
         </div>
         <div class="card__body">
             <table class="data-table">
@@ -107,33 +382,23 @@
                     <tr>
                         <th>Feature</th>
                         <th>Solution</th>
+                        <th>Source</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {% for feature_name, feature_data in client_features.items() %}
                     <tr>
-                        <td><strong>Antivirus</strong></td>
-                        <td>{{ plan_features.antivirus or 'Not Included' }}</td>
+                        <td><strong>{{ feature_name }}</strong></td>
+                        <td>{{ feature_data.value or 'Not Included' }}</td>
+                        <td>
+                            {% if feature_data.is_override %}
+                                <span class="badge badge--warning">Custom</span>
+                            {% else %}
+                                <span class="badge badge--primary">From Plan</span>
+                            {% endif %}
+                        </td>
                     </tr>
-                    <tr>
-                        <td><strong>SOC (Security Operations Center)</strong></td>
-                        <td>{{ plan_features.soc or 'Not Included' }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Password Manager</strong></td>
-                        <td>{{ plan_features.password_manager or 'Not Included' }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Security Awareness Training</strong></td>
-                        <td>{{ plan_features.sat or 'Not Included' }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Email Security</strong></td>
-                        <td>{{ plan_features.email_security or 'Not Included' }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Network Management</strong></td>
-                        <td>{{ plan_features.network_management or 'Not Included' }}</td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -148,10 +413,7 @@
         <div class="card__body">
             <p class="u-mb-1">
                 <strong>Datto Portal:</strong>
-                <a href="{{ company.datto_portal_url }}" target="_blank" style="color: var(--color-primary);">
-                    <i data-lucide="external-link" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                    View Portal
-                </a>
+                <a href="{{ company.datto_portal_url }}" target="_blank">View Portal</a>
             </p>
         </div>
     </div>
@@ -159,28 +421,7 @@
 
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Metadata</h2>
-        </div>
-        <div class="card__body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                <div>
-                    <p class="u-mb-1"><strong>Freshservice ID:</strong> {{ company.freshservice_id or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Created At:</strong> {{ company.created_at or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Updated At:</strong> {{ company.updated_at or 'N/A' }}</p>
-                </div>
-                <div>
-                    <p class="u-mb-1"><strong>Workspace ID:</strong> {{ company.workspace_id or 'N/A' }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">
-                <i data-lucide="users" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
-                Contacts ({{ company.contacts|length }})
-            </h2>
+            <h2 class="card__title">Contacts ({{ company.contacts|length }})</h2>
         </div>
         <div class="card__body">
             {% if company.contacts %}
@@ -192,25 +433,32 @@
                             <th>Email</th>
                             <th>Job Title</th>
                             <th>Phone</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for contact in company.contacts %}
                         <tr>
-                            <td>{{ contact.name }}</td>
-                            <td>{{ contact.email }}</td>
-                            <td>{{ contact.job_title or contact.title or 'N/A' }}</td>
-                            <td>{{ contact.work_phone_number or contact.mobile_phone_number or 'N/A' }}</td>
                             <td>
                                 <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
-                                    <button class="btn btn--primary btn--small">
-                                        <span class="btn__label">
-                                            <i data-lucide="eye" class="btn__icon"></i>
-                                            View
-                                        </span>
-                                    </button>
+                                    <strong>{{ contact.name }}</strong>
                                 </a>
+                            </td>
+                            <td>
+                                {% if contact.email %}
+                                    <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ contact.job_title or contact.title or 'N/A' }}</td>
+                            <td>
+                                {% if contact.work_phone_number %}
+                                    <a href="tel:{{ contact.work_phone_number }}">{{ contact.work_phone_number }}</a>
+                                {% elif contact.mobile_phone_number %}
+                                    <a href="tel:{{ contact.mobile_phone_number }}">{{ contact.mobile_phone_number }}</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -225,10 +473,7 @@
 
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">
-                <i data-lucide="hard-drive" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
-                Assets ({{ company.assets|length }})
-            </h2>
+            <h2 class="card__title">Assets ({{ company.assets|length }})</h2>
         </div>
         <div class="card__body">
             {% if company.assets %}
@@ -241,33 +486,26 @@
                             <th>OS</th>
                             <th>Status</th>
                             <th>Last Seen</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for asset in company.assets %}
                         <tr>
-                            <td>{{ asset.hostname }}</td>
+                            <td>
+                                <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                                    <strong>{{ asset.hostname }}</strong>
+                                </a>
+                            </td>
                             <td>{{ asset.hardware_type or asset.device_type or 'N/A' }}</td>
                             <td>{{ asset.operating_system or 'Unknown' }}</td>
                             <td>
                                 {% if asset.online %}
-                                <span class="badge badge--success">● Online</span>
+                                <span class="status-text status-text--success">Online</span>
                                 {% else %}
-                                <span class="badge badge--danger">● Offline</span>
+                                <span class="status-text status-text--danger">Offline</span>
                                 {% endif %}
                             </td>
                             <td>{{ asset.last_seen or 'N/A' }}</td>
-                            <td>
-                                <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
-                                    <button class="btn btn--primary btn--small">
-                                        <span class="btn__label">
-                                            <i data-lucide="eye" class="btn__icon"></i>
-                                            View
-                                        </span>
-                                    </button>
-                                </a>
-                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -279,9 +517,367 @@
         </div>
     </div>
 
+    <div id="addLocationModal" class="modal">
+        <div class="modal__dialog">
+            <div class="modal__header">
+                <h2 class="modal__title">Add Location</h2>
+                <button class="modal__close" onclick="hideAddLocationModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal__body">
+                <form id="addLocationForm">
+                    <div class="form-group">
+                        <label for="location-name" class="form-group__label">Location Name *</label>
+                        <input type="text" id="location-name" class="form-group__input" required placeholder="e.g., Branch Office, Warehouse">
+                    </div>
+                    <div class="form-group">
+                        <label for="location-address" class="form-group__label">Address *</label>
+                        <textarea id="location-address" class="form-group__input" required rows="3" placeholder="Full address"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal__footer">
+                <button class="btn" onclick="hideAddLocationModal()">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                <button class="btn btn--primary" onclick="addLocation()">
+                    <span class="btn__label">
+                        <i data-lucide="plus" class="btn__icon"></i>
+                        Add Location
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
+        const companyAccountNumber = '{{ company.account_number }}';
+        let isEditMode = false;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        // Format date from YYYY-MM-DD to MM/DD/YYYY (US format)
+        function formatDateToUS(dateStr) {
+            if (!dateStr || dateStr === 'N/A') return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[1]}/${parts[2]}/${parts[0]}`;
+            }
+            return dateStr;
+        }
+
+        // Format dates on page load
+        function formatDatesOnPage() {
+            const companyStartDateEl = document.getElementById('company-start-date-display');
+            if (companyStartDateEl && companyStartDateEl.textContent.trim() !== 'N/A') {
+                companyStartDateEl.textContent = formatDateToUS(companyStartDateEl.textContent.trim());
+            }
+
+            const contractStartDateEl = document.getElementById('contract-start-date-display');
+            if (contractStartDateEl && contractStartDateEl.textContent.trim() !== 'N/A') {
+                contractStartDateEl.textContent = formatDateToUS(contractStartDateEl.textContent.trim());
+            }
+
+            const contractEndDateEl = document.getElementById('contract-end-date-display');
+            if (contractEndDateEl && contractEndDateEl.textContent.trim() !== 'N/A') {
+                contractEndDateEl.textContent = formatDateToUS(contractEndDateEl.textContent.trim());
+            }
+        }
+
+        // Calculate contract end date based on start date and term
+        function calculateContractEndDate() {
+            const startDateInput = document.getElementById('edit-contract_start_date');
+            const termSelect = document.getElementById('edit-contract_term_length');
+            const endDateInput = document.getElementById('edit-contract_end_date');
+
+            if (!startDateInput.value || !termSelect.value) {
+                endDateInput.value = '';
+                return;
+            }
+
+            const startDate = new Date(startDateInput.value);
+            const term = termSelect.value;
+            let endDate = new Date(startDate);
+
+            // Calculate end date based on term (handle both "X-Year" and "X Year" formats)
+            if (term.includes('1') && term.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 1);
+            } else if (term.includes('2') && term.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 2);
+            } else if (term.includes('3') && term.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 3);
+            } else if (term.toLowerCase().includes('month')) {
+                endDate.setMonth(endDate.getMonth() + 1);
+            } else {
+                endDateInput.value = '';
+                return;
+            }
+
+            // Format date as YYYY-MM-DD for date input
+            const year = endDate.getFullYear();
+            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+            const day = String(endDate.getDate()).padStart(2, '0');
+            endDateInput.value = `${year}-${month}-${day}`;
+        }
+
+        // Calculate and display contract end date on page load
+        function calculateContractEndDateOnLoad() {
+            const contractStartDateEl = document.getElementById('contract-start-date-display');
+            const contractEndDateEl = document.getElementById('contract-end-date-display');
+
+            // Get the current values from the page
+            const contractTerm = '{{ company.contract_term_length or company.contract_term or "" }}';
+            const contractStartDateStr = '{% if company.contract_start_date %}{{ company.contract_start_date.split("T")[0] if "T" in company.contract_start_date else company.contract_start_date }}{% endif %}';
+
+            if (!contractTerm || !contractStartDateStr || contractStartDateStr === 'N/A') {
+                return;
+            }
+
+            const startDate = new Date(contractStartDateStr);
+            let endDate = new Date(startDate);
+
+            // Calculate end date based on term
+            if (contractTerm.includes('1') && contractTerm.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 1);
+            } else if (contractTerm.includes('2') && contractTerm.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 2);
+            } else if (contractTerm.includes('3') && contractTerm.toLowerCase().includes('year')) {
+                endDate.setFullYear(endDate.getFullYear() + 3);
+            } else if (contractTerm.toLowerCase().includes('month')) {
+                endDate.setMonth(endDate.getMonth() + 1);
+            } else {
+                return;
+            }
+
+            // Format and display the end date
+            const year = endDate.getFullYear();
+            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+            const day = String(endDate.getDate()).padStart(2, '0');
+            const endDateFormatted = `${month}/${day}/${year}`;
+
+            if (contractEndDateEl) {
+                contractEndDateEl.textContent = endDateFormatted;
+            }
+        }
+
+        function toggleEditMode() {
+            isEditMode = true;
+            // Show edit controls
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+
+            // Show/hide buttons
+            document.getElementById('editBtn').style.display = 'none';
+            document.getElementById('saveBtn').style.display = 'inline-block';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+
+            // Attach event listeners for contract end date calculation
+            const contractStartInput = document.getElementById('edit-contract_start_date');
+            const contractTermSelect = document.getElementById('edit-contract_term_length');
+            if (contractStartInput && contractTermSelect) {
+                contractStartInput.addEventListener('change', calculateContractEndDate);
+                contractTermSelect.addEventListener('change', calculateContractEndDate);
+            }
+
             lucide.createIcons();
+        }
+
+        function cancelEdit() {
+            isEditMode = false;
+            // Hide edit controls
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+
+            // Show/hide buttons
+            document.getElementById('editBtn').style.display = 'inline-block';
+            document.getElementById('saveBtn').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
+
+            // Reload page to reset values
+            window.location.reload();
+        }
+
+        async function saveCompany() {
+            // Parse domains from textarea (one per line)
+            const domainsText = document.getElementById('edit-domains').value;
+            const domainsArray = domainsText.split('\n').map(d => d.trim()).filter(d => d.length > 0);
+
+            const data = {
+                name: document.getElementById('edit-name').value,
+                description: document.getElementById('edit-description').value,
+                billing_plan: document.getElementById('edit-billing_plan').value,
+                support_level: document.getElementById('edit-support_level').value,
+                email_system: document.getElementById('edit-email_system').value,
+                phone_system: document.getElementById('edit-phone_system').value,
+                managed_users: document.getElementById('edit-managed_users').value,
+                managed_devices: document.getElementById('edit-managed_devices').value,
+                managed_network: document.getElementById('edit-managed_network').value,
+                company_main_number: document.getElementById('edit-company_main_number').value,
+                address: document.getElementById('edit-address').value,
+                head_user_id: document.getElementById('edit-head_user_id').value,
+                prime_user_id: document.getElementById('edit-prime_user_id').value,
+                company_start_date: document.getElementById('edit-company_start_date').value,
+                contract_term_length: document.getElementById('edit-contract_term_length').value,
+                contract_start_date: document.getElementById('edit-contract_start_date').value,
+                contract_end_date: document.getElementById('edit-contract_end_date').value,
+                domains: JSON.stringify(domainsArray)
+            };
+
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/companies/${companyAccountNumber}/update`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    alert('Company updated successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error updating company: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function showAddLocationModal() {
+            document.getElementById('addLocationModal').classList.add('active');
+            lucide.createIcons();
+        }
+
+        function hideAddLocationModal() {
+            document.getElementById('addLocationModal').classList.remove('active');
+            document.getElementById('addLocationForm').reset();
+        }
+
+        async function loadLocations() {
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/companies/${companyAccountNumber}/locations`, {
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayLocations(data.locations || []);
+                }
+            } catch (error) {
+                console.error('Error loading locations:', error);
+            }
+        }
+
+        function displayLocations(locations) {
+            const container = document.getElementById('additional-locations');
+            container.innerHTML = '';
+
+            locations.forEach(location => {
+                const locationDiv = document.createElement('div');
+                locationDiv.className = 'location-item';
+                locationDiv.innerHTML = `
+                    <div class="location-item__header">
+                        <h3 class="location-item__name">${location.name}</h3>
+                        <button class="btn btn--danger btn--small" onclick="deleteLocation(${location.id})">
+                            <span class="btn__label">
+                                <i data-lucide="trash-2" class="btn__icon"></i>
+                                Remove
+                            </span>
+                        </button>
+                    </div>
+                    <p class="location-item__address">
+                        <i data-lucide="map-pin"></i>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}" target="_blank">
+                            ${location.address}
+                        </a>
+                    </p>
+                `;
+                container.appendChild(locationDiv);
+            });
+
+            lucide.createIcons();
+        }
+
+        async function addLocation() {
+            const name = document.getElementById('location-name').value;
+            const address = document.getElementById('location-address').value;
+
+            if (!name || !address) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/companies/${companyAccountNumber}/locations`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ name, address })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    hideAddLocationModal();
+                    loadLocations();
+                } else {
+                    alert('Error adding location: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteLocation(locationId) {
+            if (!confirm('Are you sure you want to remove this location?')) {
+                return;
+            }
+
+            try {
+                const basePath = getBasePath();
+                const response = await fetch(`${basePath}/companies/${companyAccountNumber}/locations/${locationId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    loadLocations();
+                } else {
+                    alert('Error removing location: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('addLocationModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideAddLocationModal();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            formatDatesOnPage();
+            calculateContractEndDateOnLoad();
+            lucide.createIcons();
+            loadLocations();
         });
     </script>
 </body>

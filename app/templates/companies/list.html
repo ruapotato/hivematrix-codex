@@ -21,37 +21,28 @@
         </div>
         <div class="card__body">
             <!-- Search Box -->
-            <form method="GET" action="{{ url_for('companies.list_companies') }}" class="search-form">
+            <form id="searchForm" class="search-form" onsubmit="return false;">
                 <div class="search-form__controls">
                     <input
                         type="text"
+                        id="searchInput"
                         name="search"
                         placeholder="Search by name, account number, or description..."
                         value="{{ search_query or '' }}"
                         class="search-form__input"
                     >
-                    <button type="submit" class="btn btn--primary">
+                    <button type="button" class="btn" id="clearBtn" onclick="clearSearch()" style="display: {{ 'inline-block' if search_query else 'none' }};">
                         <span class="btn__label">
-                            <i data-lucide="search" class="btn__icon"></i>
-                            Search
+                            <i data-lucide="x" class="btn__icon"></i>
+                            Clear
                         </span>
                     </button>
-                    {% if search_query %}
-                    <a href="{{ url_for('companies.list_companies') }}">
-                        <button type="button" class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="x" class="btn__icon"></i>
-                                Clear
-                            </span>
-                        </button>
-                    </a>
-                    {% endif %}
                 </div>
             </form>
 
             <!-- Results Info -->
             <div class="results-header">
-                <p class="results-header__count">
+                <p class="results-header__count" id="resultsCount">
                     {% if search_query %}
                         Showing <strong>{{ pagination.total }}</strong> results for "{{ search_query }}"
                     {% else %}
@@ -59,6 +50,12 @@
                     {% endif %}
                 </p>
                 <div class="results-header__controls">
+                    <button class="btn btn--small" onclick="toggleColumnChooser()">
+                        <span class="btn__label">
+                            <i data-lucide="columns" class="btn__icon"></i>
+                            Columns
+                        </span>
+                    </button>
                     <label for="per_page">Per page:</label>
                     <select id="per_page" onchange="changePerPage(this.value)">
                         <option value="25" {{ 'selected' if per_page == 25 else '' }}>25</option>
@@ -68,44 +65,92 @@
                 </div>
             </div>
 
+            <!-- Column Chooser -->
+            <div id="columnChooser" class="card u-mb-2" style="display: none;">
+                <div class="card__body">
+                    <h3 class="u-mb-1">Show/Hide Columns</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem;">
+                        <label>
+                            <input type="checkbox" checked disabled> Account #
+                        </label>
+                        <label>
+                            <input type="checkbox" checked disabled> Name
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-description" checked onchange="toggleColumn('description')"> Description
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-plan" checked onchange="toggleColumn('plan')"> Plan
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-email_system" checked onchange="toggleColumn('email_system')"> Email System
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-phone_system" checked onchange="toggleColumn('phone_system')"> Phone System
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-contract_end" checked onchange="toggleColumn('contract_end')"> Contract End
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Companies Table -->
             <div class="table-wrapper">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>
-                                <a href="{{ url_for('companies.list_companies', sort_by='account_number', order='desc' if sort_by == 'account_number' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
-                                    Account # {{ '↓' if sort_by == 'account_number' and order == 'desc' else '↑' if sort_by == 'account_number' else '' }}
+                            <th data-column="account_number">
+                                <a href="#" onclick="changeSort('account_number'); return false;" class="sortable-header">
+                                    Account # <span id="sort-account_number"></span>
                                 </a>
                             </th>
-                            <th>
-                                <a href="{{ url_for('companies.list_companies', sort_by='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
-                                    Name {{ '↓' if sort_by == 'name' and order == 'desc' else '↑' if sort_by == 'name' else '' }}
+                            <th data-column="name">
+                                <a href="#" onclick="changeSort('name'); return false;" class="sortable-header">
+                                    Name <span id="sort-name"></span>
                                 </a>
                             </th>
-                            <th>Description</th>
-                            <th>
-                                <a href="{{ url_for('companies.list_companies', sort_by='plan_selected', order='desc' if sort_by == 'plan_selected' and order == 'asc' else 'asc', per_page=per_page, search=search_query) }}" class="sortable-header">
-                                    Plan {{ '↓' if sort_by == 'plan_selected' and order == 'desc' else '↑' if sort_by == 'plan_selected' else '' }}
+                            <th data-column="description">Description</th>
+                            <th data-column="plan">
+                                <a href="#" onclick="changeSort('plan_selected'); return false;" class="sortable-header">
+                                    Plan <span id="sort-plan"></span>
+                                </a>
+                            </th>
+                            <th data-column="email_system">
+                                <a href="#" onclick="changeSort('email_system'); return false;" class="sortable-header">
+                                    Email System <span id="sort-email_system"></span>
+                                </a>
+                            </th>
+                            <th data-column="phone_system">
+                                <a href="#" onclick="changeSort('phone_system'); return false;" class="sortable-header">
+                                    Phone System <span id="sort-phone_system"></span>
+                                </a>
+                            </th>
+                            <th data-column="contract_end">
+                                <a href="#" onclick="changeSort('contract_end_date'); return false;" class="sortable-header">
+                                    Contract End <span id="sort-contract_end_date"></span>
                                 </a>
                             </th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="companiesTableBody">
                         {% for company in companies %}
                         <tr>
-                            <td>{{ company.account_number or 'N/A' }}</td>
-                            <td>
+                            <td data-column="account_number">{{ company.account_number or 'N/A' }}</td>
+                            <td data-column="name">
                                 <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
                                     <strong>{{ company.name }}</strong>
                                 </a>
                             </td>
-                            <td class="text-truncate">{{ company.description or '-' }}</td>
-                            <td><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
+                            <td data-column="description" class="text-truncate">{{ company.description or '-' }}</td>
+                            <td data-column="plan"><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
+                            <td data-column="email_system">{{ company.email_system or '-' }}</td>
+                            <td data-column="phone_system">{{ company.phone_system or '-' }}</td>
+                            <td data-column="contract_end">{{ company.contract_end_date or '-' }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="empty-state">
+                            <td colspan="7" class="empty-state">
                                 {% if search_query %}
                                     No companies found matching "{{ search_query }}". Try a different search term.
                                 {% else %}
@@ -119,63 +164,278 @@
             </div>
 
             <!-- Pagination Controls -->
-            {% if pagination.pages > 1 %}
-            <div class="pagination">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('companies.list_companies', page=1, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevrons-left" class="btn__icon"></i>
-                                First
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('companies.list_companies', page=pagination.prev_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                <i data-lucide="chevron-left" class="btn__icon"></i>
-                                Previous
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
-
-                <span class="pagination__info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
-
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('companies.list_companies', page=pagination.next_num, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Next
-                                <i data-lucide="chevron-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                    <a href="{{ url_for('companies.list_companies', page=pagination.pages, per_page=per_page, sort_by=sort_by, order=order, search=search_query) }}">
-                        <button class="btn">
-                            <span class="btn__label">
-                                Last
-                                <i data-lucide="chevrons-right" class="btn__icon"></i>
-                            </span>
-                        </button>
-                    </a>
-                {% endif %}
+            <div class="pagination" id="paginationControls" style="display: {{ 'flex' if pagination.pages > 1 else 'none' }};">
+                <!-- Pagination will be dynamically updated -->
             </div>
-            {% endif %}
         </div>
     </div>
 
     <script>
-        function changePerPage(value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('per_page', value);
-            url.searchParams.set('page', '1'); // Reset to first page
-            window.location.href = url.toString();
+        let currentPage = {{ pagination.page }};
+        let currentPerPage = {{ per_page }};
+        let currentSortBy = '{{ sort_by }}';
+        let currentOrder = '{{ order }}';
+        let currentSearch = '{{ search_query or '' }}';
+        let searchTimeout = null;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
         }
 
-        // Initialize Lucide icons
+        // Real-time search with debouncing
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentSearch = e.target.value.trim();
+                currentPage = 1; // Reset to first page on new search
+                loadCompanies();
+
+                // Show/hide clear button
+                document.getElementById('clearBtn').style.display = currentSearch ? 'inline-block' : 'none';
+            }, 300); // Wait 300ms after user stops typing
+        });
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            currentSearch = '';
+            currentPage = 1;
+            document.getElementById('clearBtn').style.display = 'none';
+            loadCompanies();
+        }
+
+        function changePerPage(value) {
+            currentPerPage = parseInt(value);
+            currentPage = 1; // Reset to first page
+            loadCompanies();
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadCompanies();
+        }
+
+        function changeSort(sortBy) {
+            if (currentSortBy === sortBy) {
+                // Toggle order if same column
+                currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortBy = sortBy;
+                currentOrder = 'asc';
+            }
+            updateSortIndicators();
+            loadCompanies();
+        }
+
+        function updateSortIndicators() {
+            // Clear all sort indicators
+            document.querySelectorAll('[id^="sort-"]').forEach(span => {
+                span.textContent = '';
+            });
+
+            // Map internal field names to display IDs
+            const sortFieldMap = {
+                'account_number': 'account_number',
+                'name': 'name',
+                'plan_selected': 'plan',
+                'email_system': 'email_system',
+                'phone_system': 'phone_system',
+                'contract_end_date': 'contract_end_date'
+            };
+
+            const displayId = sortFieldMap[currentSortBy];
+            if (displayId) {
+                const indicator = document.getElementById(`sort-${displayId}`);
+                if (indicator) {
+                    indicator.textContent = currentOrder === 'asc' ? '↑' : '↓';
+                }
+            }
+        }
+
+        async function loadCompanies() {
+            const basePath = getBasePath();
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: currentPerPage,
+                sort_by: currentSortBy,
+                order: currentOrder,
+                search: currentSearch
+            });
+
+            try {
+                const response = await fetch(`${basePath}/companies/api/search?${params}`, {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch companies');
+
+                const data = await response.json();
+                updateTable(data.companies);
+                updatePagination(data.pagination);
+                updateResultsCount(data.pagination.total);
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading companies:', error);
+                alert('Error loading companies. Please try again.');
+            }
+        }
+
+        function updateTable(companies) {
+            const tbody = document.getElementById('companiesTableBody');
+            const basePath = getBasePath();
+
+            if (companies.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            ${currentSearch ?
+                                `No companies found matching "${currentSearch}". Try a different search term.` :
+                                'No companies found. Run Freshservice sync to import data.'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = companies.map(company => `
+                <tr>
+                    <td data-column="account_number">${company.account_number || 'N/A'}</td>
+                    <td data-column="name">
+                        <a href="${basePath}/companies/${company.account_number}">
+                            <strong>${company.name}</strong>
+                        </a>
+                    </td>
+                    <td data-column="description" class="text-truncate">${company.description || '-'}</td>
+                    <td data-column="plan"><span class="badge">${company.plan_selected || 'No Plan'}</span></td>
+                    <td data-column="email_system">${company.email_system || '-'}</td>
+                    <td data-column="phone_system">${company.phone_system || '-'}</td>
+                    <td data-column="contract_end">${company.contract_end_date || '-'}</td>
+                </tr>
+            `).join('');
+
+            // Re-apply column visibility preferences
+            loadColumnPreferences();
+        }
+
+        function updatePagination(pagination) {
+            const container = document.getElementById('paginationControls');
+
+            if (pagination.pages <= 1) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+            let html = '';
+
+            // First and Previous buttons
+            if (pagination.has_prev) {
+                html += `
+                    <button class="btn" onclick="changePage(1)">
+                        <span class="btn__label">
+                            <i data-lucide="chevrons-left" class="btn__icon"></i>
+                            First
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.prev_num})">
+                        <span class="btn__label">
+                            <i data-lucide="chevron-left" class="btn__icon"></i>
+                            Previous
+                        </span>
+                    </button>
+                `;
+            }
+
+            // Page info
+            html += `<span class="pagination__info">Page ${pagination.page} of ${pagination.pages}</span>`;
+
+            // Next and Last buttons
+            if (pagination.has_next) {
+                html += `
+                    <button class="btn" onclick="changePage(${pagination.next_num})">
+                        <span class="btn__label">
+                            Next
+                            <i data-lucide="chevron-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                    <button class="btn" onclick="changePage(${pagination.pages})">
+                        <span class="btn__label">
+                            Last
+                            <i data-lucide="chevrons-right" class="btn__icon"></i>
+                        </span>
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function updateResultsCount(total) {
+            const countElement = document.getElementById('resultsCount');
+            if (currentSearch) {
+                countElement.innerHTML = `Showing <strong>${total}</strong> results for "${currentSearch}"`;
+            } else {
+                countElement.innerHTML = `Total: <strong>${total}</strong> companies`;
+            }
+        }
+
+        function toggleColumnChooser() {
+            const chooser = document.getElementById('columnChooser');
+            chooser.style.display = chooser.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleColumn(columnName) {
+            const isChecked = document.getElementById(`col-${columnName}`).checked;
+            const headers = document.querySelectorAll(`th[data-column="${columnName}"]`);
+            const cells = document.querySelectorAll(`td[data-column="${columnName}"]`);
+
+            headers.forEach(th => {
+                th.style.display = isChecked ? '' : 'none';
+            });
+
+            cells.forEach(td => {
+                td.style.display = isChecked ? '' : 'none';
+            });
+
+            // Save preference to localStorage
+            localStorage.setItem(`column_${columnName}`, isChecked);
+        }
+
+        function loadColumnPreferences() {
+            const columns = ['description', 'plan', 'email_system', 'phone_system', 'contract_end'];
+            columns.forEach(column => {
+                const saved = localStorage.getItem(`column_${column}`);
+                if (saved !== null) {
+                    const isVisible = saved === 'true';
+                    document.getElementById(`col-${column}`).checked = isVisible;
+                    toggleColumn(column);
+                }
+            });
+        }
+
+        // Initialize Lucide icons and pagination on page load
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            loadColumnPreferences();
+            updateSortIndicators();
+
+            // Initialize pagination on page load
+            const initialPagination = {
+                page: {{ pagination.page }},
+                pages: {{ pagination.pages }},
+                total: {{ pagination.total }},
+                has_prev: {{ 'true' if pagination.has_prev else 'false' }},
+                has_next: {{ 'true' if pagination.has_next else 'false' }},
+                prev_num: {{ pagination.prev_num if pagination.has_prev else 1 }},
+                next_num: {{ pagination.next_num if pagination.has_next else 1 }}
+            };
+            updatePagination(initialPagination);
+
+            // Re-render icons after pagination is created
+            setTimeout(() => lucide.createIcons(), 100);
         });
     </script>
 </body>

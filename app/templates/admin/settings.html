@@ -102,13 +102,13 @@
         </div>
     </div>
 
-    <div class="card" id="sync-progress-card" style="display: none;">
+    <div class="card u-hidden" id="sync-progress-card">
         <div class="card__header">
             <h2 class="card__title">Sync Progress</h2>
         </div>
         <div class="card__body">
             <p id="sync-status" class="u-my-1 u-font-medium"></p>
-            <div class="code-block u-my-1 u-text-small u-overflow-auto" style="max-height: 300px;" id="sync-output"></div>
+            <div class="code-block u-my-1 u-text-small u-overflow-auto" id="sync-output"></div>
             <p id="sync-elapsed" class="u-my-1 u-text-secondary u-text-small"></p>
         </div>
     </div>
@@ -150,25 +150,13 @@
                         </td>
                         <td>
                             {% if job.status == 'completed' and job.success %}
-                                <span class="status-text status-text--success u-font-medium">
-                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Success
-                                </span>
+                                <span class="status-text status-text--success u-font-medium">Success</span>
                             {% elif job.status == 'completed' %}
-                                <span class="status-text status-text--warning u-font-medium">
-                                    <i data-lucide="alert-triangle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Completed with errors
-                                </span>
+                                <span class="status-text status-text--warning u-font-medium">Completed with errors</span>
                             {% elif job.status == 'running' %}
-                                <span class="status-text status-text--info u-font-medium">
-                                    <i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Running
-                                </span>
+                                <span class="status-text status-text--info u-font-medium">Running</span>
                             {% else %}
-                                <span class="status-text status-text--error u-font-medium">
-                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Failed
-                                </span>
+                                <span class="status-text status-text--error u-font-medium">Failed</span>
                             {% endif %}
                         </td>
                         <td>
@@ -190,12 +178,12 @@
     </div>
 
     <div id="jobModal" class="modal">
-        <div class="modal__dialog" style="max-width: 900px;">
+        <div class="modal__dialog">
             <div class="modal__header">
                 <h2 class="modal__title">Sync Job Details</h2>
                 <button class="modal__close" onclick="closeJobModal()">&times;</button>
             </div>
-            <div class="modal__body" id="jobModalContent" style="max-height: 600px; overflow-y: auto;">
+            <div class="modal__body u-overflow-auto" id="jobModalContent">
                 Loading...
             </div>
         </div>
@@ -254,15 +242,9 @@
                         <td><strong>API Key:</strong></td>
                         <td>
                             {% if fs_config.api_key_set %}
-                                <span class="u-text-success">
-                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Configured
-                                </span>
+                                <span class="status-text status-text--success">Configured</span>
                             {% else %}
-                                <span class="u-text-danger">
-                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Not configured
-                                </span>
+                                <span class="status-text status-text--danger">Not configured</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -270,19 +252,19 @@
             </table>
 
             <h3>Update Freshservice Configuration</h3>
-            <form method="POST" action="{{ url_for('admin.update_freshservice') }}">
-                <div style="margin-bottom: 1em;">
-                    <label for="fs_domain">Domain:</label><br>
+            <form method="POST" action="{{ url_for('admin.update_freshservice') }}" class="form">
+                <div class="form__group">
+                    <label for="fs_domain" class="form__label">Domain:</label>
                     <input type="text" id="fs_domain" name="fs_domain"
                            value="{{ fs_config.domain }}"
                            placeholder="your-domain.freshservice.com"
-                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                           class="form__input">
                 </div>
-                <div style="margin-bottom: 1em;">
-                    <label for="fs_api_key">API Key:</label><br>
+                <div class="form__group">
+                    <label for="fs_api_key" class="form__label">API Key:</label>
                     <input type="password" id="fs_api_key" name="fs_api_key"
                            placeholder="Enter new API key (leave blank to keep current)"
-                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                           class="form__input">
                 </div>
                 <button type="submit" class="btn btn--primary">
                     <span class="btn__label">Save Freshservice Settings</span>
@@ -306,15 +288,9 @@
                         <td><strong>Public Key:</strong></td>
                         <td>
                             {% if datto_config.public_key_set %}
-                                <span class="u-text-success">
-                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Configured
-                                </span>
+                                <span class="status-text status-text--success">Configured</span>
                             {% else %}
-                                <span class="u-text-danger">
-                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Not configured
-                                </span>
+                                <span class="status-text status-text--danger">Not configured</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -322,15 +298,9 @@
                         <td><strong>Secret Key:</strong></td>
                         <td>
                             {% if datto_config.secret_key_set %}
-                                <span class="u-text-success">
-                                    <i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Configured
-                                </span>
+                                <span class="status-text status-text--success">Configured</span>
                             {% else %}
-                                <span class="u-text-danger">
-                                    <i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    Not configured
-                                </span>
+                                <span class="status-text status-text--danger">Not configured</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -338,11 +308,10 @@
             </table>
 
             <h3>Update Datto RMM Configuration</h3>
-            <form method="POST" action="{{ url_for('admin.update_datto') }}">
-                <div style="margin-bottom: 1em;">
-                    <label for="datto_endpoint">API Endpoint:</label><br>
-                    <select id="datto_endpoint" name="datto_endpoint"
-                            style="width: 100%; max-width: 400px; padding: 0.5em;">
+            <form method="POST" action="{{ url_for('admin.update_datto') }}" class="form">
+                <div class="form__group">
+                    <label for="datto_endpoint" class="form__label">API Endpoint:</label>
+                    <select id="datto_endpoint" name="datto_endpoint" class="form__select">
                         <option value="https://zinfandel-api.centrastage.net"
                                 {% if datto_config.api_endpoint == 'https://zinfandel-api.centrastage.net' %}selected{% endif %}>
                             US - https://zinfandel-api.centrastage.net
@@ -357,17 +326,17 @@
                         </option>
                     </select>
                 </div>
-                <div style="margin-bottom: 1em;">
-                    <label for="datto_public_key">Public Key:</label><br>
+                <div class="form__group">
+                    <label for="datto_public_key" class="form__label">Public Key:</label>
                     <input type="text" id="datto_public_key" name="datto_public_key"
                            placeholder="Enter new public key (leave blank to keep current)"
-                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                           class="form__input">
                 </div>
-                <div style="margin-bottom: 1em;">
-                    <label for="datto_secret_key">Secret Key:</label><br>
+                <div class="form__group">
+                    <label for="datto_secret_key" class="form__label">Secret Key:</label>
                     <input type="password" id="datto_secret_key" name="datto_secret_key"
                            placeholder="Enter new secret key (leave blank to keep current)"
-                           style="width: 100%; max-width: 400px; padding: 0.5em;">
+                           class="form__input">
                 </div>
                 <button type="submit" class="btn btn--primary">
                     <span class="btn__label">Save Datto Settings</span>
@@ -471,12 +440,11 @@ sync_run_on_startup = false</code></pre>
             <p><strong>⚠️ Warning:</strong> These operations are destructive and cannot be undone!</p>
 
             <h3>Clear Database Records</h3>
-            <form method="POST" action="{{ url_for('admin.clear_data') }}"
+            <form method="POST" action="{{ url_for('admin.clear_data') }}" class="form"
                   onsubmit="return confirm('Are you sure you want to delete this data? This action cannot be undone!');">
-                <div style="margin-bottom: 1em;">
-                    <label for="data_type">Select data type to clear:</label><br>
-                    <select id="data_type" name="data_type" required
-                            style="width: 100%; max-width: 400px; padding: 0.5em;">
+                <div class="form__group">
+                    <label for="data_type" class="form__label">Select data type to clear:</label>
+                    <select id="data_type" name="data_type" required class="form__select">
                         <option value="">-- Select Type --</option>
                         <option value="assets">Assets Only ({{ stats.assets }} records)</option>
                         <option value="contacts">Contacts Only ({{ stats.contacts }} records)</option>
@@ -501,11 +469,11 @@ sync_run_on_startup = false</code></pre>
         let startTime = null;
 
         function showSyncProgress() {
-            document.getElementById('sync-progress-card').style.display = 'block';
+            document.getElementById('sync-progress-card').classList.remove('u-hidden');
         }
 
         function hideSyncProgress() {
-            document.getElementById('sync-progress-card').style.display = 'none';
+            document.getElementById('sync-progress-card').classList.add('u-hidden');
         }
 
         function viewJobDetails(jobId) {
@@ -519,14 +487,13 @@ sync_run_on_startup = false</code></pre>
             .then(response => response.json())
             .then(data => {
                 const statusClass = data.success ? 'status-text--success' : (data.status === 'failed' ? 'status-text--error' : 'status-text--info');
-                const statusIcon = data.success ? '<i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i>' : (data.status === 'failed' ? '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i>' : '<i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i>');
                 const statusText = data.success ? 'Success' : (data.status === 'failed' ? 'Failed' : data.status);
 
                 let html = `
                     <div class="u-mb-2">
                         <p><strong>Job ID:</strong> ${data.id}</p>
                         <p><strong>Script:</strong> ${data.script}</p>
-                        <p><strong>Status:</strong> <span class="status-text ${statusClass} u-font-medium">${statusIcon} ${statusText}</span></p>
+                        <p><strong>Status:</strong> <span class="status-text ${statusClass} u-font-medium">${statusText}</span></p>
                         <p><strong>Started:</strong> ${data.started_at || 'N/A'}</p>
                         <p><strong>Completed:</strong> ${data.completed_at || 'Still running'}</p>
                     </div>
@@ -536,7 +503,7 @@ sync_run_on_startup = false</code></pre>
                     html += `
                         <div class="u-mt-2">
                             <h4 class="u-mb-1">Output:</h4>
-                            <pre class="code-block u-text-small" style="max-height: 400px; overflow-x: auto;">${data.output}</pre>
+                            <pre class="code-block u-text-small u-overflow-auto">${data.output}</pre>
                         </div>
                     `;
                 }
@@ -545,7 +512,7 @@ sync_run_on_startup = false</code></pre>
                     html += `
                         <div class="u-mt-2">
                             <h4 class="u-mb-1 u-text-danger">Error:</h4>
-                            <pre class="code-block code-block--error u-text-small" style="max-height: 400px; overflow-x: auto;">${data.error}</pre>
+                            <pre class="code-block code-block--error u-text-small u-overflow-auto">${data.error}</pre>
                         </div>
                     `;
                 }
@@ -595,16 +562,16 @@ sync_run_on_startup = false</code></pre>
                 // Update status
                 status.className = ''; // Clear existing classes
                 if (data.status === 'running') {
-                    status.innerHTML = `<i data-lucide="loader" style="width: 14px; height: 14px; vertical-align: middle;"></i> Syncing ${data.script}... (${data.status})`;
+                    status.textContent = `Syncing ${data.script}... (${data.status})`;
                     status.classList.add('status-text', 'status-text--info', 'u-font-medium');
                 } else if (data.status === 'completed') {
-                    status.innerHTML = data.success
-                        ? `<i data-lucide="check" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync completed successfully!`
-                        : `<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync completed with errors`;
+                    status.textContent = data.success
+                        ? `${data.script} sync completed successfully!`
+                        : `${data.script} sync completed with errors`;
                     status.classList.add('status-text', 'u-font-medium',
                         data.success ? 'status-text--success' : 'status-text--error');
                 } else if (data.status === 'failed') {
-                    status.innerHTML = `<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> ${data.script} sync failed`;
+                    status.textContent = `${data.script} sync failed`;
                     status.classList.add('status-text', 'status-text--error', 'u-font-medium');
                 }
 
@@ -679,23 +646,17 @@ sync_run_on_startup = false</code></pre>
                     // Do first poll immediately
                     pollJobStatus(data.job_id, buttonId, buttonLabel);
                 } else {
-                    status.innerHTML = '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Failed to start sync: ' + (data.error || 'Unknown error');
+                    status.textContent = 'Failed to start sync: ' + (data.error || 'Unknown error');
                     status.className = 'status-text status-text--error';
                     btn.disabled = false;
                     btn.querySelector('.btn__label').textContent = buttonLabel;
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
                 }
             })
             .catch(error => {
-                status.innerHTML = '<i data-lucide="x" style="width: 14px; height: 14px; vertical-align: middle;"></i> Error: ' + error.message;
+                status.textContent = 'Error: ' + error.message;
                 status.className = 'status-text status-text--error';
                 btn.disabled = false;
                 btn.querySelector('.btn__label').textContent = buttonLabel;
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
             });
         }
 

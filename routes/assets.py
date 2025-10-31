@@ -5,6 +5,66 @@ from sqlalchemy import asc, desc
 
 assets_bp = Blueprint('assets', __name__, url_prefix='/assets')
 
+@assets_bp.route('/api/search')
+@token_required
+def search_assets_api():
+    """API endpoint for searching assets without page reload."""
+    if g.is_service_call:
+        return {'error': 'This endpoint is for users only'}, 403
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    sort_by = request.args.get('sort_by', 'hostname')
+    order = request.args.get('order', 'asc')
+    search_query = request.args.get('search', '').strip()
+
+    query = Asset.query.join(Company, Asset.company_account_number == Company.account_number, isouter=True)
+
+    # Apply search filter
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        query = query.filter(
+            db.or_(
+                Asset.hostname.ilike(search_pattern),
+                Asset.description.ilike(search_pattern),
+                Asset.datto_site_name.ilike(search_pattern),
+                Company.name.ilike(search_pattern)
+            )
+        )
+
+    # Apply sorting
+    if sort_by in ['hostname', 'hardware_type', 'operating_system', 'online']:
+        column = getattr(Asset, sort_by)
+        query = query.order_by(desc(column) if order == 'desc' else asc(column))
+
+    # Paginate
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        'success': True,
+        'assets': [{
+            'id': a.id,
+            'hostname': a.hostname,
+            'description': a.description,
+            'hardware_type': a.hardware_type,
+            'operating_system': a.operating_system,
+            'online': a.online,
+            'last_logged_in_user': a.last_logged_in_user,
+            'web_remote_url': a.web_remote_url,
+            'company_name': a.company.name if a.company else None,
+            'company_account_number': a.company.account_number if a.company else None
+        } for a in pagination.items],
+        'pagination': {
+            'page': pagination.page,
+            'pages': pagination.pages,
+            'total': pagination.total,
+            'has_prev': pagination.has_prev,
+            'has_next': pagination.has_next,
+            'prev_num': pagination.prev_num,
+            'next_num': pagination.next_num
+        }
+    })
+
 @assets_bp.route('/')
 @token_required
 def list_assets():

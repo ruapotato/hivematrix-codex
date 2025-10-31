@@ -45,6 +45,7 @@ class Company(db.Model):
     managed_network = db.Column(db.String(100))
     contract_term = db.Column(db.String(50))  # Contract term length
     contract_start_date = db.Column(db.String(100))
+    contract_end_date = db.Column(db.String(100))  # Calculated end date
     profit_or_non_profit = db.Column(db.String(50))
     company_main_number = db.Column(db.String(50))
     address = db.Column(db.Text)  # Full address
@@ -218,18 +219,24 @@ class BillingPlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     plan_name = db.Column(db.String(100), nullable=False)
     term_length = db.Column(db.String(50), nullable=False)  # 'Month to Month', '1-Year', '2-Year', '3-Year'
-    per_user_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_workstation_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_server_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_vm_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_switch_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_firewall_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    per_hour_ticket_cost = db.Column(db.Numeric(10, 2), default=0.0)
-    backup_base_fee_workstation = db.Column(db.Numeric(10, 2), default=0.0)
-    backup_base_fee_server = db.Column(db.Numeric(10, 2), default=0.0)
-    backup_cost_per_gb_workstation = db.Column(db.Numeric(10, 4), default=0.0)
-    backup_cost_per_gb_server = db.Column(db.Numeric(10, 4), default=0.0)
-    support_level = db.Column(db.String(100), default='Billed Hourly')  # 'Unlimited', 'Billed Hourly', etc.
+    support_level = db.Column(db.String(100), default='Billed Hourly', nullable=False)  # 'Billed Hourly', 'All Inclusive', etc.
+
+    # Per-item costs
+    per_user_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_workstation_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_server_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_vm_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_switch_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_firewall_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    per_hour_ticket_cost = db.Column(db.Numeric(10, 2), default=0.00)
+
+    # Backup costs
+    backup_base_fee_workstation = db.Column(db.Numeric(10, 2), default=0.00)
+    backup_base_fee_server = db.Column(db.Numeric(10, 2), default=0.00)
+    backup_included_tb = db.Column(db.Numeric(10, 2), default=1.00)  # TB included per device
+    backup_per_tb_fee = db.Column(db.Numeric(10, 2), default=0.00)  # Cost per TB over included
+
+    # Feature options (DEPRECATED - kept for backwards compatibility during migration)
     antivirus = db.Column(db.String(100), default='Not Included')
     soc = db.Column(db.String(100), default='Not Included')
     password_manager = db.Column(db.String(100), default='Not Included')
@@ -237,15 +244,38 @@ class BillingPlan(db.Model):
     email_security = db.Column(db.String(100), default='Not Included')
     network_management = db.Column(db.String(100), default='Not Included')
 
+    # Dynamic features relationship
+    features = db.relationship('PlanFeature', back_populates='billing_plan', lazy='dynamic', cascade="all, delete-orphan")
+
     __table_args__ = (db.UniqueConstraint('plan_name', 'term_length', name='unique_plan_term'),)
 
 class FeatureOption(db.Model):
     __tablename__ = 'feature_options'
     id = db.Column(db.Integer, primary_key=True)
-    feature_category = db.Column(db.String(100), nullable=False)  # 'Antivirus', 'Email', 'Phone', etc.
-    option_value = db.Column(db.String(100), nullable=False)  # 'SentinelOne', 'Microsoft 365', etc.
+    feature_type = db.Column(db.String(100), nullable=False)  # 'antivirus', 'soc', 'password_manager', etc.
+    display_name = db.Column(db.String(150), nullable=False)  # 'SentinelOne', 'Arctic Wolf', etc.
+    description = db.Column(db.Text)  # Optional description
 
-    __table_args__ = (db.UniqueConstraint('feature_category', 'option_value', name='unique_feature_option'),)
+    __table_args__ = (db.UniqueConstraint('feature_type', 'display_name', name='unique_feature_option'),)
+
+
+class PlanFeature(db.Model):
+    """
+    Dynamic feature storage for billing plans.
+    This allows adding ANY feature type without database schema changes.
+    Each plan can have multiple features with their selected values.
+    """
+    __tablename__ = 'plan_features'
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('billing_plans.id', ondelete='CASCADE'), nullable=False)
+    feature_type = db.Column(db.String(100), nullable=False)  # 'antivirus', 'soc', 'web_filtering', etc.
+    feature_value = db.Column(db.String(150), nullable=False)  # 'SentinelOne', 'Not Included', etc.
+
+    # Relationship
+    billing_plan = db.relationship('BillingPlan', back_populates='features')
+
+    __table_args__ = (db.UniqueConstraint('plan_id', 'feature_type', name='unique_plan_feature'),)
+
 
 class Agent(db.Model):
     """
