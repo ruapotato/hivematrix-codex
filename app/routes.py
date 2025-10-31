@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import render_template, g, jsonify, request
 from app import app
 from .auth import token_required, admin_required
-from models import Company, Contact, Asset, Location, TicketDetail, SyncJob, BillingPlan, FeatureOption
+from models import Company, Contact, Asset, Location, TicketDetail, SyncJob, BillingPlan, PlanFeature, FeatureOption
 from extensions import db
 import subprocess
 import os
@@ -20,12 +20,15 @@ def index():
     company_count = Company.query.count()
     contact_count = Contact.query.count()
     asset_count = Asset.query.count()
+    # Count unique billing plan categories (plan names)
+    billing_plan_count = db.session.query(BillingPlan.plan_name).distinct().count()
 
     return render_template('dashboard.html',
                          user=g.user,
                          company_count=company_count,
                          contact_count=contact_count,
-                         asset_count=asset_count)
+                         asset_count=asset_count,
+                         billing_plan_count=billing_plan_count)
 
 def run_sync_script(job_id, script_path, follow_up_script=None):
     """Run sync script in background and update job status in database."""
@@ -1079,3 +1082,29 @@ def create_feature_option():
     db.session.commit()
 
     return jsonify({'id': feature.id, 'message': 'Feature option created'}), 201
+
+
+@app.route('/api/billing-plans/<string:plan_name>/<string:term_length>', methods=['GET'])
+@token_required
+def get_plan_by_name_and_term(plan_name, term_length):
+    """Get billing plan details by plan name and term length with dynamic features"""
+    plan = BillingPlan.query.filter_by(
+        plan_name=plan_name,
+        term_length=term_length
+    ).first()
+
+    if not plan:
+        return jsonify({'error': 'Plan not found'}), 404
+
+    # Build features dictionary from PlanFeature table
+    features = {}
+    for plan_feature in plan.features:
+        features[plan_feature.feature_type] = plan_feature.feature_value
+
+    return jsonify({
+        'id': plan.id,
+        'plan_name': plan.plan_name,
+        'term_length': plan.term_length,
+        'support_level': plan.support_level,
+        'features': features
+    })

@@ -7,6 +7,15 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    {% macro plan_badge_class(plan) -%}
+    {%- if not plan or plan == 'No Plan' -%}
+    {%- elif 'platinum' in plan.lower() -%}badge--platinum
+    {%- elif 'premium' in plan.lower() -%}badge--success
+    {%- elif 'advanced' in plan.lower() -%}badge--gold
+    {%- elif 'basic' in plan.lower() -%}badge--info
+    {%- elif 'break fix' in plan.lower() or 'pro services' in plan.lower() -%}badge--warning
+    {%- endif -%}
+    {%- endmacro %}
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">Companies</h1>
@@ -50,6 +59,10 @@
                     {% endif %}
                 </p>
                 <div class="results-header__controls">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="hideInactive" checked onchange="toggleInactiveCompanies()">
+                        <span>Hide Inactive</span>
+                    </label>
                     <button class="btn btn--small" onclick="toggleColumnChooser()">
                         <span class="btn__label">
                             <i data-lucide="columns" class="btn__icon"></i>
@@ -143,7 +156,7 @@
                                 </a>
                             </td>
                             <td data-column="description" class="text-truncate">{{ company.description or '-' }}</td>
-                            <td data-column="plan"><span class="badge">{{ company.plan_selected or 'No Plan' }}</span></td>
+                            <td data-column="plan"><span class="badge {{ plan_badge_class(company.plan_selected) }}">{{ company.plan_selected or 'No Plan' }}</span></td>
                             <td data-column="email_system">{{ company.email_system or '-' }}</td>
                             <td data-column="phone_system">{{ company.phone_system or '-' }}</td>
                             <td data-column="contract_end">{{ company.contract_end_date or '-' }}</td>
@@ -183,6 +196,49 @@
             if (path.startsWith('/codex/')) {
                 return '/codex';
             }
+            return '';
+        }
+
+        function getPlanBadgeClass(plan) {
+            if (!plan || plan === 'No Plan') return '';
+
+            const planLower = plan.toLowerCase();
+
+            // Platinum - Metallic platinum badge
+            if (planLower.includes('platinum')) {
+                return 'badge--platinum';
+            }
+
+            // Premium - Success (green)
+            if (planLower.includes('premium')) {
+                return 'badge--success';
+            }
+
+            // MSP Advanced (high tier hourly) - Gold
+            if (planLower.includes('advanced')) {
+                return 'badge--gold';
+            }
+
+            // MSP Basic (low tier hourly) - Info (blue)
+            if (planLower.includes('basic')) {
+                return 'badge--info';
+            }
+
+            // Misc hourly plans - Warning (yellow/orange)
+            if (planLower.includes('break fix') || planLower.includes('pro services')) {
+                return 'badge--warning';
+            }
+
+            // Network only - secondary (gray)
+            if (planLower.includes('network')) {
+                return '';
+            }
+
+            // Legacy - secondary (gray)
+            if (planLower.includes('legacy')) {
+                return '';
+            }
+
             return '';
         }
 
@@ -300,21 +356,24 @@
                 return;
             }
 
-            tbody.innerHTML = companies.map(company => `
-                <tr>
-                    <td data-column="account_number">${company.account_number || 'N/A'}</td>
-                    <td data-column="name">
-                        <a href="${basePath}/companies/${company.account_number}">
-                            <strong>${company.name}</strong>
-                        </a>
-                    </td>
-                    <td data-column="description" class="text-truncate">${company.description || '-'}</td>
-                    <td data-column="plan"><span class="badge">${company.plan_selected || 'No Plan'}</span></td>
-                    <td data-column="email_system">${company.email_system || '-'}</td>
-                    <td data-column="phone_system">${company.phone_system || '-'}</td>
-                    <td data-column="contract_end">${company.contract_end_date || '-'}</td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = companies.map(company => {
+                const planBadgeClass = getPlanBadgeClass(company.plan_selected);
+                return `
+                    <tr>
+                        <td data-column="account_number">${company.account_number || 'N/A'}</td>
+                        <td data-column="name">
+                            <a href="${basePath}/companies/${company.account_number}">
+                                <strong>${company.name}</strong>
+                            </a>
+                        </td>
+                        <td data-column="description" class="text-truncate">${company.description || '-'}</td>
+                        <td data-column="plan"><span class="badge ${planBadgeClass}">${company.plan_selected || 'No Plan'}</span></td>
+                        <td data-column="email_system">${company.email_system || '-'}</td>
+                        <td data-column="phone_system">${company.phone_system || '-'}</td>
+                        <td data-column="contract_end">${company.contract_end_date || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
 
             // Re-apply column visibility preferences
             loadColumnPreferences();
@@ -416,11 +475,39 @@
             });
         }
 
+        function toggleInactiveCompanies() {
+            const hideInactive = document.getElementById('hideInactive').checked;
+            const rows = document.querySelectorAll('tbody tr');
+
+            rows.forEach(row => {
+                const planCell = row.querySelector('td[data-column="plan"]');
+                if (planCell) {
+                    const planText = planCell.textContent.trim();
+                    if (planText.toLowerCase() === 'inactive') {
+                        row.style.display = hideInactive ? 'none' : '';
+                    }
+                }
+            });
+
+            // Save preference to localStorage
+            localStorage.setItem('hideInactiveCompanies', hideInactive);
+        }
+
         // Initialize Lucide icons and pagination on page load
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             loadColumnPreferences();
             updateSortIndicators();
+
+            // Load and apply inactive companies preference
+            const savedHideInactive = localStorage.getItem('hideInactiveCompanies');
+            if (savedHideInactive !== null) {
+                document.getElementById('hideInactive').checked = savedHideInactive === 'true';
+                toggleInactiveCompanies();
+            } else {
+                // Default to hiding inactive companies
+                toggleInactiveCompanies();
+            }
 
             // Initialize pagination on page load
             const initialPagination = {

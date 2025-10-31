@@ -11,6 +11,26 @@
         <div class="card__header">
             <h1 class="card__title">{{ contact.name }}</h1>
             <div class="card__header-actions">
+                {% if user.permission_level in ['admin', 'technician'] %}
+                <button type="button" id="editBtn" class="btn btn--primary" onclick="toggleEditMode()">
+                    <span class="btn__label">
+                        <i data-lucide="edit" class="btn__icon"></i>
+                        Edit Details
+                    </span>
+                </button>
+                <button type="button" id="saveBtn" class="btn btn--success" onclick="saveContact()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="save" class="btn__icon"></i>
+                        Save Changes
+                    </span>
+                </button>
+                <button type="button" id="cancelBtn" class="btn btn--secondary" onclick="cancelEdit()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+                {% endif %}
                 <button class="btn" onclick="window.location.href='{{ url_for('contacts.list_contacts') }}'">
                     <span class="btn__label">
                         <i data-lucide="arrow-left" class="btn__icon"></i>
@@ -26,47 +46,189 @@
             <h2 class="card__title">Contact Information</h2>
         </div>
         <div class="card__body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="info-grid">
                 <div>
-                    <p class="u-mb-1"><strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
-                    <p class="u-mb-1"><strong>Title:</strong> {{ contact.title or 'N/A' }}</p>
-                    <p class="u-mb-1">
+                    <p class="u-mb-1 view-mode"><strong>Name:</strong> {{ contact.name }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">First Name</label>
+                        <input type="text" class="form-group__input" id="edit-first_name" value="{{ contact.first_name or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Last Name</label>
+                        <input type="text" class="form-group__input" id="edit-last_name" value="{{ contact.last_name or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    <p class="u-mb-1 view-mode"><strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Email</label>
+                        <input type="email" class="form-group__input" id="edit-email" value="{{ contact.email }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    {% if secondary_emails_display %}
+                    <p class="u-mb-1 view-mode"><strong>Secondary Emails:</strong> {{ secondary_emails_display }}</p>
+                    {% endif %}
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Secondary Emails</label>
+                        <input type="text" class="form-group__input" id="edit-secondary_emails" value="{{ secondary_emails_display or '' }}" placeholder="email1@example.com, email2@example.com">
+                        <small class="form-group__help">
+                            <em>(from Freshservice - comma separated)</em>
+                        </small>
+                    </div>
+
+                    <p class="u-mb-1 view-mode"><strong>Title:</strong> {{ contact.title or contact.job_title or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Job Title</label>
+                        <input type="text" class="form-group__input" id="edit-job_title" value="{{ contact.title or contact.job_title or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    <p class="u-mb-1 view-mode">
                         <strong>Status:</strong>
                         {% if contact.active %}
                         <span class="badge badge--success">Active</span>
                         {% else %}
                         <span class="badge badge--danger">Inactive</span>
                         {% endif %}
+                        {% if contact.vip_user %}
+                        <span class="badge badge--warning">VIP</span>
+                        {% endif %}
+                        {% if contact.is_agent %}
+                        <span class="badge badge--info">Agent</span>
+                        {% endif %}
                     </p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">
+                            <input type="checkbox" id="edit-active" {% if contact.active %}checked{% endif %}>
+                            Active
+                        </label>
+                        <label class="form-group__label">
+                            <input type="checkbox" id="edit-vip_user" {% if contact.vip_user %}checked{% endif %}>
+                            VIP User
+                        </label>
+                        <label class="form-group__label">
+                            <input type="checkbox" id="edit-is_agent" {% if contact.is_agent %}checked{% endif %}>
+                            Agent
+                        </label>
+                    </div>
                 </div>
                 <div>
-                    <p class="u-mb-1"><strong>Mobile:</strong> {{ contact.mobile_phone_number or 'N/A' }}</p>
-                    <p class="u-mb-1"><strong>Work Phone:</strong> {{ contact.work_phone_number or 'N/A' }}</p>
+                    <p class="u-mb-1 view-mode"><strong>Mobile:</strong> {{ contact.mobile_phone_number or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Mobile Phone</label>
+                        <input type="tel" class="form-group__input" id="edit-mobile_phone_number" value="{{ contact.mobile_phone_number or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    <p class="u-mb-1 view-mode"><strong>Work Phone:</strong> {{ contact.work_phone_number or 'N/A' }}</p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Work Phone</label>
+                        <input type="tel" class="form-group__input" id="edit-work_phone_number" value="{{ contact.work_phone_number or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    {% if contact.location_name %}
+                    <p class="u-mb-1 view-mode"><strong>Location:</strong> {{ contact.location_name }}</p>
+                    {% endif %}
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Location Name</label>
+                        <input type="text" class="form-group__input" id="edit-location_name" value="{{ contact.location_name or '' }}">
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+
+                    {% if contact.time_zone %}
+                    <p class="u-mb-1 view-mode"><strong>Time Zone:</strong> {{ contact.time_zone }}</p>
+                    {% endif %}
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Time Zone</label>
+                        <select class="form-group__input" id="edit-time_zone">
+                            <option value="">Not Set</option>
+                            <option value="America/New_York" {% if contact.time_zone == 'America/New_York' %}selected{% endif %}>Eastern Time (ET)</option>
+                            <option value="America/Chicago" {% if contact.time_zone == 'America/Chicago' %}selected{% endif %}>Central Time (CT)</option>
+                            <option value="America/Denver" {% if contact.time_zone == 'America/Denver' %}selected{% endif %}>Mountain Time (MT)</option>
+                            <option value="America/Phoenix" {% if contact.time_zone == 'America/Phoenix' %}selected{% endif %}>Arizona Time (MT - No DST)</option>
+                            <option value="America/Los_Angeles" {% if contact.time_zone == 'America/Los_Angeles' %}selected{% endif %}>Pacific Time (PT)</option>
+                            <option value="America/Anchorage" {% if contact.time_zone == 'America/Anchorage' %}selected{% endif %}>Alaska Time (AKT)</option>
+                            <option value="Pacific/Honolulu" {% if contact.time_zone == 'Pacific/Honolulu' %}selected{% endif %}>Hawaii Time (HT)</option>
+                            <option value="UTC" {% if contact.time_zone == 'UTC' %}selected{% endif %}>UTC</option>
+                        </select>
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
+                </div>
+                <div>
+                    <p class="u-mb-1 view-mode">
+                        <strong>Companies:</strong>
+                        {% if contact.companies %}
+                            {% for company in contact.companies %}
+                                <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
+                                    {{ company.name }}
+                                </a>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Companies</label>
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--color-border-medium); border-radius: 6px; padding: 0.75rem; background: var(--color-surface);">
+                            {% for company in all_companies %}
+                            <label class="form-group__checkbox-wrapper">
+                                <input type="checkbox" class="form-group__checkbox company-checkbox" value="{{ company.account_number }}" {% if company in contact.companies %}checked{% endif %}>
+                                {{ company.name }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <small class="form-group__help">
+                            <em>Select multiple companies by checking boxes</em>
+                        </small>
+                    </div>
+
+                    {% if contact.address %}
+                    <p class="u-mb-1 view-mode"><strong>Address:</strong><br>{{ contact.address }}</p>
+                    {% endif %}
+                    <div class="form-group edit-mode" style="display: none;">
+                        <label class="form-group__label">Address</label>
+                        <textarea class="form-group__input" id="edit-address" rows="3">{{ contact.address or '' }}</textarea>
+                        <small class="form-group__help">
+                            <em>(from Freshservice)</em>
+                        </small>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">
-                <i data-lucide="building-2" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
-                Companies ({{ contact.companies|length }})
-            </h2>
-        </div>
-        <div class="card__body">
-            {% if contact.companies %}
-                <ul class="u-pl-2">
-                    {% for company in contact.companies %}
-                    <li>
-                        <a href="{{ url_for('companies.company_details', account_number=company.account_number) }}">
-                            {{ company.name }}
-                        </a>
-                    </li>
-                    {% endfor %}
-                </ul>
+            {% if contact.background_information %}
+            <div class="u-mt-2" style="border-top: 1px solid var(--color-border-light); padding-top: 1rem;">
+                <p class="u-mb-1 view-mode"><strong>Background Information:</strong></p>
+                <p class="view-mode" style="white-space: pre-wrap;">{{ contact.background_information }}</p>
+                <div class="form-group edit-mode" style="display: none;">
+                    <label class="form-group__label">Background Information</label>
+                    <textarea class="form-group__input" id="edit-background_information" rows="4">{{ contact.background_information or '' }}</textarea>
+                </div>
+            </div>
             {% else %}
-                <p class="empty-state">No companies associated</p>
+            <div class="u-mt-2 edit-mode" style="display: none; border-top: 1px solid var(--color-border-light); padding-top: 1rem;">
+                <div class="form-group">
+                    <label class="form-group__label">Background Information</label>
+                    <textarea class="form-group__input" id="edit-background_information" rows="4"></textarea>
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
@@ -79,23 +241,148 @@
             </h2>
         </div>
         <div class="card__body">
-            {% if contact.assets %}
-                <ul class="u-pl-2">
-                    {% for asset in contact.assets %}
-                    <li>
-                        <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
-                            {{ asset.hostname }}
-                        </a>
-                    </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p class="empty-state">No assets associated</p>
-            {% endif %}
+            <div class="view-mode">
+                {% if contact.assets %}
+                    <ul class="u-pl-2">
+                        {% for asset in contact.assets %}
+                        <li>
+                            <a href="{{ url_for('assets.asset_details', asset_id=asset.id) }}">
+                                {{ asset.hostname }}
+                            </a>
+                            {% if asset.company %}
+                                <span class="u-text-secondary"> - {{ asset.company.name }}</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty-state">No assets associated</p>
+                {% endif %}
+            </div>
+            <div class="form-group edit-mode" style="display: none;">
+                <label class="form-group__label">Associated Assets</label>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--color-border-medium); border-radius: 6px; padding: 0.75rem; background: var(--color-surface);">
+                    {% if available_assets %}
+                        {% for asset in available_assets %}
+                        <label class="form-group__checkbox-wrapper">
+                            <input type="checkbox" class="form-group__checkbox asset-checkbox" value="{{ asset.id }}" {% if asset in contact.assets %}checked{% endif %}>
+                            {{ asset.hostname }} - {{ asset.company.name if asset.company else 'No Company' }}
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="u-text-secondary" style="margin: 0;">No assets available. Please select companies first.</p>
+                    {% endif %}
+                </div>
+                <small class="form-group__help">
+                    <em>Assets shown are from associated companies. Select companies first to see available assets.</em>
+                </small>
+            </div>
         </div>
     </div>
 
     <script>
+        const contactId = {{ contact.id }};
+        let isEditMode = false;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        function toggleEditMode() {
+            isEditMode = true;
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+
+            document.getElementById('editBtn').style.display = 'none';
+            document.getElementById('saveBtn').style.display = 'inline-block';
+            document.getElementById('cancelBtn').style.display = 'inline-block';
+
+            lucide.createIcons();
+        }
+
+        function cancelEdit() {
+            isEditMode = false;
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+
+            document.getElementById('editBtn').style.display = 'inline-block';
+            document.getElementById('saveBtn').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
+
+            window.location.reload();
+        }
+
+        async function saveContact() {
+            // Get checked company account numbers
+            const companyCheckboxes = document.querySelectorAll('.company-checkbox:checked');
+            const selectedCompanies = Array.from(companyCheckboxes).map(cb => cb.value);
+
+            // Get checked asset IDs
+            const assetCheckboxes = document.querySelectorAll('.asset-checkbox:checked');
+            const selectedAssets = Array.from(assetCheckboxes).map(cb => parseInt(cb.value));
+
+            const data = {
+                first_name: document.getElementById('edit-first_name').value,
+                last_name: document.getElementById('edit-last_name').value,
+                email: document.getElementById('edit-email').value,
+                secondary_emails: document.getElementById('edit-secondary_emails').value,
+                job_title: document.getElementById('edit-job_title').value,
+                mobile_phone_number: document.getElementById('edit-mobile_phone_number').value,
+                work_phone_number: document.getElementById('edit-work_phone_number').value,
+                location_name: document.getElementById('edit-location_name').value,
+                time_zone: document.getElementById('edit-time_zone').value,
+                address: document.getElementById('edit-address').value,
+                background_information: document.getElementById('edit-background_information').value,
+                active: document.getElementById('edit-active').checked,
+                vip_user: document.getElementById('edit-vip_user').checked,
+                is_agent: document.getElementById('edit-is_agent').checked,
+                company_account_numbers: selectedCompanies,
+                asset_ids: selectedAssets
+            };
+
+            try {
+                const basePath = getBasePath();
+                console.log('Sending update to:', `${basePath}/contacts/${contactId}/update`);
+                console.log('Data:', data);
+
+                const response = await fetch(`${basePath}/contacts/${contactId}/update`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers.get('content-type'));
+
+                // Check if response is actually JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text);
+                    alert('Server returned an error. Check console for details.');
+                    return;
+                }
+
+                const result = await response.json();
+                console.log('Result:', result);
+
+                if (response.ok && result.success) {
+                    alert('Contact updated successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error updating contact: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving contact:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });

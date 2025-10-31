@@ -130,9 +130,9 @@
                             {% if show_inactive %}
                             <td data-column="active" class="u-text-center">
                                 {% if contact.active %}
-                                    <span class="status-text status-text--success">Active</span>
+                                    <span class="badge badge--success">Active</span>
                                 {% else %}
-                                    <span class="status-text status-text--danger">Inactive</span>
+                                    <span class="badge badge--danger">Inactive</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -266,8 +266,8 @@
                 const activeCell = currentShowInactive ? `
                     <td data-column="active" class="u-text-center">
                         ${contact.active ?
-                            '<span class="status-text status-text--success">Active</span>' :
-                            '<span class="status-text status-text--danger">Inactive</span>'}
+                            '<span class="badge badge--success">Active</span>' :
+                            '<span class="badge badge--danger">Inactive</span>'}
                     </td>
                 ` : '';
 
@@ -347,6 +347,9 @@
             }
 
             container.innerHTML = html;
+
+            // Re-initialize lucide icons for pagination buttons
+            lucide.createIcons();
         }
 
         function updateResultsCount(total) {
@@ -395,6 +398,21 @@
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             loadColumnPreferences();
+
+            // Initialize pagination on page load
+            const initialPagination = {
+                page: {{ pagination.page }},
+                pages: {{ pagination.pages }},
+                total: {{ pagination.total }},
+                has_prev: {{ 'true' if pagination.has_prev else 'false' }},
+                has_next: {{ 'true' if pagination.has_next else 'false' }},
+                prev_num: {{ pagination.prev_num if pagination.has_prev else 1 }},
+                next_num: {{ pagination.next_num if pagination.has_next else 1 }}
+            };
+            updatePagination(initialPagination);
+
+            // Re-render icons after pagination is created
+            setTimeout(() => lucide.createIcons(), 100);
         });
     </script>
 </body>

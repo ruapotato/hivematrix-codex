@@ -83,7 +83,25 @@
                             <input type="checkbox" id="col-os" checked onchange="toggleColumn('os')"> OS
                         </label>
                         <label>
+                            <input type="checkbox" id="col-antivirus" onchange="toggleColumn('antivirus')"> Antivirus
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-int_ip" onchange="toggleColumn('int_ip')"> Internal IP
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-ext_ip" onchange="toggleColumn('ext_ip')"> External IP
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-domain" onchange="toggleColumn('domain')"> Domain
+                        </label>
+                        <label>
                             <input type="checkbox" id="col-last_user" checked onchange="toggleColumn('last_user')"> Last User
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-last_seen" onchange="toggleColumn('last_seen')"> Last Seen
+                        </label>
+                        <label>
+                            <input type="checkbox" id="col-patch_status" onchange="toggleColumn('patch_status')"> Patch Status
                         </label>
                         <label>
                             <input type="checkbox" id="col-status" checked onchange="toggleColumn('status')"> Status
@@ -104,7 +122,13 @@
                             <th data-column="company">Company</th>
                             <th data-column="type" class="sortable-header">Type</th>
                             <th data-column="os" class="sortable-header">OS</th>
+                            <th data-column="antivirus">Antivirus</th>
+                            <th data-column="int_ip">Internal IP</th>
+                            <th data-column="ext_ip">External IP</th>
+                            <th data-column="domain">Domain</th>
                             <th data-column="last_user">Last User</th>
+                            <th data-column="last_seen">Last Seen</th>
+                            <th data-column="patch_status">Patch Status</th>
                             <th data-column="status" class="sortable-header u-text-center">Status</th>
                             <th data-column="remote" class="u-text-center">Remote Access</th>
                         </tr>
@@ -128,14 +152,18 @@
                             </td>
                             <td data-column="type">{{ asset.hardware_type or 'N/A' }}</td>
                             <td data-column="os">{{ asset.operating_system or 'N/A' }}</td>
-                            <td data-column="last_user">
-                                {{ asset.last_logged_in_user or '-' }}
-                            </td>
+                            <td data-column="antivirus">{{ asset.antivirus_product or '-' }}</td>
+                            <td data-column="int_ip">{{ asset.int_ip_address or '-' }}</td>
+                            <td data-column="ext_ip">{{ asset.ext_ip_address or '-' }}</td>
+                            <td data-column="domain">{{ asset.domain or '-' }}</td>
+                            <td data-column="last_user">{{ asset.last_logged_in_user or '-' }}</td>
+                            <td data-column="last_seen">{{ asset.last_seen or '-' }}</td>
+                            <td data-column="patch_status">{{ asset.patch_status or '-' }}</td>
                             <td data-column="status" class="u-text-center">
                                 {% if asset.online %}
-                                    <span class="status-text status-text--success">Online</span>
+                                    <span class="badge badge--success">Online</span>
                                 {% else %}
-                                    <span class="status-text status-text--danger">Offline</span>
+                                    <span class="badge badge--danger">Offline</span>
                                 {% endif %}
                             </td>
                             <td data-column="remote" class="u-text-center">
@@ -155,7 +183,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="empty-state">
+                            <td colspan="13" class="empty-state">
                                 {% if search_query %}
                                     No assets found matching "{{ search_query }}". Try a different search term.
                                 {% else %}
@@ -256,7 +284,7 @@
             if (assets.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="empty-state">
+                        <td colspan="13" class="empty-state">
                             ${currentSearch ?
                                 `No assets found matching "${currentSearch}". Try a different search term.` :
                                 'No assets found. Run Datto RMM sync to import data.'}
@@ -272,8 +300,8 @@
                     '<span>Unassigned</span>';
 
                 const statusCell = asset.online ?
-                    '<span class="status-text status-text--success">Online</span>' :
-                    '<span class="status-text status-text--danger">Offline</span>';
+                    '<span class="badge badge--success">Online</span>' :
+                    '<span class="badge badge--danger">Offline</span>';
 
                 const remoteAccessCell = asset.web_remote_url ?
                     `<a href="${asset.web_remote_url}" target="_blank">
@@ -296,7 +324,13 @@
                         <td data-column="company">${companyCell}</td>
                         <td data-column="type">${asset.hardware_type || 'N/A'}</td>
                         <td data-column="os">${asset.operating_system || 'N/A'}</td>
+                        <td data-column="antivirus">${asset.antivirus_product || '-'}</td>
+                        <td data-column="int_ip">${asset.int_ip_address || '-'}</td>
+                        <td data-column="ext_ip">${asset.ext_ip_address || '-'}</td>
+                        <td data-column="domain">${asset.domain || '-'}</td>
                         <td data-column="last_user">${asset.last_logged_in_user || '-'}</td>
+                        <td data-column="last_seen">${asset.last_seen || '-'}</td>
+                        <td data-column="patch_status">${asset.patch_status || '-'}</td>
                         <td data-column="status" class="u-text-center">${statusCell}</td>
                         <td data-column="remote" class="u-text-center">${remoteAccessCell}</td>
                     </tr>
@@ -355,6 +389,9 @@
             }
 
             container.innerHTML = html;
+
+            // Re-initialize lucide icons for pagination buttons
+            lucide.createIcons();
         }
 
         function updateResultsCount(total) {
@@ -389,20 +426,47 @@
         }
 
         function loadColumnPreferences() {
-            const columns = ['company', 'type', 'os', 'last_user', 'status', 'remote'];
+            const columns = ['company', 'type', 'os', 'antivirus', 'int_ip', 'ext_ip', 'domain', 'last_user', 'last_seen', 'patch_status', 'status', 'remote'];
+            const defaultHidden = ['antivirus', 'int_ip', 'ext_ip', 'domain', 'last_seen', 'patch_status'];
+
             columns.forEach(column => {
                 const saved = localStorage.getItem(`assets_column_${column}`);
+                const checkbox = document.getElementById(`col-${column}`);
+
+                if (!checkbox) return;
+
                 if (saved !== null) {
+                    // Use saved preference
                     const isVisible = saved === 'true';
-                    document.getElementById(`col-${column}`).checked = isVisible;
-                    toggleColumn(column);
+                    checkbox.checked = isVisible;
+                } else {
+                    // Use default visibility
+                    const isVisible = !defaultHidden.includes(column);
+                    checkbox.checked = isVisible;
                 }
+
+                toggleColumn(column);
             });
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             loadColumnPreferences();
+
+            // Initialize pagination on page load
+            const initialPagination = {
+                page: {{ pagination.page }},
+                pages: {{ pagination.pages }},
+                total: {{ pagination.total }},
+                has_prev: {{ 'true' if pagination.has_prev else 'false' }},
+                has_next: {{ 'true' if pagination.has_next else 'false' }},
+                prev_num: {{ pagination.prev_num if pagination.has_prev else 1 }},
+                next_num: {{ pagination.next_num if pagination.has_next else 1 }}
+            };
+            updatePagination(initialPagination);
+
+            // Re-render icons after pagination is created
+            setTimeout(() => lucide.createIcons(), 100);
         });
     </script>
 </body>

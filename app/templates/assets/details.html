@@ -11,6 +11,26 @@
         <div class="card__header">
             <h1 class="card__title">{{ asset.hostname }}</h1>
             <div class="card__header-actions">
+                {% if asset.web_remote_url %}
+                <a href="{{ asset.web_remote_url }}" target="_blank">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">
+                            <i data-lucide="monitor" class="btn__icon"></i>
+                            Remote Access
+                        </span>
+                    </button>
+                </a>
+                {% endif %}
+                {% if asset.portal_url %}
+                <a href="{{ asset.portal_url }}" target="_blank">
+                    <button class="btn btn--primary">
+                        <span class="btn__label">
+                            <i data-lucide="external-link" class="btn__icon"></i>
+                            Datto Portal
+                        </span>
+                    </button>
+                </a>
+                {% endif %}
                 <button class="btn" onclick="window.location.href='{{ url_for('assets.list_assets') }}'">
                     <span class="btn__label">
                         <i data-lucide="arrow-left" class="btn__icon"></i>
@@ -19,40 +39,16 @@
                 </button>
             </div>
         </div>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            <div class="card__body">
-                {% for category, message in messages %}
-                    <div class="alert alert--{{ 'success' if category == 'success' else 'error' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        {% endwith %}
     </div>
 
     <div class="card">
         <div class="card__header">
             <h2 class="card__title">Device Information</h2>
-            {% if asset.web_remote_url %}
-            <div class="card__header-actions">
-                <a href="{{ asset.web_remote_url }}" target="_blank">
-                    <button class="btn btn--primary btn--small">
-                        <span class="btn__label">
-                            <i data-lucide="monitor" class="btn__icon"></i>
-                            Remote Access
-                        </span>
-                    </button>
-                </a>
-            </div>
-            {% endif %}
         </div>
         <div class="card__body">
             <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-item__label">Company:</span>
-                    <span class="info-item__value">
+                <div>
+                    <p class="u-mb-1"><strong>Company:</strong>
                         {% if asset.company %}
                             <a href="{{ url_for('companies.company_details', account_number=asset.company.account_number) }}">
                                 {{ asset.company.name }}
@@ -60,109 +56,237 @@
                         {% else %}
                             N/A
                         {% endif %}
-                    </span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Hardware Type:</span>
-                    <span class="info-item__value">{{ asset.hardware_type or 'N/A' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Operating System:</span>
-                    <span class="info-item__value">{{ asset.operating_system or 'N/A' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Status:</span>
-                    <span class="info-item__value">
+                    </p>
+                    <p class="u-mb-1"><strong>Hardware Type:</strong> {{ asset.hardware_type or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>Device Type:</strong> {{ asset.device_type or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>Operating System:</strong> {{ asset.operating_system or 'N/A' }}</p>
+                    <p class="u-mb-1">
+                        <strong>Status:</strong>
                         {% if asset.online %}
-                            <span class="status-text status-text--success">Online</span>
+                            <span class="badge badge--success">Online</span>
                         {% else %}
-                            <span class="status-text status-text--danger">Offline</span>
+                            <span class="badge badge--danger">Offline</span>
                         {% endif %}
-                    </span>
+                    </p>
+                    {% if asset.antivirus_product %}
+                    <p class="u-mb-1"><strong>Antivirus:</strong> {{ asset.antivirus_product }}</p>
+                    {% endif %}
                 </div>
-                <div class="info-item">
-                    <span class="info-item__label">Internal IP:</span>
-                    <span class="info-item__value">{{ asset.int_ip_address or 'N/A' }}</span>
+                <div>
+                    <p class="u-mb-1"><strong>Internal IP:</strong> {{ asset.int_ip_address or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>External IP:</strong> {{ asset.ext_ip_address or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>Domain:</strong> {{ asset.domain or 'N/A' }}</p>
+                    <p class="u-mb-1"><strong>Last Logged In User:</strong> {{ asset.last_logged_in_user or 'N/A' }}</p>
+                    {% if asset.datto_site_name %}
+                    <p class="u-mb-1"><strong>Datto Site:</strong> {{ asset.datto_site_name }}</p>
+                    {% endif %}
+                    {% if asset.patch_status %}
+                    <p class="u-mb-1"><strong>Patch Status:</strong> {{ asset.patch_status }}</p>
+                    {% endif %}
                 </div>
-                <div class="info-item">
-                    <span class="info-item__label">External IP:</span>
-                    <span class="info-item__value">{{ asset.ext_ip_address or 'N/A' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Domain:</span>
-                    <span class="info-item__value">{{ asset.domain or 'N/A' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Last Seen:</span>
-                    <span class="info-item__value">{{ asset.last_seen or 'N/A' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-item__label">Last Logged In User:</span>
-                    <span class="info-item__value">{{ asset.last_logged_in_user or 'N/A' }}</span>
+                <div>
+                    <p class="u-mb-1"><strong>Last Seen:</strong> {{ asset.last_seen or 'N/A' }}</p>
+                    {% if asset.last_audit_date %}
+                    <p class="u-mb-1"><strong>Last Audit:</strong> {{ asset.last_audit_date }}</p>
+                    {% endif %}
+                    {% if asset.last_reboot %}
+                    <p class="u-mb-1"><strong>Last Reboot:</strong> {{ asset.last_reboot }}</p>
+                    {% endif %}
+                    {% if asset.backup_usage_tb %}
+                    <p class="u-mb-1"><strong>Backup Usage:</strong> {{ asset.backup_usage_tb }} TB</p>
+                    {% endif %}
                 </div>
             </div>
+            {% if asset.description %}
+            <div class="u-mt-2" style="border-top: 1px solid var(--color-border-light); padding-top: 1rem;">
+                <p class="u-mb-1"><strong>Description:</strong></p>
+                <p>{{ asset.description }}</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Assigned Users ({{ asset.contacts|length }})</h2>
+            <h2 class="card__title">
+                <i data-lucide="users" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                Assigned Users ({{ asset.contacts|length }})
+            </h2>
+            {% if user.permission_level in ['admin', 'technician'] %}
+            <div class="card__header-actions">
+                <button type="button" id="editContactsBtn" class="btn btn--primary" onclick="toggleEditMode()">
+                    <span class="btn__label">
+                        <i data-lucide="edit" class="btn__icon"></i>
+                        Manage Users
+                    </span>
+                </button>
+                <button type="button" id="saveContactsBtn" class="btn btn--success" onclick="saveContacts()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="save" class="btn__icon"></i>
+                        Save Changes
+                    </span>
+                </button>
+                <button type="button" id="cancelContactsBtn" class="btn btn--secondary" onclick="cancelEdit()" style="display: none;">
+                    <span class="btn__label">
+                        <i data-lucide="x" class="btn__icon"></i>
+                        Cancel
+                    </span>
+                </button>
+            </div>
+            {% endif %}
         </div>
         <div class="card__body">
-            {% if asset.contacts %}
-            <div class="user-list">
-                {% for contact in asset.contacts %}
-                <div class="user-item">
-                    <div class="user-item__info">
-                        <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}" class="user-item__name">
-                            {{ contact.name }}
-                        </a>
-                        <span class="user-item__email">{{ contact.email }}</span>
-                    </div>
-                    <form method="POST" action="{{ url_for('assets.unassign_user', asset_id=asset.id, contact_id=contact.id) }}" class="user-item__action">
-                        <button type="submit" class="btn btn--danger btn--small" onclick="return confirm('Remove {{ contact.name }} from this device?')">
-                            <span class="btn__label">
-                                <i data-lucide="user-minus" class="btn__icon"></i>
-                                Remove
-                            </span>
-                        </button>
-                    </form>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="empty-state">No users assigned to this device.</p>
-            {% endif %}
-
-            {% if available_contacts %}
-            <div class="section-divider"></div>
-            <h3 class="u-mt-2 u-mb-1">Assign New User</h3>
-            <form method="POST" action="{{ url_for('assets.assign_user', asset_id=asset.id) }}" class="form-inline">
-                <div class="form-inline__controls">
-                    <select name="contact_id" class="form-inline__select" required>
-                        <option value="">Select a user...</option>
-                        {% for contact in available_contacts %}
-                            {% if contact not in asset.contacts %}
-                            <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.email }})</option>
-                            {% endif %}
+            <div class="view-mode">
+                {% if asset.contacts %}
+                    <ul class="u-pl-2">
+                        {% for contact in asset.contacts %}
+                        <li>
+                            <a href="{{ url_for('contacts.contact_details', contact_id=contact.id) }}">
+                                {{ contact.name }}
+                            </a>
+                            <span class="u-text-secondary"> - {{ contact.email }}</span>
+                        </li>
                         {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn--primary">
-                        <span class="btn__label">
-                            <i data-lucide="user-plus" class="btn__icon"></i>
-                            Assign User
-                        </span>
-                    </button>
+                    </ul>
+                {% else %}
+                    <p class="empty-state">No users assigned to this device</p>
+                {% endif %}
+            </div>
+            <div class="form-group edit-mode" style="display: none;">
+                <label class="form-group__label">Assigned Contacts</label>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--color-border-medium); border-radius: 6px; padding: 0.75rem; background: var(--color-surface);">
+                    {% if available_contacts %}
+                        {% for contact in available_contacts %}
+                        <label class="form-group__checkbox-wrapper">
+                            <input type="checkbox" class="form-group__checkbox contact-checkbox" value="{{ contact.id }}" {% if contact in asset.contacts %}checked{% endif %}>
+                            {{ contact.name }} - {{ contact.email }}
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="u-text-secondary" style="margin: 0;">No contacts available from {{ asset.company.name if asset.company else 'this company' }}.</p>
+                    {% endif %}
                 </div>
-            </form>
-            {% else %}
-            <div class="section-divider"></div>
-            <p class="u-text-secondary u-mt-2">No additional users available from {{ asset.company.name if asset.company else 'this company' }}.</p>
-            {% endif %}
+                <small class="form-group__help">
+                    <em>Select contacts from {{ asset.company.name if asset.company else 'the company' }} to assign to this asset</em>
+                </small>
+            </div>
         </div>
     </div>
 
+    {% set udf_fields = [] %}
+    {% for i in range(1, 31) %}
+        {% set udf_key = 'udf' ~ i %}
+        {% set udf_value = asset[udf_key] %}
+        {% if udf_value %}
+            {% set udf_display_name = udf_names.get(udf_key, udf_key|upper) %}
+            {% set _ = udf_fields.append((udf_key, udf_value, udf_display_name)) %}
+        {% endif %}
+    {% endfor %}
+
+    {% if udf_fields %}
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">
+                <i data-lucide="list" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                Custom Fields (UDF) - {{ udf_fields|length }} field{{ 's' if udf_fields|length != 1 else '' }}
+            </h2>
+        </div>
+        <div class="card__body">
+            <div class="info-grid">
+                {% for udf_key, udf_value, udf_display_name in udf_fields %}
+                    <div>
+                        <p class="u-mb-1"><strong>{{ udf_display_name }}:</strong> {{ udf_value }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <script>
+        const assetId = {{ asset.id }};
+        let isEditMode = false;
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path.startsWith('/codex/')) {
+                return '/codex';
+            }
+            return '';
+        }
+
+        function toggleEditMode() {
+            isEditMode = true;
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+
+            document.getElementById('editContactsBtn').style.display = 'none';
+            document.getElementById('saveContactsBtn').style.display = 'inline-block';
+            document.getElementById('cancelContactsBtn').style.display = 'inline-block';
+
+            lucide.createIcons();
+        }
+
+        function cancelEdit() {
+            isEditMode = false;
+            document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+
+            document.getElementById('editContactsBtn').style.display = 'inline-block';
+            document.getElementById('saveContactsBtn').style.display = 'none';
+            document.getElementById('cancelContactsBtn').style.display = 'none';
+
+            window.location.reload();
+        }
+
+        async function saveContacts() {
+            // Get checked contact IDs
+            const contactCheckboxes = document.querySelectorAll('.contact-checkbox:checked');
+            const selectedContacts = Array.from(contactCheckboxes).map(cb => parseInt(cb.value));
+
+            const data = {
+                contact_ids: selectedContacts
+            };
+
+            try {
+                const basePath = getBasePath();
+                console.log('Sending update to:', `${basePath}/assets/${assetId}/update-contacts`);
+                console.log('Data:', data);
+
+                const response = await fetch(`${basePath}/assets/${assetId}/update-contacts`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers.get('content-type'));
+
+                // Check if response is actually JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text);
+                    alert('Server returned an error. Check console for details.');
+                    return;
+                }
+
+                const result = await response.json();
+                console.log('Result:', result);
+
+                if (response.ok && result.success) {
+                    alert('Contacts updated successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error updating contacts: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving contacts:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });

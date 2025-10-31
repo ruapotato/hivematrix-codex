@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, g, request, redirect, url_for, jsonify
 from app.auth import token_required
-from models import Company, BillingPlan, Location, CompanyFeatureOverride, FeatureOption, db
+from models import Company, BillingPlan, PlanFeature, Location, CompanyFeatureOverride, FeatureOption, db
 from sqlalchemy import asc, desc
 
 companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
@@ -138,16 +138,6 @@ def company_details(account_number):
 
         # Build client features combining plan defaults and company overrides
         if plan_features:
-            # Define feature mapping with display names
-            feature_mapping = {
-                'antivirus': 'Antivirus',
-                'soc': 'SOC (Security Operations Center)',
-                'password_manager': 'Password Manager',
-                'sat': 'Security Awareness Training',
-                'email_security': 'Email Security',
-                'network_management': 'Network Management'
-            }
-
             # Get company-specific overrides
             overrides = {
                 override.feature_key: override.value
@@ -155,19 +145,30 @@ def company_details(account_number):
                 if override.override_enabled
             }
 
-            # Build combined features dictionary
-            for feature_key, display_name in feature_mapping.items():
-                if feature_key in overrides:
+            # Get all dynamic features from the plan
+            # Custom display name mapping for better readability
+            display_name_map = {
+                'sat': 'Security Awareness Training',
+                'soc': 'Security Operations Center',
+            }
+
+            for plan_feature in plan_features.features:
+                feature_type = plan_feature.feature_type
+                # Use custom display name if available, otherwise format the feature_type
+                display_name = display_name_map.get(feature_type, feature_type.replace('_', ' ').title())
+
+                if feature_type in overrides:
                     # Company has custom override
-                    client_features[display_name] = {
-                        'value': overrides[feature_key],
+                    client_features[feature_type] = {
+                        'display_name': display_name,
+                        'value': overrides[feature_type],
                         'is_override': True
                     }
                 else:
                     # Use plan default
-                    plan_value = getattr(plan_features, feature_key, None)
-                    client_features[display_name] = {
-                        'value': plan_value,
+                    client_features[feature_type] = {
+                        'display_name': display_name,
+                        'value': plan_feature.feature_value,
                         'is_override': False
                     }
 
@@ -175,20 +176,35 @@ def company_details(account_number):
     email_options = FeatureOption.query.filter_by(feature_type='email').order_by(FeatureOption.display_name).all()
     phone_options = FeatureOption.query.filter_by(feature_type='phone').order_by(FeatureOption.display_name).all()
 
+    # Get all feature options grouped by type for override dropdowns
+    all_feature_options = FeatureOption.query.order_by(FeatureOption.feature_type, FeatureOption.display_name).all()
+    feature_options_by_type = {}
+    for option in all_feature_options:
+        if option.feature_type not in feature_options_by_type:
+            feature_options_by_type[option.feature_type] = []
+        feature_options_by_type[option.feature_type].append(option.display_name)
+
     # Get all billing plans for dropdown
     billing_plans = BillingPlan.query.with_entities(
         BillingPlan.plan_name
     ).distinct().order_by(BillingPlan.plan_name).all()
     billing_plan_names = [p.plan_name for p in billing_plans]
 
+    # Get support level from plan if company doesn't have one set
+    effective_support_level = company.support_level
+    if not effective_support_level and plan_features:
+        effective_support_level = plan_features.support_level
+
     return render_template('companies/details.html',
                          user=g.user,
                          company=company,
                          domain_list=domain_list,
                          client_features=client_features,
+                         feature_options_by_type=feature_options_by_type,
                          email_options=email_options,
                          phone_options=phone_options,
-                         billing_plan_names=billing_plan_names)
+                         billing_plan_names=billing_plan_names,
+                         effective_support_level=effective_support_level)
 
 # Location API endpoints
 
@@ -306,6 +322,22 @@ def update_company(account_number):
         contact = Contact.query.filter_by(freshservice_id=int(data['prime_user_id'])).first()
         if contact:
             company.prime_user_name = contact.name
+
+    # Handle feature overrides
+    if 'feature_overrides' in data:
+        # Clear existing overrides
+        CompanyFeatureOverride.query.filter_by(company_account_number=account_number).delete()
+
+        # Add new overrides
+        for feature_key, value in data['feature_overrides'].items():
+            if value:  # Only create override if value is provided
+                override = CompanyFeatureOverride(
+                    company_account_number=account_number,
+                    feature_key=feature_key,
+                    value=value,
+                    override_enabled=True
+                )
+                db.session.add(override)
 
     try:
         db.session.commit()

@@ -7,6 +7,15 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    {% macro plan_badge_class(plan) -%}
+    {%- if not plan or plan == 'No Plan' or plan == 'N/A' -%}
+    {%- elif 'platinum' in plan.lower() -%}badge--platinum
+    {%- elif 'premium' in plan.lower() -%}badge--success
+    {%- elif 'advanced' in plan.lower() -%}badge--gold
+    {%- elif 'basic' in plan.lower() -%}badge--info
+    {%- elif 'break fix' in plan.lower() or 'pro services' in plan.lower() -%}badge--warning
+    {%- endif -%}
+    {%- endmacro %}
     <div class="card">
         <div class="card__header">
             <h1 class="card__title">{{ company.name }}</h1>
@@ -62,11 +71,12 @@
                     <p class="u-mb-1"><strong>Account Number:</strong> {{ company.account_number }}</p>
 
                     <!-- Plan -->
-                    <p class="u-mb-1 view-mode"><strong>Plan:</strong> <span class="badge">{{ company.billing_plan or company.plan_selected or 'N/A' }}</span></p>
+                    <p class="u-mb-1 view-mode"><strong>Plan:</strong> <span class="badge {{ plan_badge_class(company.billing_plan or company.plan_selected) }}">{{ company.billing_plan or company.plan_selected or 'N/A' }}</span></p>
                     <div class="form-group edit-mode" style="display: none;">
                         <label class="form-group__label">Plan</label>
                         <select class="form-group__input" id="edit-billing_plan">
                             <option value="">Select Plan</option>
+                            <option value="Inactive" {% if (company.billing_plan or company.plan_selected) == 'Inactive' %}selected{% endif %}>Inactive</option>
                             {% for plan_name in billing_plan_names %}
                             <option value="{{ plan_name }}" {% if plan_name == (company.billing_plan or company.plan_selected) %}selected{% endif %}>{{ plan_name }}</option>
                             {% endfor %}
@@ -77,7 +87,7 @@
                     </div>
 
                     <!-- Support Level -->
-                    <p class="u-mb-1 view-mode"><strong>Support Level:</strong> {{ company.support_level or 'N/A' }}</p>
+                    <p class="u-mb-1 view-mode"><strong>Support Level:</strong> {{ effective_support_level or 'N/A' }}</p>
                     <div class="form-group edit-mode" style="display: none;">
                         <label class="form-group__label">Support Level</label>
                         <select class="form-group__input" id="edit-support_level">
@@ -85,6 +95,9 @@
                             <option value="Billed Hourly" {% if company.support_level == 'Billed Hourly' %}selected{% endif %}>Billed Hourly</option>
                             <option value="Unlimited" {% if company.support_level == 'Unlimited' %}selected{% endif %}>Unlimited</option>
                         </select>
+                        <small class="form-group__help">
+                            <em>Automatically populated from selected billing plan</em>
+                        </small>
                     </div>
 
                     <!-- Managed Users -->
@@ -123,11 +136,10 @@
                         <label class="form-group__label">Email System</label>
                         <select class="form-group__input" id="edit-email_system">
                             <option value="">Not Set</option>
-                            {% for option in email_options %}
-                            <option value="{{ option.display_name }}" {% if company.email_system == option.display_name %}selected{% endif %}>
-                                {{ option.display_name }}
-                            </option>
-                            {% endfor %}
+                            <option value="Microsoft 365" {% if company.email_system == 'Microsoft 365' %}selected{% endif %}>Microsoft 365</option>
+                            <option value="Google Workspace" {% if company.email_system == 'Google Workspace' %}selected{% endif %}>Google Workspace</option>
+                            <option value="Exchange On-Premise" {% if company.email_system == 'Exchange On-Premise' %}selected{% endif %}>Exchange On-Premise</option>
+                            <option value="Other" {% if company.email_system == 'Other' %}selected{% endif %}>Other</option>
                         </select>
                     </div>
 
@@ -137,11 +149,16 @@
                         <label class="form-group__label">Phone System</label>
                         <select class="form-group__input" id="edit-phone_system">
                             <option value="">Not Set</option>
-                            {% for option in phone_options %}
-                            <option value="{{ option.display_name }}" {% if company.phone_system == option.display_name %}selected{% endif %}>
-                                {{ option.display_name }}
-                            </option>
-                            {% endfor %}
+                            <option value="RingCentral" {% if company.phone_system == 'RingCentral' %}selected{% endif %}>RingCentral</option>
+                            <option value="Microsoft Teams" {% if company.phone_system == 'Microsoft Teams' %}selected{% endif %}>Microsoft Teams</option>
+                            <option value="Zoom Phone" {% if company.phone_system == 'Zoom Phone' %}selected{% endif %}>Zoom Phone</option>
+                            <option value="3CX" {% if company.phone_system == '3CX' %}selected{% endif %}>3CX</option>
+                            <option value="DFN" {% if company.phone_system == 'DFN' %}selected{% endif %}>DFN</option>
+                            <option value="Spectrum" {% if company.phone_system == 'Spectrum' %}selected{% endif %}>Spectrum</option>
+                            <option value="Xfinity" {% if company.phone_system == 'Xfinity' %}selected{% endif %}>Xfinity</option>
+                            <option value="CenturyLink" {% if company.phone_system == 'CenturyLink' %}selected{% endif %}>CenturyLink</option>
+                            <option value="On-Premise PBX" {% if company.phone_system == 'On-Premise PBX' %}selected{% endif %}>On-Premise PBX</option>
+                            <option value="Other" {% if company.phone_system == 'Other' %}selected{% endif %}>Other</option>
                         </select>
                     </div>
                 </div>
@@ -330,7 +347,6 @@
                 <div class="location-item">
                     <div class="location-item__header">
                         <h3 class="location-item__name">Main Location</h3>
-                        <span class="u-text-secondary u-text-small">(from Freshservice)</span>
                     </div>
 
                     <!-- View Mode -->
@@ -365,16 +381,6 @@
     <div class="card">
         <div class="card__header">
             <h2 class="card__title">Client Features</h2>
-            {% if user.permission_level in ['admin', 'technician'] %}
-            <div class="card__header-actions">
-                <button class="btn btn--primary btn--small" onclick="window.location.href='{{ url_for('billing_plans.list_plans') }}'">
-                    <span class="btn__label">
-                        <i data-lucide="settings" class="btn__icon"></i>
-                        Manage Features
-                    </span>
-                </button>
-            </div>
-            {% endif %}
         </div>
         <div class="card__body">
             <table class="data-table">
@@ -386,10 +392,22 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for feature_name, feature_data in client_features.items() %}
+                    {% for feature_key, feature_data in client_features.items() %}
                     <tr>
-                        <td><strong>{{ feature_name }}</strong></td>
-                        <td>{{ feature_data.value or 'Not Included' }}</td>
+                        <td><strong>{{ feature_data.display_name }}</strong></td>
+                        <td>
+                            <span class="view-mode">{{ feature_data.value or 'Not Included' }}</span>
+                            <div class="edit-mode" style="display: none;">
+                                <select class="form__select" id="edit-feature-{{ feature_key }}" data-feature-key="{{ feature_key }}">
+                                    <option value="">Use Plan Default</option>
+                                    {% if feature_key in feature_options_by_type %}
+                                        {% for option in feature_options_by_type[feature_key] %}
+                                        <option value="{{ option }}" {% if feature_data.is_override and feature_data.value == option %}selected{% endif %}>{{ option }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </td>
                         <td>
                             {% if feature_data.is_override %}
                                 <span class="badge badge--warning">Custom</span>
@@ -500,9 +518,9 @@
                             <td>{{ asset.operating_system or 'Unknown' }}</td>
                             <td>
                                 {% if asset.online %}
-                                <span class="status-text status-text--success">Online</span>
+                                <span class="badge badge--success">Online</span>
                                 {% else %}
-                                <span class="status-text status-text--danger">Offline</span>
+                                <span class="badge badge--danger">Offline</span>
                                 {% endif %}
                             </td>
                             <td>{{ asset.last_seen or 'N/A' }}</td>
@@ -689,7 +707,73 @@
                 contractTermSelect.addEventListener('change', calculateContractEndDate);
             }
 
+            // Attach event listeners for plan selection to auto-populate features
+            const billingPlanSelect = document.getElementById('edit-billing_plan');
+            const contractTermSelect2 = document.getElementById('edit-contract_term_length');
+            if (billingPlanSelect) {
+                billingPlanSelect.addEventListener('change', loadPlanFeatures);
+            }
+            if (contractTermSelect2) {
+                contractTermSelect2.addEventListener('change', loadPlanFeatures);
+            }
+
             lucide.createIcons();
+        }
+
+        async function loadPlanFeatures() {
+            const planName = document.getElementById('edit-billing_plan').value;
+            const termLength = document.getElementById('edit-contract_term_length').value || 'Month to Month';
+
+            if (!planName) {
+                console.log('No plan selected, skipping feature load');
+                return;
+            }
+
+            console.log(`Loading features for plan: ${planName}, term: ${termLength}`);
+
+            try {
+                const basePath = getBasePath();
+                const url = `${basePath}/api/billing-plans/${encodeURIComponent(planName)}/${encodeURIComponent(termLength)}`;
+                console.log(`Fetching from: ${url}`);
+
+                const response = await fetch(url, {
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    const plan = await response.json();
+                    console.log('Plan data received:', plan);
+
+                    // Update support level
+                    if (plan.support_level) {
+                        console.log(`Setting support level to: ${plan.support_level}`);
+                        document.getElementById('edit-support_level').value = plan.support_level;
+                    } else {
+                        console.warn('No support_level in plan data');
+                    }
+
+                    // Update features
+                    if (plan.features) {
+                        console.log('Features:', plan.features);
+                        for (const [featureKey, featureValue] of Object.entries(plan.features)) {
+                            const featureSelect = document.getElementById(`edit-feature-${featureKey}`);
+                            if (featureSelect) {
+                                // Set to plan default (empty value means use plan default)
+                                featureSelect.value = '';
+                                console.log(`Reset ${featureKey} to use plan default: ${featureValue}`);
+                            }
+                        }
+                    } else {
+                        console.warn('No features in plan data');
+                    }
+                } else {
+                    console.error(`Failed to fetch plan: ${response.status} ${response.statusText}`);
+                    const errorData = await response.json();
+                    console.error('Error details:', errorData);
+                }
+            } catch (error) {
+                console.error('Error loading plan features:', error);
+            }
         }
 
         function cancelEdit() {
@@ -712,6 +796,16 @@
             const domainsText = document.getElementById('edit-domains').value;
             const domainsArray = domainsText.split('\n').map(d => d.trim()).filter(d => d.length > 0);
 
+            // Collect feature overrides
+            const feature_overrides = {};
+            document.querySelectorAll('[id^="edit-feature-"]').forEach(select => {
+                const featureKey = select.dataset.featureKey;
+                const value = select.value;
+                if (value) {  // Only include if not empty (empty means use plan default)
+                    feature_overrides[featureKey] = value;
+                }
+            });
+
             const data = {
                 name: document.getElementById('edit-name').value,
                 description: document.getElementById('edit-description').value,
@@ -730,7 +824,8 @@
                 contract_term_length: document.getElementById('edit-contract_term_length').value,
                 contract_start_date: document.getElementById('edit-contract_start_date').value,
                 contract_end_date: document.getElementById('edit-contract_end_date').value,
-                domains: JSON.stringify(domainsArray)
+                domains: JSON.stringify(domainsArray),
+                feature_overrides: feature_overrides
             };
 
             try {

@@ -225,6 +225,11 @@ def process_datto_data(sites, access_token, api_endpoint):
                     asset.portal_url = device_data.get('portalUrl')
                     asset.web_remote_url = device_data.get('webRemoteUrl')
 
+                    # Store all UDF fields
+                    for i in range(1, 31):
+                        udf_key = f'udf{i}'
+                        setattr(asset, udf_key, udf.get(udf_key))
+
                     try:
                         db.session.commit()
                     except Exception as e:
