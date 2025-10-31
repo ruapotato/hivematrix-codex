@@ -97,7 +97,7 @@ class FreshserviceClient:
 
     def update_company_custom_field(self, company_id, field_name, field_value):
         """
-        Update a custom field for a company.
+        Update a custom field for a company/department.
 
         Args:
             company_id: Freshservice company/department ID
@@ -108,11 +108,27 @@ class FreshserviceClient:
             bool: True if successful, False otherwise
         """
         try:
+            # First, get the current department to see its structure
+            get_response = requests.get(
+                f"{self.base_url}/api/v2/departments/{company_id}",
+                headers=self.headers,
+                timeout=30
+            )
+            get_response.raise_for_status()
+            current_dept = get_response.json().get('department', {})
+
+            # Build payload - use entire department object with custom field updated
             payload = {
-                "custom_fields": {
-                    field_name: field_value
-                }
+                "name": current_dept.get('name'),
+                "description": current_dept.get('description'),
+                "head_user_id": current_dept.get('head_user_id'),
+                "prime_user_id": current_dept.get('prime_user_id'),
+                "domains": current_dept.get('domains', []),
+                "custom_fields": current_dept.get('custom_fields', {})
             }
+
+            # Update the specific custom field
+            payload['custom_fields'][field_name] = field_value
 
             response = requests.put(
                 f"{self.base_url}/api/v2/departments/{company_id}",
@@ -126,6 +142,9 @@ class FreshserviceClient:
 
         except Exception as e:
             current_app.logger.error(f"Error updating company {company_id}: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                current_app.logger.error(f"Response status: {e.response.status_code}")
+                current_app.logger.error(f"Response body: {e.response.text}")
             return False
 
 
