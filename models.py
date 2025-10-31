@@ -284,11 +284,13 @@ class BillingPlan(db.Model):
 class FeatureOption(db.Model):
     __tablename__ = 'feature_options'
     id = db.Column(db.Integer, primary_key=True)
-    feature_type = db.Column(db.String(100), nullable=False)  # 'antivirus', 'soc', 'password_manager', etc.
-    display_name = db.Column(db.String(150), nullable=False)  # 'SentinelOne', 'Arctic Wolf', etc.
+    feature_category = db.Column(db.String(100), nullable=False)  # 'antivirus', 'soc', 'password_manager', etc.
+    option_value = db.Column(db.String(100), nullable=False)  # 'SentinelOne', 'Arctic Wolf', etc.
+    display_name = db.Column(db.String(150))  # Optional display name
+    feature_type = db.Column(db.String(100))  # Legacy field, kept for compatibility
     description = db.Column(db.Text)  # Optional description
 
-    __table_args__ = (db.UniqueConstraint('feature_type', 'display_name', name='unique_feature_option'),)
+    __table_args__ = (db.UniqueConstraint('feature_category', 'option_value', name='unique_feature_option'),)
 
 
 class PlanFeature(db.Model):

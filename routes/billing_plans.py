@@ -22,13 +22,13 @@ def list_plans():
         grouped_plans[plan.plan_name].append(plan)
 
     # Get feature options grouped by category
-    all_features = FeatureOption.query.order_by(FeatureOption.feature_type, FeatureOption.display_name).all()
+    all_features = FeatureOption.query.order_by(FeatureOption.feature_category, FeatureOption.option_value).all()
 
     feature_options = defaultdict(list)
     feature_types = set()
     for feature in all_features:
-        feature_options[feature.feature_type].append(feature)
-        feature_types.add(feature.feature_type)
+        feature_options[feature.feature_category].append(feature)
+        feature_types.add(feature.feature_category)
 
     feature_types = sorted(list(feature_types))
 
@@ -70,7 +70,7 @@ def save_plans():
 
             # Get all feature types and their values from first plan
             feature_values = {}
-            all_features = FeatureOption.query.with_entities(FeatureOption.feature_type).distinct().all()
+            all_features = FeatureOption.query.with_entities(FeatureOption.feature_category).distinct().all()
             for (feature_type,) in all_features:
                 feature_values[feature_type] = request.form.get(f'feature_{feature_type}_{first_plan_id}', 'Not Included')
 
@@ -124,7 +124,7 @@ def save_plans():
                 plan.support_level = request.form.get(f'support_level_{plan_id}', 'Billed Hourly')
 
                 # Update features dynamically using PlanFeature table
-                all_features = FeatureOption.query.with_entities(FeatureOption.feature_type).distinct().all()
+                all_features = FeatureOption.query.with_entities(FeatureOption.feature_category).distinct().all()
                 for (feature_type,) in all_features:
                     feature_value = request.form.get(f'feature_{feature_type}_{plan_id}', 'Not Included')
 
@@ -389,7 +389,7 @@ def export_plans():
     all_plans = BillingPlan.query.order_by(BillingPlan.plan_name, BillingPlan.term_length).all()
 
     # Get all feature options
-    all_features = FeatureOption.query.order_by(FeatureOption.feature_type, FeatureOption.display_name).all()
+    all_features = FeatureOption.query.order_by(FeatureOption.feature_category, FeatureOption.option_value).all()
 
     # Format plans data - NEW DICTIONARY FORMAT (not hardcoded)
     plans_data = []
@@ -422,7 +422,8 @@ def export_plans():
     features_data = []
     for feature in all_features:
         features_data.append({
-            'feature_type': feature.feature_type,
+            'feature_category': feature.feature_category,
+            'option_value': feature.option_value,
             'display_name': feature.display_name
         })
 

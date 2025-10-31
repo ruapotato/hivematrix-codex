@@ -26,8 +26,9 @@ def import_billing_data(data, skip_existing=True):
         ],
         "feature_options": [
             {
-                "feature_type": "antivirus",
-                "display_name": "SentinelOne"
+                "feature_category": "antivirus",
+                "option_value": "SentinelOne",
+                "display_name": "SentinelOne (optional)"
             }
         ]
     }
@@ -59,19 +60,19 @@ def import_billing_data(data, skip_existing=True):
 
         for feature_data in data['feature_options']:
             try:
-                feature_type = feature_data.get('feature_type')
-                display_name = feature_data.get('display_name')
+                feature_category = feature_data.get('feature_category')
+                option_value = feature_data.get('option_value')
 
-                if not feature_type or not display_name:
+                if not feature_category or not option_value:
                     stats['features_errors'] += 1
-                    stats['errors'].append(f"Invalid feature data: missing feature_type or display_name")
+                    stats['errors'].append(f"Invalid feature data: missing feature_category or option_value")
                     continue
 
                 # Check if exists
                 if skip_existing:
                     existing = FeatureOption.query.filter_by(
-                        feature_type=feature_type,
-                        display_name=display_name
+                        feature_category=feature_category,
+                        option_value=option_value
                     ).first()
 
                     if existing:
@@ -80,8 +81,9 @@ def import_billing_data(data, skip_existing=True):
 
                 # Create new feature option
                 feature = FeatureOption(
-                    feature_type=feature_type,
-                    display_name=display_name,
+                    feature_category=feature_category,
+                    option_value=option_value,
+                    display_name=feature_data.get('display_name'),
                     description=feature_data.get('description')
                 )
                 db.session.add(feature)
