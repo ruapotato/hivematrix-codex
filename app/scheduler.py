@@ -48,6 +48,48 @@ def run_sync_script(script_name):
         logger.error(f"Error running scheduled sync {script_name}: {e}")
 
 
+def run_freshservice_sync():
+    """
+    Run Freshservice sync with account number assignment first.
+
+    This ensures all companies have account numbers before syncing.
+    """
+    try:
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        python_path = os.path.join(base_dir, 'pyenv', 'bin', 'python')
+
+        if not os.path.exists(python_path):
+            python_path = 'python3'
+
+        logger.info("Running Freshservice sync workflow")
+
+        # Step 1: Assign account numbers to companies missing them
+        logger.info("Step 1: Assigning account numbers to Freshservice companies")
+        set_account_script = os.path.join(base_dir, 'set_account_numbers.py')
+
+        result = subprocess.run(
+            [python_path, set_account_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=base_dir,
+            timeout=300  # 5 minute timeout
+        )
+
+        if result.returncode == 0:
+            logger.info("Account numbers assigned successfully")
+        else:
+            logger.warning(f"Account number assignment had issues: {result.stderr.decode()}")
+
+        # Step 2: Pull Freshservice data
+        logger.info("Step 2: Pulling Freshservice data")
+        run_sync_script('pull_freshservice.py')
+
+    except subprocess.TimeoutExpired:
+        logger.error("set_account_numbers.py timed out after 5 minutes")
+    except Exception as e:
+        logger.error(f"Error in Freshservice sync workflow: {e}")
+
+
 def init_scheduler(app):
     """
     Initialize and start the background scheduler.
@@ -77,7 +119,7 @@ def init_scheduler(app):
         if freshservice_enabled:
             if freshservice_schedule == 'daily':
                 scheduler.add_job(
-                    func=lambda: run_sync_script('pull_freshservice.py'),
+                    func=run_freshservice_sync,
                     trigger=CronTrigger(hour=2, minute=0),  # 2:00 AM daily
                     id='freshservice_sync',
                     name='Sync Freshservice (Companies & Contacts)',
@@ -86,7 +128,7 @@ def init_scheduler(app):
                 logger.info("Scheduled Freshservice sync: Daily at 2:00 AM")
             elif freshservice_schedule == 'hourly':
                 scheduler.add_job(
-                    func=lambda: run_sync_script('pull_freshservice.py'),
+                    func=run_freshservice_sync,
                     trigger=IntervalTrigger(hours=1),
                     id='freshservice_sync',
                     name='Sync Freshservice (Companies & Contacts)',
@@ -142,7 +184,7 @@ def init_scheduler(app):
             logger.info("Running initial sync on startup...")
             if freshservice_enabled:
                 scheduler.add_job(
-                    func=lambda: run_sync_script('pull_freshservice.py'),
+                    func=run_freshservice_sync,
                     trigger='date',  # Run once immediately
                     id='freshservice_startup',
                     name='Startup Freshservice Sync',

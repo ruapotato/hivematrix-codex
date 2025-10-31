@@ -168,6 +168,38 @@ def populate_database(companies_data, users_data):
             db.session.commit()
 
         print(" -> Finished processing companies.")
+
+        # --- COMPANY DELETION ---
+        # Delete companies that exist in Codex but not in Freshservice
+        print("\nChecking for deleted companies...")
+
+        # Get all Freshservice IDs from the fetched data
+        fs_company_ids = set()
+        for company_data in companies_data:
+            custom_fields = company_data.get('custom_fields', {})
+            account_number = custom_fields.get(ACCOUNT_NUMBER_FIELD) if custom_fields else None
+            if account_number:
+                fs_company_ids.add(company_data.get('id'))
+
+        # Get all companies currently in Codex
+        all_codex_companies = Company.query.all()
+
+        companies_to_delete = []
+        for company in all_codex_companies:
+            if company.freshservice_id not in fs_company_ids:
+                companies_to_delete.append(company)
+
+        if companies_to_delete:
+            print(f" -> Found {len(companies_to_delete)} companies to delete:")
+            for company in companies_to_delete:
+                print(f"    - Deleting: {company.name} (Account: {company.account_number}, FS ID: {company.freshservice_id})")
+                db.session.delete(company)
+
+            db.session.commit()
+            print(f" -> Deleted {len(companies_to_delete)} companies from Codex")
+        else:
+            print(" -> No companies to delete")
+
         print("\nProcessing contacts...")
 
         # --- CONTACT PROCESSING ---
@@ -296,6 +328,32 @@ def populate_database(companies_data, users_data):
                 db.session.rollback()
 
         print(" -> Finished processing contacts.")
+
+        # --- CONTACT DELETION ---
+        # Delete contacts that exist in Codex but not in Freshservice
+        print("\nChecking for deleted contacts...")
+
+        # Get all Freshservice user IDs from the fetched data
+        fs_user_ids = {user_data.get('id') for user_data in users_data if user_data.get('primary_email')}
+
+        # Get all contacts currently in Codex
+        all_codex_contacts = Contact.query.all()
+
+        contacts_to_delete = []
+        for contact in all_codex_contacts:
+            if contact.freshservice_id not in fs_user_ids:
+                contacts_to_delete.append(contact)
+
+        if contacts_to_delete:
+            print(f" -> Found {len(contacts_to_delete)} contacts to delete:")
+            for contact in contacts_to_delete:
+                print(f"    - Deleting: {contact.name} ({contact.email}, FS ID: {contact.freshservice_id})")
+                db.session.delete(contact)
+
+            db.session.commit()
+            print(f" -> Deleted {len(contacts_to_delete)} contacts from Codex")
+        else:
+            print(" -> No contacts to delete")
 
 # --- Main Execution ---
 if __name__ == "__main__":
