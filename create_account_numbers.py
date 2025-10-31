@@ -83,11 +83,11 @@ def create_account_numbers():
 
             print(f"   → {company_name}: {new_number}")
 
-            # Update in Freshservice
+            # Update in Freshservice (send as integer, not string)
             success = fs_client.update_company_custom_field(
                 company_id,
                 'account_number',
-                str(new_number)
+                new_number
             )
 
             if success:
